@@ -13,6 +13,8 @@ export default defineConfig({
     // Integration tests run against the dev database; keep them serial so a
     // wipe-and-import in one file cannot race another.
     fileParallelism: false,
+    // Set before any module is imported, so ThrottlerModule.forRoot sees it.
+    setupFiles: ['./test/setup.ts'],
   },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

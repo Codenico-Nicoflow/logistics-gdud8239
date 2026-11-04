@@ -85,3 +85,31 @@ M5 (249 of 252 rows have no serial), מפרו, משקפת, מטולון, מצפ�
 
 Imports tolerate a missing serial and flag it. Signatures created through the
 API do not: a serialized item cannot be signed without one.
+
+## Authentication
+
+JWT access + refresh tokens in **httpOnly cookies**, so page scripts cannot read
+them and an XSS bug does not hand over a session.
+
+| Property | Behaviour |
+|---|---|
+| Password hashing | bcrypt, cost 12 |
+| User enumeration | wrong password and unknown user return the identical message, and an unknown user is still compared against a dummy hash so the timing matches |
+| Login rate limit | 5 attempts per minute per IP |
+| Refresh tokens | stored as a SHA-256 digest, rotated on every use |
+| Stolen token | reusing a rotated-out token revokes **every** session for that user |
+| Deactivation | takes effect on the next request — the guard re-reads the user rather than trusting the token |
+| Last admin | cannot be demoted or deactivated |
+| Unknown request fields | rejected with 400 rather than ignored |
+
+Routes are authenticated by default; opting out is explicit via `@Public()`.
+
+### Roles
+
+| Role | Can |
+|---|---|
+| `admin` | everything: users, catalog, מצבה, allocations, import, backups |
+| `logistics` | issue and return items, create soldiers, count sessions, export |
+| `viewer` | read-only reports and dashboards |
+
+A `logistics` user may optionally be scoped to a single פלוגה.
