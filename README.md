@@ -113,3 +113,53 @@ Routes are authenticated by default; opting out is explicit via `@Public()`.
 | `viewer` | read-only reports and dashboards |
 
 A `logistics` user may optionally be scoped to a single פלוגה.
+
+## Excel export and restore
+
+```
+GET  /api/excel/export          # the full workbook, original structure
+POST /api/excel/import/preview  # validate and report, writes nothing
+POST /api/excel/import/commit   # wipe-and-replace (admin only)
+GET  /api/snapshots             # stored snapshots
+POST /api/snapshots             # take one now
+GET  /api/snapshots/:id/download
+POST /api/snapshots/:id/send-to-slack
+```
+
+The export reproduces the original nine sheets — `צלמ`, `מסכם`, `פלוגות`,
+`הקצאות`, `ספירת נשקיה`, `רשימת שמות נשק`, `מחירון פריטים`, `דוח תנועות` — plus
+a `דרוש טיפול` sheet so the flagged rows travel with the file. Every sheet is
+right-to-left and `צלמ` keeps the original ten columns in order, which is what
+makes the file re-importable.
+
+**Verified round trip.** Exporting and re-importing reproduces the same state:
+
+| | Before | After restore |
+|---|---|---|
+| Soldiers | 461 | 461 |
+| Active signatures | 1129 | 1129 |
+| Serial instances | 657 | 657 |
+| Audit log | preserved | plus the import itself |
+
+A `pre_import` snapshot is taken automatically before any import, so even a
+wipe-and-replace is reversible. The report tests pinned to the original Excel
+numbers still pass after a full wipe and restore.
+
+### Daily snapshot
+
+A cron at 18:00 `Asia/Jerusalem` writes a snapshot, uploads it to Slack and
+prunes to the last 30 dailies. `pre_import` snapshots are kept indefinitely.
+
+The snapshot is written to disk **before** Slack is attempted, so a Slack
+outage never costs a backup; the failure is recorded on the snapshot row and
+the API returns a clear message rather than throwing.
+
+To enable Slack, set `SLACK_BOT_TOKEN` (needs `files:write`) and
+`SLACK_CHANNEL_ID`. Left empty, snapshots are still written and downloadable.
+
+### Note on the importer's identity
+
+An import sets `signed_by_user_id` on every restored signature to the user who
+ran it. That user therefore cannot be deleted afterwards — the foreign key is
+deliberate, since an orphaned audit trail is worse than an undeletable row.
+Deactivate such an account instead.

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
@@ -11,6 +12,8 @@ import { SoldiersModule } from './soldiers/soldiers.module';
 import { ItemsModule } from './items/items.module';
 import { SignaturesModule } from './signatures/signatures.module';
 import { MovementsModule } from './movements/movements.module';
+import { ExcelModule } from './excel/excel.module';
+import { SnapshotsModule } from './snapshots/snapshots.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -30,6 +33,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
         { name: 'login', ttl: 60_000, limit: 5 },
       ],
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -38,6 +42,8 @@ import { RolesGuard } from './auth/guards/roles.guard';
     ItemsModule,
     SignaturesModule,
     MovementsModule,
+    ExcelModule,
+    SnapshotsModule,
   ],
   providers: [
     // Order matters: rate limit, then authenticate, then authorise.
