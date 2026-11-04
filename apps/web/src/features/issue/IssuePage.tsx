@@ -10,6 +10,7 @@ import {
   Button,
   CategoryDot,
   Panel,
+  SearchField,
   Serial,
   Spinner,
   Tag,
@@ -106,12 +107,11 @@ export function IssuePage() {
       {step === 'soldier' && (
         <Panel title={he.issue.stepSoldier}>
           <div className="px-4 py-4">
-            <TextField
+            <SearchField
               value={query}
-              onChange={setQuery}
+              onSearch={setQuery}
               placeholder={he.issue.searchSoldier}
               autoFocus
-              required
             />
             {soldiers.isFetching && <Spinner />}
             {query.length >= 2 && !soldiers.isFetching && (

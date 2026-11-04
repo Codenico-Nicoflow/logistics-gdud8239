@@ -10,7 +10,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import { AuthService, type TokenPair } from './auth.service';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './auth.constants';
@@ -34,7 +34,6 @@ export class AuthController {
    */
   @Public()
   @SkipThrottle({ default: true })
-  @Throttle({ login: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -52,8 +51,6 @@ export class AuthController {
   }
 
   @Public()
-  @SkipThrottle({ login: true })
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(

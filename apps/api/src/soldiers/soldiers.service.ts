@@ -6,6 +6,39 @@ import type { UpdateSoldierDto } from './dto/update-soldier.dto';
 import type { QuerySoldiersDto } from './dto/query-soldiers.dto';
 import type { Paginated } from '../common/pagination.dto';
 
+/**
+ * Search matches name, מ.א. or phone. A full name is split so "נריה אדלר"
+ * matches, since first and last names live in separate columns.
+ */
+function soldierSearchClauses(raw: string): Prisma.SoldierWhereInput[] {
+  const q = raw.trim();
+  const clauses: Prisma.SoldierWhereInput[] = [
+    { firstName: { contains: q, mode: 'insensitive' } },
+    { lastName: { contains: q, mode: 'insensitive' } },
+    { personalNumber: { contains: q } },
+    { phone: { contains: q } },
+  ];
+
+  const parts = q.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const [first, ...rest] = parts;
+    const last = rest.join(' ');
+    clauses.push({
+      AND: [
+        { firstName: { contains: first as string, mode: 'insensitive' } },
+        { lastName: { contains: last, mode: 'insensitive' } },
+      ],
+    });
+    clauses.push({
+      AND: [
+        { lastName: { contains: first as string, mode: 'insensitive' } },
+        { firstName: { contains: last, mode: 'insensitive' } },
+      ],
+    });
+  }
+  return clauses;
+}
+
 export type SoldierSummary = {
   id: string;
   firstName: string;
@@ -27,16 +60,7 @@ export class SoldiersService {
       ...(query.includeInactive ? {} : { isActive: true }),
       ...(query.company ? { company: query.company } : {}),
       ...(query.withOpenSignatures ? { signatures: { some: { returnedAt: null } } } : {}),
-      ...(query.q
-        ? {
-            OR: [
-              { firstName: { contains: query.q, mode: 'insensitive' } },
-              { lastName: { contains: query.q, mode: 'insensitive' } },
-              { personalNumber: { contains: query.q } },
-              { phone: { contains: query.q } },
-            ],
-          }
-        : {}),
+      ...(query.q ? { OR: soldierSearchClauses(query.q) } : {}),
     };
 
     const [rows, total] = await Promise.all([

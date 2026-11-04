@@ -15,6 +15,42 @@ import type { Paginated } from '../common/pagination.dto';
 /** Postgres error code for a unique-constraint violation. */
 const UNIQUE_VIOLATION = 'P2002';
 
+/**
+ * Search matches a soldier's name, מ.א. or an item's מסד.
+ *
+ * A full name is split so "נריה אדלר" matches, since first and last names are
+ * separate columns and a plain `contains` on either would miss it.
+ */
+function searchClauses(raw: string): Prisma.SignatureWhereInput[] {
+  const q = raw.trim();
+  const clauses: Prisma.SignatureWhereInput[] = [
+    { soldier: { firstName: { contains: q, mode: 'insensitive' } } },
+    { soldier: { lastName: { contains: q, mode: 'insensitive' } } },
+    { soldier: { personalNumber: { contains: q } } },
+    { itemInstance: { serial: { contains: q } } },
+  ];
+
+  const parts = q.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const [first, ...rest] = parts;
+    const last = rest.join(' ');
+    clauses.push({
+      AND: [
+        { soldier: { firstName: { contains: first as string, mode: 'insensitive' } } },
+        { soldier: { lastName: { contains: last, mode: 'insensitive' } } },
+      ],
+    });
+    // Also the other way round, since people write the surname first too.
+    clauses.push({
+      AND: [
+        { soldier: { lastName: { contains: first as string, mode: 'insensitive' } } },
+        { soldier: { firstName: { contains: last, mode: 'insensitive' } } },
+      ],
+    });
+  }
+  return clauses;
+}
+
 /** The soldier fields the audit snapshot needs. */
 type SoldierRef = {
   id: string;
@@ -34,16 +70,7 @@ export class SignaturesService {
       ...(query.soldierId ? { soldierId: query.soldierId } : {}),
       ...(query.needsAttentionOnly ? { needsAttention: true } : {}),
       ...(query.company ? { soldier: { company: query.company } } : {}),
-      ...(query.q
-        ? {
-            OR: [
-              { soldier: { firstName: { contains: query.q, mode: 'insensitive' } } },
-              { soldier: { lastName: { contains: query.q, mode: 'insensitive' } } },
-              { soldier: { personalNumber: { contains: query.q } } },
-              { itemInstance: { serial: { contains: query.q } } },
-            ],
-          }
-        : {}),
+      ...(query.q ? { OR: searchClauses(query.q) } : {}),
     };
 
     const [rows, total] = await Promise.all([
