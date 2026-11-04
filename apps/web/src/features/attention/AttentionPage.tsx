@@ -62,7 +62,7 @@ export function AttentionPage() {
 
           <Panel>
             <TableScroll>
-              <table className="w-full">
+              <table className="row-hover w-full">
                 <thead>
                   <tr>
                     <Th>{he.attention.detail}</Th>

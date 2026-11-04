@@ -5,7 +5,16 @@ import {
   useItemsQuery,
   useSoldiersQuery,
 } from '../../lib/api';
-import { apiErrorMessage, Button, Panel, Serial, Spinner, Tag, TextField } from '../../components/ui';
+import {
+  apiErrorMessage,
+  Button,
+  CategoryDot,
+  Panel,
+  Serial,
+  Spinner,
+  Tag,
+  TextField,
+} from '../../components/ui';
 import { he } from '../../i18n/he';
 import type { Item, SoldierSummary } from '../../lib/types';
 
@@ -159,9 +168,12 @@ export function IssuePage() {
                       setSerial('');
                       setStep('details');
                     }}
-                    className="flex w-full items-center justify-between gap-2 rounded-ctl border border-rule px-3 py-2 text-start hover:border-field hover:bg-field-wash"
+                    className="flex w-full items-center justify-between gap-2 rounded-ctl border border-rule bg-card-raised px-3 py-2 text-start transition-colors hover:border-field hover:bg-field-wash"
                   >
-                    <span className="font-semibold">{i.name}</span>
+                    <span className="flex items-center gap-2 font-semibold">
+                      <CategoryDot category={i.category} />
+                      {i.name}
+                    </span>
                     {i.isSerialized && <Tag tone="brass">{he.signatures.serial}</Tag>}
                   </button>
                 </li>

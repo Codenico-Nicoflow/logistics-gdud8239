@@ -491,18 +491,19 @@ export class ExcelImportService {
           });
         }
 
-        await tx.movement.create({
+        // Recorded in its own log rather than in `movements`: דוח תנועות holds
+        // weapon movements only, so an import must not appear there.
+        await tx.importLog.create({
           data: {
-            action: 'IMPORT',
-            soldierNameSnapshot: '—',
-            itemNameSnapshot: '—',
-            quantity: signaturesCreated,
+            totalRows: rows.length,
+            signatures: signaturesCreated,
+            soldiers: soldiersCreated,
+            flagged,
+            issues: issues.length,
+            snapshotId,
             performedByUserId: actor.id,
             performedByNameSnapshot: actor.displayName,
-            notes:
-              `יבוא מאקסל: ${rows.length} שורות, ${signaturesCreated} חתימות, ` +
-              `${flagged} דורשות טיפול, ${issues.length} ממצאים` +
-              (snapshotId ? ' (גיבוי לפני היבוא נשמר)' : ''),
+            notes: snapshotId ? 'גיבוי לפני היבוא נשמר' : null,
           },
         });
       },

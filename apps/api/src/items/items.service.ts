@@ -163,6 +163,59 @@ export class ItemsService {
     });
   }
 
+  /**
+   * What stands in the way of deleting an item. The UI asks for this before
+   * showing a confirmation, so the operator is told exactly what is blocking
+   * rather than being handed a failure after the fact.
+   */
+  async deletionCheck(id: string): Promise<{
+    canDelete: boolean;
+    issuedCount: number;
+    instanceCount: number;
+    historyCount: number;
+    reasons: string[];
+  }> {
+    const item = await this.prisma.item.findUnique({ where: { id } });
+    if (!item) throw new NotFoundException('הפריט אינו קיים');
+
+    const [issuedCount, instanceCount, historyCount] = await Promise.all([
+      this.prisma.signature.count({ where: { itemId: id, returnedAt: null } }),
+      this.prisma.itemInstance.count({ where: { itemId: id } }),
+      this.prisma.movement.count({ where: { itemId: id } }),
+    ]);
+
+    const reasons: string[] = [];
+    if (issuedCount > 0) reasons.push(`${issuedCount} יחידות מנופקות לחיילים`);
+    if (instanceCount > 0) reasons.push(`${instanceCount} מסדים רשומים`);
+    if (historyCount > 0) reasons.push(`${historyCount} תנועות בדוח התנועות`);
+
+    return {
+      // History alone does not block: the item can be deactivated instead, and
+      // the movement rows keep their own name snapshot.
+      canDelete: issuedCount === 0 && instanceCount === 0 && historyCount === 0,
+      issuedCount,
+      instanceCount,
+      historyCount,
+      reasons,
+    };
+  }
+
+  /**
+   * Removes an item outright. Only possible when nothing references it; an item
+   * with history is deactivated instead, so the audit trail stays readable.
+   */
+  async remove(id: string): Promise<{ deleted: true }> {
+    const check = await this.deletionCheck(id);
+    if (!check.canDelete) {
+      throw new BadRequestException(
+        `לא ניתן למחוק את הפריט: ${check.reasons.join(', ')}. ניתן להשבית אותו במקום.`,
+      );
+    }
+    await this.prisma.allocation.deleteMany({ where: { itemId: id } });
+    await this.prisma.item.delete({ where: { id } });
+    return { deleted: true };
+  }
+
   /** Signatures imported with a known problem — powers the "דרוש טיפול" tab. */
   async needsAttention() {
     const [issues, signatures] = await Promise.all([

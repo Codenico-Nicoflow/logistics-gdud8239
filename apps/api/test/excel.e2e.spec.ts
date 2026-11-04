@@ -265,14 +265,13 @@ describe('disaster recovery round trip', () => {
     // The restored state matches what was exported.
     expect(await snapshotCounts()).toEqual(before);
 
-    // The audit log is append-only and survives the wipe, plus the import itself.
+    // The audit log is append-only and survives the wipe untouched. An import
+    // is not a weapon movement, so it must NOT appear in דוח תנועות.
     const movementsAfter = await prisma.movement.count();
-    expect(movementsAfter).toBe(movementsBefore + 1);
+    expect(movementsAfter).toBe(movementsBefore);
 
-    const importRow = await prisma.movement.findFirst({
-      where: { action: 'IMPORT' },
-      orderBy: { occurredAt: 'desc' },
-    });
+    // It is recorded in its own log instead.
+    const importRow = await prisma.importLog.findFirst({ orderBy: { occurredAt: 'desc' } });
     expect(importRow?.performedByNameSnapshot).toBe('מנהל אקסל');
 
     // A pre-import snapshot was taken, so the restore is itself reversible.

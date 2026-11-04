@@ -328,17 +328,16 @@ async function main(): Promise<void> {
         });
       }
 
-      await tx.movement.create({
+      // Recorded in its own log: דוח תנועות holds weapon movements only.
+      await tx.importLog.create({
         data: {
-          action: 'IMPORT',
-          soldierNameSnapshot: '—',
-          itemNameSnapshot: '—',
-          quantity: signaturesCreated,
+          totalRows: rows.length,
+          signatures: signaturesCreated,
+          soldiers: soldiersCreated,
+          flagged,
+          issues: issues.length,
           performedByUserId: importer.id,
           performedByNameSnapshot: importer.displayName,
-          notes:
-            `יבוא מאקסל: ${rows.length} שורות, ${signaturesCreated} חתימות, ` +
-            `${flagged} דורשות טיפול, ${issues.length} ממצאים`,
         },
       });
     },

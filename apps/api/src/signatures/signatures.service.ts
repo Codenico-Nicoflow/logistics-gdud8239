@@ -289,7 +289,11 @@ export class SignaturesService {
 
   /**
    * Fills in a serial that the Excel import could not supply, clearing the
-   * "דרוש טיפול" flag. Recorded as a movement so the correction is auditable.
+   * "דרוש טיפול" flag.
+   *
+   * This is a data correction, not a weapon movement — the item was already
+   * signed to the soldier — so it is deliberately not written to דוח תנועות.
+   * The import issue it resolves is closed instead, which is the audit trail.
    */
   async backfillSerial(signatureId: string, serial: string, actor: AuthUser): Promise<Signature> {
     const signature = await this.prisma.signature.findUnique({
@@ -317,23 +321,6 @@ export class SignaturesService {
         const updated = await tx.signature.update({
           where: { id: signature.id },
           data: { itemInstanceId: instance.id, needsAttention: false },
-        });
-
-        await tx.movement.create({
-          data: {
-            action: 'ISSUE',
-            soldierId: signature.soldierId,
-            soldierNameSnapshot: `${signature.soldier.firstName} ${signature.soldier.lastName}`,
-            companySnapshot: signature.soldier.company,
-            itemId: signature.itemId,
-            itemNameSnapshot: signature.item.name,
-            serialSnapshot: trimmed,
-            quantity: signature.quantity,
-            performedByUserId: actor.id,
-            performedByNameSnapshot: actor.displayName,
-            notes: `השלמת מסד חסר (יבוא מאקסל)`,
-            signatureId: signature.id,
-          },
         });
 
         // Close the matching import issue, if one is open.

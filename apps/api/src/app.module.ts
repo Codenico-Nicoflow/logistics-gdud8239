@@ -12,6 +12,8 @@ import { SoldiersModule } from './soldiers/soldiers.module';
 import { ItemsModule } from './items/items.module';
 import { SignaturesModule } from './signatures/signatures.module';
 import { MovementsModule } from './movements/movements.module';
+import { CountsModule } from './counts/counts.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { ExcelModule } from './excel/excel.module';
 import { SnapshotsModule } from './snapshots/snapshots.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -42,6 +44,8 @@ import { RolesGuard } from './auth/guards/roles.guard';
     ItemsModule,
     SignaturesModule,
     MovementsModule,
+    CountsModule,
+    AttendanceModule,
     ExcelModule,
     SnapshotsModule,
   ],

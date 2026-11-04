@@ -7,6 +7,7 @@ import {
 import {
   apiErrorMessage,
   Button,
+  CategoryDot,
   EmptyState,
   Panel,
   Select,
@@ -96,7 +97,7 @@ export function SignaturesPage() {
         ) : (
           <>
             <TableScroll>
-              <table className="w-full">
+              <table className="row-hover w-full">
                 <thead>
                   <tr>
                     <Th>{he.signatures.soldier}</Th>
@@ -128,7 +129,12 @@ export function SignaturesPage() {
                         )}
                       </Td>
                       <Td>{he.companies[s.soldier.company]}</Td>
-                      <Td>{s.item.name}</Td>
+                      <Td>
+                        <span className="flex items-center gap-2">
+                          <CategoryDot category={s.item.category} />
+                          {s.item.name}
+                        </span>
+                      </Td>
                       <Td>
                         <Serial value={s.itemInstance?.serial ?? null} />
                       </Td>

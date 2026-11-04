@@ -19,6 +19,8 @@ function navGroups(attentionCount: number): { heading: string; items: NavItem[] 
         { to: '/issue', label: he.nav.issue, roles: ['admin', 'logistics'] },
         { to: '/signatures', label: he.nav.signatures },
         { to: '/attention', label: he.nav.attention, badge: attentionCount },
+        { to: '/counts', label: he.nav.counts },
+        { to: '/attendance', label: he.nav.attendance, roles: ['admin', 'logistics'] },
       ],
     },
     {
@@ -32,7 +34,11 @@ function navGroups(attentionCount: number): { heading: string; items: NavItem[] 
     },
     {
       heading: 'ניהול',
-      items: [{ to: '/backups', label: he.nav.backups, roles: ['admin'] }],
+      items: [
+        { to: '/catalog', label: he.nav.catalog, roles: ['admin'] },
+        { to: '/users', label: he.nav.users, roles: ['admin'] },
+        { to: '/backups', label: he.nav.backups, roles: ['admin'] },
+      ],
     },
   ];
 }
@@ -46,18 +52,18 @@ export function Shell({ user }: { user: AuthUser }) {
   const groups = navGroups(attentionCount);
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[1fr_15rem]">
+    <div className="min-h-screen lg:grid lg:grid-cols-[16rem_1fr]">
       {/* On a phone the rail collapses behind a toggle; the attention count
           stays visible on the closed toggle because it is the thing worth
           interrupting someone for. */}
-      <header className="flex items-center justify-between gap-3 border-b border-rule bg-card-raised px-4 py-3 lg:hidden">
+      <header className="flex items-center justify-between gap-3 bg-ink px-4 py-3 lg:hidden">
         <div>
-          <div className="text-body font-bold text-field">{he.app.battalion}</div>
-          <div className="text-micro text-graphite">{he.app.name}</div>
+          <div className="text-body font-bold text-brass-bright">{he.app.battalion}</div>
+          <div className="text-micro text-white/55">{he.app.name}</div>
         </div>
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          className="rounded-ctl border border-rule-strong px-3 py-1.5 text-meta font-semibold"
+          className="rounded-ctl border border-white/25 px-3 py-1.5 text-meta font-semibold text-white"
           aria-expanded={menuOpen}
         >
           {menuOpen ? he.common.close : 'תפריט'}
@@ -69,18 +75,16 @@ export function Shell({ user }: { user: AuthUser }) {
         </button>
       </header>
 
-      <main className="order-1 min-w-0 px-4 py-5 lg:px-7 lg:py-7">
-        <Outlet />
-      </main>
-
       <nav
-        className={`border-rule bg-card-raised lg:order-2 lg:block lg:border-s lg:border-b-0 ${
+        className={`border-rule bg-ink text-card lg:block lg:border-b-0 ${
           menuOpen ? 'block border-b' : 'hidden'
         }`}
       >
-        <div className="hidden border-b border-rule px-5 py-4 lg:block">
-          <div className="text-head font-bold leading-none text-field">{he.app.battalion}</div>
-          <div className="mt-0.5 text-micro text-graphite">{he.app.name}</div>
+        <div className="hidden border-b border-white/10 px-5 py-5 lg:block">
+          <div className="text-head font-bold leading-none text-brass-bright">
+            {he.app.battalion}
+          </div>
+          <div className="mt-1 text-micro text-white/55">{he.app.name}</div>
         </div>
 
         <div className="px-3 py-3">
@@ -89,7 +93,7 @@ export function Shell({ user }: { user: AuthUser }) {
             if (items.length === 0) return null;
             return (
               <div key={group.heading} className="mb-4">
-                <div className="px-2 pb-1 text-micro font-semibold text-graphite">
+                <div className="px-2 pb-1.5 text-micro font-semibold text-white/40">
                   {group.heading}
                 </div>
                 {items.map((item) => (
@@ -99,10 +103,10 @@ export function Shell({ user }: { user: AuthUser }) {
                     end={item.to === '/'}
                     onClick={() => setMenuOpen(false)}
                     className={({ isActive }) =>
-                      `flex items-center justify-between rounded-ctl px-2 py-1.5 text-body ${
+                      `flex items-center justify-between rounded-ctl px-2.5 py-2 text-body transition-colors ${
                         isActive
-                          ? 'bg-field-wash font-semibold text-field-dark'
-                          : 'text-ink-soft hover:bg-card'
+                          ? 'bg-field-bright font-semibold text-white'
+                          : 'text-white/75 hover:bg-white/10 hover:text-white'
                       }`
                     }
                   >
@@ -119,17 +123,21 @@ export function Shell({ user }: { user: AuthUser }) {
           })}
         </div>
 
-        <div className="border-t border-rule px-5 py-3">
-          <div className="text-body font-semibold">{user.displayName}</div>
-          <div className="text-micro text-graphite">{he.roles[user.role]}</div>
+        <div className="border-t border-white/10 px-5 py-4">
+          <div className="text-body font-semibold text-white">{user.displayName}</div>
+          <div className="text-micro text-white/50">{he.roles[user.role]}</div>
           <button
             onClick={() => void logout()}
-            className="mt-2 text-meta font-semibold text-oxide hover:underline"
+            className="mt-2 text-meta font-semibold text-white/70 hover:text-white hover:underline"
           >
             {he.auth.logout}
           </button>
         </div>
       </nav>
+
+      <main className="min-w-0 px-4 py-5 lg:px-8 lg:py-8">
+        <Outlet />
+      </main>
     </div>
   );
 }

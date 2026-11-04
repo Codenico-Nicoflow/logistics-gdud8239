@@ -38,7 +38,6 @@ enum InstanceStatus {
 enum MovementAction {
   ISSUE  @map("ניפוק")
   RETURN @map("זיכוי")
-  IMPORT @map("יבוא")
 }
 
 enum CountShift {
@@ -89,6 +88,7 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
 
   refreshTokens      RefreshToken[]
+  importLogs         ImportLog[]
   signaturesIssued   Signature[]    @relation("signedBy")
   signaturesReturned Signature[]    @relation("returnedBy")
   movements          Movement[]
@@ -341,6 +341,28 @@ model ImportIssue {
   @@index([kind])
   @@index([resolvedAt])
   @@map("import_issues")
+}
+
+/// Excel imports, kept out of `movements` so דוח תנועות contains only the two
+/// real actions: giving an item to a soldier and taking it back.
+model ImportLog {
+  id            String   @id @default(uuid())
+  occurredAt    DateTime @default(now()) @map("occurred_at")
+  fileName      String?  @map("file_name")
+  totalRows     Int      @map("total_rows")
+  signatures    Int
+  soldiers      Int
+  flagged       Int
+  issues        Int
+  snapshotId    String?  @map("snapshot_id")
+  performedByUserId   String? @map("performed_by_user_id")
+  performedByNameSnapshot String @map("performed_by_name_snapshot")
+  notes         String?
+
+  performedBy User? @relation(fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([occurredAt])
+  @@map("import_logs")
 }
 
 model Snapshot {
