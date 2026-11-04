@@ -1,0 +1,17 @@
+{
+  "name": "logistics",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "migrate": "npm run migrate --workspace=apps/api",
+    "seed": "npm run seed --workspace=apps/api",
+    "test": "npm run test --workspace=apps/api"
+  }
+}

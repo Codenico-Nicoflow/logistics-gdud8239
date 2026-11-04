@@ -1,0 +1,340 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- enums ----------
+
+enum Role {
+  admin
+  logistics
+  viewer
+}
+
+enum Company {
+  A       @map("א")
+  B       @map("ב")
+  C       @map("ג")
+  SUPPORT @map("מסייעת")
+  HQ      @map("מפקדה")
+}
+
+enum ItemCategory {
+  WEAPON @map("נשק")
+  OPTICS @map("אופטיקה")
+  DRONE  @map("רחפן")
+  GEAR   @map("ציוד")
+}
+
+enum InstanceStatus {
+  OK       @map("תקין")
+  FAULTY   @map("תקול")
+  DISABLED @map("מושבת")
+}
+
+enum MovementAction {
+  ISSUE  @map("ניפוק")
+  RETURN @map("זיכוי")
+  IMPORT @map("יבוא")
+}
+
+enum CountShift {
+  EVENING @map("ערב")
+  MORNING @map("בוקר")
+}
+
+enum AttendanceStatus {
+  PRESENT     @map("נוכח")
+  LEAVING     @map("יציאה")
+  RETURNING   @map("חזרה")
+  ON_LEAVE    @map("חופש")
+  GIMELIM     @map("גימלים")
+  CLOSED_ORDER @map("צו סגור")
+  OTHER       @map("אחר")
+}
+
+enum Gender {
+  M @map("ז")
+  F @map("נ")
+}
+
+enum IssueKind {
+  MISSING_SERIAL      @map("חסר מסד")
+  DUPLICATE_SERIAL    @map("מסד כפול")
+  UNKNOWN_ITEM        @map("פריט לא מזוהה")
+  UNKNOWN_COMPANY     @map("פלוגה לא מזוהה")
+  MISSING_SOLDIER_NAME @map("חסר שם חייל")
+  DUPLICATE_ROW       @map("שורה כפולה")
+}
+
+enum SnapshotKind {
+  daily
+  pre_import @map("pre-import")
+  manual
+}
+
+// ---------- auth ----------
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+  role         Role
+  companyScope Company? @map("company_scope")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  signaturesIssued   Signature[]    @relation("signedBy")
+  signaturesReturned Signature[]    @relation("returnedBy")
+  movements          Movement[]
+  countSessions      CountSession[]
+  snapshots          Snapshot[]
+
+  @@map("users")
+}
+
+// ---------- people ----------
+
+model Soldier {
+  id             String   @id @default(uuid())
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  personalNumber String?  @unique @map("personal_number")
+  phone          String?
+  company        Company
+  platoon        String?
+  receiptNo      String?  @map("receipt_no")
+  notes          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  signatures Signature[]
+  movements  Movement[]
+
+  @@index([lastName, firstName])
+  @@index([company])
+  @@map("soldiers")
+}
+
+model TeamMember {
+  id             String   @id @default(uuid())
+  nickname       String   @unique
+  fullName       String?  @map("full_name")
+  personalNumber String?  @map("personal_number")
+  gender         Gender   @default(M)
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  attendance Attendance[]
+
+  @@map("team_members")
+}
+
+// ---------- catalog ----------
+
+model Item {
+  id             String       @id @default(uuid())
+  name           String       @unique
+  aliases        String[]     @default([])
+  category       ItemCategory
+  catalogNo      String?      @map("catalog_no")
+  isSerialized   Boolean      @default(true) @map("is_serialized")
+  authorizedQty  Int          @default(0) @map("authorized_qty")
+  unitPrice      Decimal?     @map("unit_price") @db.Decimal(10, 2)
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  instances   ItemInstance[]
+  signatures  Signature[]
+  allocations Allocation[]
+  countLines  CountLine[]
+  movements   Movement[]
+
+  @@map("items")
+}
+
+model ItemInstance {
+  id        String         @id @default(uuid())
+  itemId    String         @map("item_id")
+  serial    String
+  status    InstanceStatus @default(OK)
+  notes     String?
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  item       Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  signatures Signature[]
+
+  @@unique([itemId, serial])
+  @@index([serial])
+  @@map("item_instances")
+}
+
+// ---------- the core ----------
+
+model Signature {
+  id             String    @id @default(uuid())
+  soldierId      String    @map("soldier_id")
+  itemId         String    @map("item_id")
+  itemInstanceId String?   @map("item_instance_id")
+  quantity       Int       @default(1)
+  receiptNo      String?   @map("receipt_no")
+  notes          String?
+  signedAt       DateTime  @default(now()) @map("signed_at")
+  signedByUserId String    @map("signed_by_user_id")
+  returnedAt     DateTime? @map("returned_at")
+  returnedByUserId String? @map("returned_by_user_id")
+  // Set when the row was imported with a known data problem (e.g. a serialized
+  // item with no serial). Drives the "דרוש טיפול" tab. New signatures created in
+  // the app are always clean: the API refuses a serialized item without a serial.
+  needsAttention Boolean   @default(false) @map("needs_attention")
+
+  soldier      Soldier       @relation(fields: [soldierId], references: [id], onDelete: Restrict)
+  item         Item          @relation(fields: [itemId], references: [id])
+  itemInstance ItemInstance? @relation(fields: [itemInstanceId], references: [id])
+  signedBy     User          @relation("signedBy", fields: [signedByUserId], references: [id])
+  returnedBy   User?         @relation("returnedBy", fields: [returnedByUserId], references: [id])
+
+  @@index([soldierId])
+  @@index([itemId])
+  @@index([returnedAt])
+  @@index([needsAttention])
+  @@map("signatures")
+}
+
+// Append-only audit log. No update/delete route exists for this table.
+model Movement {
+  id                      String         @id @default(uuid())
+  action                  MovementAction
+  soldierId               String?        @map("soldier_id")
+  soldierNameSnapshot     String         @map("soldier_name_snapshot")
+  companySnapshot         Company?       @map("company_snapshot")
+  itemId                  String?        @map("item_id")
+  itemNameSnapshot        String         @map("item_name_snapshot")
+  serialSnapshot          String?        @map("serial_snapshot")
+  quantity                Int            @default(1)
+  receiptNo               String?        @map("receipt_no")
+  occurredAt              DateTime       @default(now()) @map("occurred_at")
+  performedByUserId       String?        @map("performed_by_user_id")
+  performedByNameSnapshot String         @map("performed_by_name_snapshot")
+  notes                   String?
+  // Loose reference, deliberately not a foreign key: the Excel import replaces all
+  // signature rows, and append-only audit rows must never be rewritten to follow.
+  signatureId             String?        @map("signature_id")
+
+  soldier     Soldier?   @relation(fields: [soldierId], references: [id], onDelete: Restrict)
+  item        Item?      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  performedBy User?      @relation(fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([occurredAt])
+  @@index([action])
+  @@index([soldierId])
+  @@index([itemId])
+  @@map("movements")
+}
+
+// ---------- manual inputs ----------
+
+model Allocation {
+  id        String  @id @default(uuid())
+  itemId    String  @map("item_id")
+  company   Company
+  targetQty Int     @default(0) @map("target_qty")
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, company])
+  @@map("allocations")
+}
+
+model CountSession {
+  id               String     @id @default(uuid())
+  sessionDate      DateTime   @map("session_date") @db.Date
+  shift            CountShift
+  responsibleName  String?    @map("responsible_name")
+  responsiblePn    String?    @map("responsible_pn")
+  responsibleRank  String?    @map("responsible_rank")
+  officerName      String?    @map("officer_name")
+  officerPn        String?    @map("officer_pn")
+  officerRank      String?    @map("officer_rank")
+  recordedAt       DateTime   @default(now()) @map("recorded_at")
+  recordedByUserId String     @map("recorded_by_user_id")
+  isClosed         Boolean    @default(false) @map("is_closed")
+
+  recordedBy User        @relation(fields: [recordedByUserId], references: [id])
+  lines      CountLine[]
+
+  @@unique([sessionDate, shift])
+  @@map("count_sessions")
+}
+
+model CountLine {
+  id             String @id @default(uuid())
+  countSessionId String @map("count_session_id")
+  itemId         String @map("item_id")
+  countedQty     Int    @default(0) @map("counted_qty")
+  faultyQty      Int    @default(0) @map("faulty_qty")
+  notes          String?
+
+  countSession CountSession @relation(fields: [countSessionId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id])
+
+  @@unique([countSessionId, itemId])
+  @@map("count_lines")
+}
+
+model Attendance {
+  id           String           @id @default(uuid())
+  teamMemberId String           @map("team_member_id")
+  date         DateTime         @db.Date
+  status       AttendanceStatus
+  note         String?
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamMemberId, date])
+  @@index([date])
+  @@map("attendance")
+}
+
+/// One row per data problem found during an Excel import. Everything is imported;
+/// these rows are what the "דרוש טיפול" tab lists so the gaps get fixed by hand.
+model ImportIssue {
+  id          String    @id @default(uuid())
+  kind        IssueKind
+  rowNumber   Int       @map("row_number")
+  rawRow      String    @map("raw_row")
+  detail      String
+  signatureId String?   @map("signature_id")
+  soldierId   String?   @map("soldier_id")
+  itemId      String?   @map("item_id")
+  serial      String?
+  resolvedAt  DateTime? @map("resolved_at")
+  importedAt  DateTime  @default(now()) @map("imported_at")
+
+  @@index([kind])
+  @@index([resolvedAt])
+  @@map("import_issues")
+}
+
+model Snapshot {
+  id              String       @id @default(uuid())
+  createdAt       DateTime     @default(now()) @map("created_at")
+  kind            SnapshotKind
+  filePath        String       @map("file_path")
+  sizeBytes       Int          @map("size_bytes")
+  rowCount        Int          @default(0) @map("row_count")
+  slackSentAt     DateTime?    @map("slack_sent_at")
+  slackError      String?      @map("slack_error")
+  createdByUserId String?      @map("created_by_user_id")
+
+  createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("snapshots")
+}
