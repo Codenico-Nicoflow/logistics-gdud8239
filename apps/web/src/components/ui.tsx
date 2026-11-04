@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { he } from '../i18n/he';
 import type { ItemCategory } from '../lib/types';
 
@@ -195,6 +195,71 @@ export function TextField({
         hint && <span className="mt-1 block text-meta text-graphite">{hint}</span>
       )}
     </label>
+  );
+}
+
+/**
+ * A search box that submits on Enter rather than on each keystroke.
+ *
+ * Searching per character issued a request for every letter typed, which both
+ * wasted the rate-limit budget and made results flicker mid-word. The visible
+ * text is local; `onSearch` fires on Enter or on the button.
+ */
+export function SearchField({
+  value,
+  onSearch,
+  placeholder,
+  autoFocus,
+  className = '',
+}: {
+  value: string;
+  onSearch: (value: string) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  // Keep in step when the committed value is changed elsewhere, e.g. cleared.
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  function commit(): void {
+    onSearch(draft.trim());
+  }
+
+  return (
+    <div className={`flex gap-2 ${className}`}>
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') {
+            setDraft('');
+            onSearch('');
+          }
+        }}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        className="w-full rounded-ctl border border-rule-strong bg-card-raised px-3 py-2 text-body placeholder:text-graphite"
+      />
+      <Button variant="quiet" onClick={commit}>
+        {he.common.search}
+      </Button>
+      {value && (
+        <Button
+          variant="quiet"
+          onClick={() => {
+            setDraft('');
+            onSearch('');
+          }}
+        >
+          {he.common.clear}
+        </Button>
+      )}
+    </div>
   );
 }
 

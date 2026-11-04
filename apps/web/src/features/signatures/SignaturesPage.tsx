@@ -9,6 +9,7 @@ import {
   Button,
   CategoryDot,
   EmptyState,
+  SearchField,
   Panel,
   Select,
   Serial,
@@ -48,12 +49,11 @@ export function SignaturesPage() {
 
       <Panel>
         <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
-          <TextField
+          <SearchField
             value={q}
-            onChange={setQ}
+            onSearch={setQ}
             placeholder={he.signatures.search}
             className="lg:col-span-2"
-            required
           />
           <Select
             value={company}

@@ -3,6 +3,7 @@ import { useMovementsQuery } from '../../lib/api';
 import {
   Button,
   EmptyState,
+  SearchField,
   Panel,
   Select,
   Serial,
@@ -46,7 +47,7 @@ export function MovementsPage() {
 
       <Panel>
         <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-5">
-          <TextField value={q} onChange={setQ} placeholder={he.common.search} required />
+          <SearchField value={q} onSearch={setQ} placeholder={he.common.search} />
           <Select
             value={action}
             onChange={setAction}
