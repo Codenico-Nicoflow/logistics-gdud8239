@@ -7,6 +7,10 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ReportsModule } from './reports/reports.module';
+import { SoldiersModule } from './soldiers/soldiers.module';
+import { ItemsModule } from './items/items.module';
+import { SignaturesModule } from './signatures/signatures.module';
+import { MovementsModule } from './movements/movements.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -30,6 +34,10 @@ import { RolesGuard } from './auth/guards/roles.guard';
     AuthModule,
     UsersModule,
     ReportsModule,
+    SoldiersModule,
+    ItemsModule,
+    SignaturesModule,
+    MovementsModule,
   ],
   providers: [
     // Order matters: rate limit, then authenticate, then authorise.

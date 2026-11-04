@@ -1,0 +1,68 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { InstanceStatus } from '@prisma/client';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { ItemsService } from './items.service';
+import { CreateItemDto } from './dto/create-item.dto';
+import { UpdateItemDto } from './dto/update-item.dto';
+import { CreateInstanceDto } from './dto/create-instance.dto';
+
+@Controller('items')
+export class ItemsController {
+  constructor(private readonly items: ItemsService) {}
+
+  @Get()
+  findAll(@Query('includeInactive') includeInactive?: string) {
+    return this.items.findAll(includeInactive === 'true');
+  }
+
+  /** Rows imported with a data problem, for the "דרוש טיפול" tab. */
+  @Get('needs-attention')
+  needsAttention() {
+    return this.items.needsAttention();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.items.findOne(id);
+  }
+
+  @Get(':id/available')
+  available(@Param('id') id: string) {
+    return this.items.availableInstances(id);
+  }
+
+  @Post()
+  @Roles('admin')
+  create(@Body() dto: CreateItemDto) {
+    return this.items.create(dto);
+  }
+
+  @Patch(':id')
+  @Roles('admin')
+  update(@Param('id') id: string, @Body() dto: UpdateItemDto) {
+    return this.items.update(id, dto);
+  }
+
+  @Post(':id/instances')
+  @Roles('admin', 'logistics')
+  addInstance(@Param('id') id: string, @Body() dto: CreateInstanceDto) {
+    return this.items.addInstance(id, dto);
+  }
+
+  @Patch('instances/:instanceId/status')
+  @Roles('admin', 'logistics')
+  setInstanceStatus(
+    @Param('instanceId') instanceId: string,
+    @Body() body: { status: InstanceStatus; notes?: string },
+  ) {
+    return this.items.setInstanceStatus(instanceId, body.status, body.notes);
+  }
+}
