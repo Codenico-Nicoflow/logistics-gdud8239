@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -49,6 +50,19 @@ export class ItemsController {
   @Roles('admin')
   update(@Param('id') id: string, @Body() dto: UpdateItemDto) {
     return this.items.update(id, dto);
+  }
+
+  /** What blocks deletion, so the UI can explain before asking to confirm. */
+  @Get(':id/deletion-check')
+  @Roles('admin')
+  deletionCheck(@Param('id') id: string) {
+    return this.items.deletionCheck(id);
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  remove(@Param('id') id: string) {
+    return this.items.remove(id);
   }
 
   @Post(':id/instances')

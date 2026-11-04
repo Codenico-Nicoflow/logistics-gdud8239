@@ -3,26 +3,45 @@
 @tailwind utilities;
 
 /**
- * Palette drawn from field-manual stationery: ink on grey card stock, with
- * brass reserved for serial numbers because those are stamped on metal. The
- * interface is a working tool used on a phone during a shift, so density and
- * legibility are the priorities, not decoration.
+ * The palette comes from the subject: field green for the battalion and for
+ * anything issued, brass for serial numbers because those are stamped on metal,
+ * oxide red for anything needing attention. Each item category carries its own
+ * hue so a long table can be scanned by colour rather than read line by line.
+ *
+ * The navigation is dark so the working area reads as the page and the rail as
+ * chrome, which keeps a dense table from competing with the menu.
  */
 :root {
-  --ink: #1b1f23;
-  --ink-soft: #3d444b;
-  --graphite: #6b7280;
-  --card: #f2f0eb;
-  --card-raised: #fbfaf7;
-  --rule: #d8d4ca;
-  --rule-strong: #b9b3a6;
-  --field: #2f5d50;
-  --field-dark: #234740;
-  --field-wash: #e4ece8;
-  --oxide: #a8442a;
-  --oxide-wash: #f6e5e0;
-  --brass: #8a6d1f;
-  --brass-wash: #f5efdc;
+  --ink: #16211d;
+  --ink-soft: #3c4a44;
+  --graphite: #6c7a74;
+
+  --card: #eef1ee;
+  --card-raised: #ffffff;
+  --rule: #d6dcd8;
+  --rule-strong: #b2bcb7;
+
+  --field: #2f6b53;
+  --field-dark: #1f4a39;
+  --field-bright: #3d8a6b;
+  --field-wash: #e2efe9;
+
+  --oxide: #a63d26;
+  --oxide-wash: #fbe8e3;
+
+  --brass: #8a6a16;
+  --brass-bright: #c29b2e;
+  --brass-wash: #f8f0d9;
+
+  /* Category hues, used for item tags and the catalog. */
+  --cat-weapon: #2f6b53;
+  --cat-weapon-wash: #e2efe9;
+  --cat-optics: #2b5b7a;
+  --cat-optics-wash: #e2edf4;
+  --cat-drone: #6a4a86;
+  --cat-drone-wash: #efe8f6;
+  --cat-gear: #8a6a16;
+  --cat-gear-wash: #f8f0d9;
 }
 
 * {
@@ -54,9 +73,17 @@ body {
   font-weight: 600;
 }
 
-/* Visible keyboard focus everywhere, including inside tables. */
+/* Table rows respond to the pointer so the eye can follow a long row across
+   a wide report without losing its place. */
+.row-hover tbody tr {
+  transition: background-color 120ms ease;
+}
+.row-hover tbody tr:hover {
+  background: var(--field-wash);
+}
+
 :focus-visible {
-  outline: 2px solid var(--field);
+  outline: 2px solid var(--field-bright);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -70,7 +97,6 @@ body {
   }
 }
 
-/* Keep the scrollbar unobtrusive in the dense tables. */
 .scroll-slim::-webkit-scrollbar {
   height: 10px;
   width: 10px;

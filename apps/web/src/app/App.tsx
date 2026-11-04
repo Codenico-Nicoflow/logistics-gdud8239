@@ -10,6 +10,10 @@ import { AttentionPage } from '../features/attention/AttentionPage';
 import { AllocationsPage, CompaniesPage, SummaryPage } from '../features/reports/ReportPages';
 import { MovementsPage } from '../features/movements/MovementsPage';
 import { BackupsPage } from '../features/backups/BackupsPage';
+import { CountsPage } from '../features/counts/CountsPage';
+import { CatalogPage } from '../features/catalog/CatalogPage';
+import { AttendancePage } from '../features/attendance/AttendancePage';
+import { UsersPage } from '../features/users/UsersPage';
 
 export function App() {
   const { data, isLoading } = useMeQuery();
@@ -31,7 +35,11 @@ export function App() {
           <Route path="companies" element={<CompaniesPage />} />
           <Route path="allocations" element={<AllocationsPage />} />
           <Route path="movements" element={<MovementsPage />} />
+          <Route path="counts" element={<CountsPage />} />
           {user.role !== 'viewer' && <Route path="issue" element={<IssuePage />} />}
+          {user.role !== 'viewer' && <Route path="attendance" element={<AttendancePage />} />}
+          {isAdmin && <Route path="catalog" element={<CatalogPage />} />}
+          {isAdmin && <Route path="users" element={<UsersPage />} />}
           {isAdmin && <Route path="backups" element={<BackupsPage />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

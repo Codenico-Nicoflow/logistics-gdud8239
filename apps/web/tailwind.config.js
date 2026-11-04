@@ -11,30 +11,45 @@ export default {
         graphite: 'var(--graphite)',
         card: { DEFAULT: 'var(--card)', raised: 'var(--card-raised)' },
         rule: { DEFAULT: 'var(--rule)', strong: 'var(--rule-strong)' },
-        field: { DEFAULT: 'var(--field)', dark: 'var(--field-dark)', wash: 'var(--field-wash)' },
+        field: {
+          DEFAULT: 'var(--field)',
+          dark: 'var(--field-dark)',
+          bright: 'var(--field-bright)',
+          wash: 'var(--field-wash)',
+        },
         oxide: { DEFAULT: 'var(--oxide)', wash: 'var(--oxide-wash)' },
-        brass: { DEFAULT: 'var(--brass)', wash: 'var(--brass-wash)' },
+        brass: {
+          DEFAULT: 'var(--brass)',
+          bright: 'var(--brass-bright)',
+          wash: 'var(--brass-wash)',
+        },
+        cat: {
+          weapon: 'var(--cat-weapon)',
+          'weapon-wash': 'var(--cat-weapon-wash)',
+          optics: 'var(--cat-optics)',
+          'optics-wash': 'var(--cat-optics-wash)',
+          drone: 'var(--cat-drone)',
+          'drone-wash': 'var(--cat-drone-wash)',
+          gear: 'var(--cat-gear)',
+          'gear-wash': 'var(--cat-gear-wash)',
+        },
       },
       fontSize: {
-        // A tight scale: this is a data tool, so the steps are small and
-        // deliberate rather than a wide display range.
         micro: ['11px', { lineHeight: '14px' }],
         meta: ['12px', { lineHeight: '16px' }],
         body: ['15px', { lineHeight: '22px' }],
         lead: ['17px', { lineHeight: '24px' }],
         head: ['21px', { lineHeight: '28px' }],
         display: ['30px', { lineHeight: '36px', letterSpacing: '-0.01em' }],
-        figure: ['34px', { lineHeight: '38px', letterSpacing: '-0.02em' }],
+        figure: ['36px', { lineHeight: '40px', letterSpacing: '-0.02em' }],
       },
       borderRadius: {
-        // Two radii only: 3px for controls, 6px for panels. One radius on
-        // everything flattens hierarchy.
-        ctl: '3px',
-        panel: '6px',
+        ctl: '4px',
+        panel: '8px',
       },
       boxShadow: {
-        panel: '0 1px 2px rgba(27, 31, 35, 0.06)',
-        lift: '0 8px 24px rgba(27, 31, 35, 0.12)',
+        panel: '0 1px 2px rgba(22, 33, 29, 0.06), 0 1px 3px rgba(22, 33, 29, 0.04)',
+        lift: '0 12px 32px rgba(22, 33, 29, 0.16)',
       },
     },
   },

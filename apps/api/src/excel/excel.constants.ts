@@ -20,7 +20,6 @@ export const COMPANY_FROM_HE: Record<string, Company> = Object.fromEntries(
 export const ACTION_HE: Record<MovementAction, string> = {
   ISSUE: 'ניפוק',
   RETURN: 'זיכוי',
-  IMPORT: 'יבוא',
 };
 
 export const CATEGORY_HE: Record<ItemCategory, string> = {

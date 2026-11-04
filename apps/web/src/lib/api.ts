@@ -3,6 +3,13 @@ import type {
   AllocationRow,
   AuthUser,
   Company,
+  CountSheet,
+  CountShift,
+  DeletionCheck,
+  ItemCategory,
+  PublicUser,
+  TeamMember,
+  Week,
   ImportPreview,
   Item,
   ItemInstance,
@@ -50,7 +57,19 @@ const baseQueryWithRefresh: BaseQueryFn = async (args, api, extraOptions) => {
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithRefresh,
-  tagTypes: ['Auth', 'Signatures', 'Soldiers', 'Items', 'Reports', 'Movements', 'Snapshots', 'Attention'],
+  tagTypes: [
+    'Auth',
+    'Signatures',
+    'Soldiers',
+    'Items',
+    'Reports',
+    'Movements',
+    'Snapshots',
+    'Attention',
+    'Counts',
+    'Attendance',
+    'Users',
+  ],
   endpoints: (build) => ({
     // --- auth ---
     me: build.query<{ user: AuthUser }, void>({
@@ -180,6 +199,104 @@ export const api = createApi({
       invalidatesTags: ['Snapshots'],
     }),
 
+    // --- counts (ספירת נשקיה) ---
+    countSheet: build.query<CountSheet, { date: string; shift: CountShift }>({
+      query: (params) => ({ url: '/counts/sheet', params }),
+      providesTags: ['Counts'],
+    }),
+    saveCount: build.mutation<
+      { id: string; lines: number },
+      {
+        sessionDate: string;
+        shift: CountShift;
+        lines: { itemId: string; countedQty: number; faultyQty?: number; notes?: string }[];
+        responsibleName?: string;
+        officerName?: string;
+      }
+    >({
+      query: (body) => ({ url: '/counts', method: 'POST', body }),
+      invalidatesTags: ['Counts', 'Reports'],
+    }),
+
+    // --- catalog management ---
+    createItem: build.mutation<
+      Item,
+      {
+        name: string;
+        category: ItemCategory;
+        isSerialized: boolean;
+        authorizedQty: number;
+        catalogNo?: string;
+        aliases?: string[];
+      }
+    >({
+      query: (body) => ({ url: '/items', method: 'POST', body }),
+      invalidatesTags: ['Items', 'Reports'],
+    }),
+    updateItem: build.mutation<Item, { id: string } & Partial<Item>>({
+      query: ({ id, ...body }) => ({ url: `/items/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['Items', 'Reports'],
+    }),
+    deletionCheck: build.query<DeletionCheck, string>({
+      query: (id) => `/items/${id}/deletion-check`,
+    }),
+    deleteItem: build.mutation<{ deleted: true }, string>({
+      query: (id) => ({ url: `/items/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Items', 'Reports'],
+    }),
+    addInstance: build.mutation<ItemInstance, { itemId: string; serial: string }>({
+      query: ({ itemId, serial }) => ({
+        url: `/items/${itemId}/instances`,
+        method: 'POST',
+        body: { serial },
+      }),
+      invalidatesTags: ['Items'],
+    }),
+
+    // --- attendance (ימי יציאה) ---
+    week: build.query<Week, string>({
+      query: (date) => ({ url: '/attendance/week', params: { date } }),
+      providesTags: ['Attendance'],
+    }),
+    teamMembers: build.query<TeamMember[], void>({
+      query: () => '/attendance/members',
+      providesTags: ['Attendance'],
+    }),
+    setAttendance: build.mutation<
+      { saved: number },
+      { cells: { teamMemberId: string; date: string; status: string | null; note?: string }[] }
+    >({
+      query: (body) => ({ url: '/attendance/cells', method: 'POST', body }),
+      invalidatesTags: ['Attendance'],
+    }),
+    createTeamMember: build.mutation<
+      TeamMember,
+      { nickname: string; gender: 'M' | 'F'; fullName?: string }
+    >({
+      query: (body) => ({ url: '/attendance/members', method: 'POST', body }),
+      invalidatesTags: ['Attendance'],
+    }),
+
+    // --- users ---
+    users: build.query<PublicUser[], void>({
+      query: () => '/users',
+      providesTags: ['Users'],
+    }),
+    createUser: build.mutation<
+      PublicUser & { generatedPassword?: string },
+      { username: string; displayName: string; role: string; password?: string }
+    >({
+      query: (body) => ({ url: '/users', method: 'POST', body }),
+      invalidatesTags: ['Users'],
+    }),
+    updateUser: build.mutation<PublicUser, { id: string; displayName?: string; role?: string; isActive?: boolean }>({
+      query: ({ id, ...body }) => ({ url: `/users/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['Users'],
+    }),
+    resetPassword: build.mutation<{ password: string }, string>({
+      query: (id) => ({ url: `/users/${id}/reset-password`, method: 'POST' }),
+    }),
+
     // --- excel ---
     previewImport: build.mutation<ImportPreview, FormData>({
       query: (body) => ({ url: '/excel/import/preview', method: 'POST', body }),
@@ -220,4 +337,19 @@ export const {
   useSendSnapshotToSlackMutation,
   usePreviewImportMutation,
   useCommitImportMutation,
+  useCountSheetQuery,
+  useSaveCountMutation,
+  useCreateItemMutation,
+  useUpdateItemMutation,
+  useLazyDeletionCheckQuery,
+  useDeleteItemMutation,
+  useAddInstanceMutation,
+  useWeekQuery,
+  useTeamMembersQuery,
+  useSetAttendanceMutation,
+  useCreateTeamMemberMutation,
+  useUsersQuery,
+  useCreateUserMutation,
+  useUpdateUserMutation,
+  useResetPasswordMutation,
 } = api;

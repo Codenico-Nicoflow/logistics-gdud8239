@@ -54,7 +54,6 @@ export function MovementsPage() {
               { value: '', label: he.movements.allActions },
               { value: 'ISSUE', label: he.actions.ISSUE },
               { value: 'RETURN', label: he.actions.RETURN },
-              { value: 'IMPORT', label: he.actions.IMPORT },
             ]}
           />
           <Select
@@ -78,7 +77,7 @@ export function MovementsPage() {
         ) : (
           <>
             <TableScroll>
-              <table className="w-full">
+              <table className="row-hover w-full">
                 <thead>
                   <tr>
                     <Th>{he.movements.when}</Th>

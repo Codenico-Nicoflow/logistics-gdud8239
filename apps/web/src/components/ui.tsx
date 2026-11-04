@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { he } from '../i18n/he';
+import type { ItemCategory } from '../lib/types';
 
 /** A titled panel. One radius for panels, another for controls, by design. */
 export function Panel({
@@ -18,8 +19,8 @@ export function Panel({
       className={`rounded-panel border border-rule bg-card-raised shadow-panel ${className}`}
     >
       {title && (
-        <header className="flex items-center justify-between gap-3 border-b border-rule px-4 py-3">
-          <h2 className="text-lead font-semibold">{title}</h2>
+        <header className="flex items-center justify-between gap-3 rounded-t-panel border-b border-rule bg-card px-4 py-3">
+          <h2 className="text-lead font-semibold text-ink">{title}</h2>
           {action}
         </header>
       )}
@@ -43,19 +44,65 @@ export function Figure({
   tone?: 'ink' | 'field' | 'oxide' | 'brass';
   hint?: string;
 }) {
-  const toneClass = {
-    ink: 'text-ink',
-    field: 'text-field',
-    oxide: 'text-oxide',
-    brass: 'text-brass',
+  const tones = {
+    ink: { text: 'text-ink', rule: 'bg-graphite', bg: 'bg-card-raised' },
+    field: { text: 'text-field-dark', rule: 'bg-field', bg: 'bg-field-wash' },
+    oxide: { text: 'text-oxide', rule: 'bg-oxide', bg: 'bg-oxide-wash' },
+    brass: { text: 'text-brass', rule: 'bg-brass-bright', bg: 'bg-brass-wash' },
   }[tone];
 
   return (
-    <div className="rounded-panel border border-rule bg-card-raised px-4 py-3 shadow-panel">
-      <div className="text-meta text-graphite">{label}</div>
-      <div className={`mt-1 text-figure font-bold ${toneClass}`}>{value}</div>
-      {hint && <div className="mt-0.5 text-micro text-graphite">{hint}</div>}
+    <div
+      className={`overflow-hidden rounded-panel border border-rule shadow-panel ${tones.bg}`}
+    >
+      <div className={`h-1 ${tones.rule}`} />
+      <div className="px-4 py-3">
+        <div className="text-meta font-semibold text-graphite">{label}</div>
+        <div className={`mt-0.5 text-figure font-bold ${tones.text}`}>{value}</div>
+        {hint && <div className="mt-0.5 text-micro text-graphite">{hint}</div>}
+      </div>
     </div>
+  );
+}
+
+/**
+ * Each item category gets its own hue, so a long table can be scanned by colour
+ * rather than read line by line.
+ */
+export function CategoryTag({ category }: { category: ItemCategory }) {
+  const tones: Record<ItemCategory, string> = {
+    WEAPON: 'bg-cat-weapon-wash text-cat-weapon border-cat-weapon/25',
+    OPTICS: 'bg-cat-optics-wash text-cat-optics border-cat-optics/25',
+    DRONE: 'bg-cat-drone-wash text-cat-drone border-cat-drone/25',
+    GEAR: 'bg-cat-gear-wash text-cat-gear border-cat-gear/25',
+  };
+  return (
+    <span
+      className={`inline-block whitespace-nowrap rounded-ctl border px-1.5 py-0.5 text-micro font-semibold ${tones[category]}`}
+    >
+      {he.categories[category]}
+    </span>
+  );
+}
+
+/**
+ * Marks an item's category inside a dense row. A short coloured bar rather than
+ * a dot: at table scale a 2px dot disappears, and the bar is still legible when
+ * the eye is moving quickly down a column of item names.
+ */
+export function CategoryDot({ category }: { category: ItemCategory }) {
+  const tones: Record<ItemCategory, string> = {
+    WEAPON: 'bg-cat-weapon',
+    OPTICS: 'bg-cat-optics',
+    DRONE: 'bg-cat-drone',
+    GEAR: 'bg-cat-gear',
+  };
+  return (
+    <span
+      aria-hidden
+      title={he.categories[category]}
+      className={`inline-flex h-4 w-1.5 shrink-0 rounded-sm ${tones[category]}`}
+    />
   );
 }
 
@@ -77,9 +124,11 @@ export function Button({
   className?: string;
 }) {
   const variants = {
-    primary: 'bg-field text-white hover:bg-field-dark disabled:bg-graphite',
-    quiet: 'border border-rule-strong bg-card-raised text-ink hover:bg-card disabled:text-graphite',
-    danger: 'bg-oxide text-white hover:brightness-90 disabled:bg-graphite',
+    primary:
+      'bg-field text-white shadow-panel hover:bg-field-dark disabled:bg-graphite disabled:shadow-none',
+    quiet:
+      'border border-rule-strong bg-card-raised text-ink hover:border-field hover:text-field-dark disabled:text-graphite',
+    danger: 'bg-oxide text-white shadow-panel hover:brightness-90 disabled:bg-graphite',
   };
   const sizes = { sm: 'px-2.5 py-1 text-meta', md: 'px-3.5 py-2 text-body' };
 
@@ -248,7 +297,7 @@ export function Th({
 }) {
   return (
     <th
-      className={`whitespace-nowrap border-b border-rule-strong px-3 py-2 text-meta font-semibold text-ink-soft ${
+      className={`whitespace-nowrap border-b-2 border-rule-strong bg-card px-3 py-2.5 text-meta font-semibold text-ink-soft ${
         numeric ? 'text-center' : 'text-start'
       } ${className}`}
     >

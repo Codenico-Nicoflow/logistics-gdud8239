@@ -8,6 +8,7 @@ import {
   Td,
   Th,
 } from '../../components/ui';
+
 import { he } from '../../i18n/he';
 import { COMPANIES } from '../../lib/types';
 
@@ -23,7 +24,7 @@ export function SummaryPage() {
       <h1 className="text-display font-bold">{he.summary.title}</h1>
       <Panel>
         <TableScroll>
-          <table className="w-full">
+          <table className="row-hover w-full">
             <thead>
               <tr>
                 <Th>{he.summary.item}</Th>
@@ -77,7 +78,7 @@ export function CompaniesPage() {
       <h1 className="text-display font-bold">{he.companiesReport.title}</h1>
       <Panel>
         <TableScroll>
-          <table className="w-full">
+          <table className="row-hover w-full">
             <thead>
               <tr>
                 <Th>{he.companiesReport.item}</Th>
@@ -95,7 +96,13 @@ export function CompaniesPage() {
                 <tr key={r.itemName}>
                   <Td className="font-semibold">{r.itemName}</Td>
                   {COMPANIES.map((c) => (
-                    <Td key={c} numeric className={r.byCompany[c] === 0 ? 'text-graphite' : undefined}>
+                    <Td
+                      key={c}
+                      numeric
+                      className={
+                        r.byCompany[c] === 0 ? 'text-graphite/60' : 'font-semibold text-field-dark'
+                      }
+                    >
                       {r.byCompany[c]}
                     </Td>
                   ))}
@@ -131,7 +138,7 @@ export function AllocationsPage() {
       ) : (
         <Panel>
           <TableScroll>
-            <table className="w-full">
+            <table className="row-hover w-full">
               <thead>
                 <tr>
                   <Th>{he.allocations.item}</Th>

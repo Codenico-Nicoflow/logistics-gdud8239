@@ -4,7 +4,8 @@ export type Role = 'admin' | 'logistics' | 'viewer';
 export type Company = 'A' | 'B' | 'C' | 'SUPPORT' | 'HQ';
 export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'GEAR';
 export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED';
-export type MovementAction = 'ISSUE' | 'RETURN' | 'IMPORT';
+/** דוח תנועות holds weapon movements only: an item given out, or taken back. */
+export type MovementAction = 'ISSUE' | 'RETURN';
 export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
 export type IssueKind =
   | 'MISSING_SERIAL'
@@ -76,14 +77,90 @@ export type Signature = {
 
 export type SummaryRow = {
   itemName: string;
+  itemId: string;
   catalogNo: string | null;
   issued: number;
-  inArmory: number;
+  /** Counted on the shelf; `null` until someone has counted. */
+  inArmory: number | null;
   faulty: number;
-  serviceable: number;
-  total: number;
+  serviceable: number | null;
+  total: number | null;
   authorized: number;
-  gap: number;
+  /** מצבה − (מנופק + נספר); `null` with no count to compare against. */
+  gap: number | null;
+  countedAt: string | null;
+};
+
+export type CountShift = 'EVENING' | 'MORNING';
+
+export type CountSheetRow = {
+  itemId: string;
+  itemName: string;
+  category: ItemCategory;
+  authorizedQty: number;
+  issued: number;
+  countedQty: number | null;
+  faultyQty: number;
+  gap: number | null;
+  notes: string | null;
+};
+
+export type CountSheet = {
+  session: { id: string; isClosed: boolean } | null;
+  rows: CountSheetRow[];
+  signers: Record<string, string | null>;
+};
+
+export type AttendanceStatus =
+  | 'PRESENT'
+  | 'LEAVING'
+  | 'RETURNING'
+  | 'ON_LEAVE'
+  | 'GIMELIM'
+  | 'CLOSED_ORDER'
+  | 'OTHER';
+
+export type Gender = 'M' | 'F';
+
+export type TeamMember = {
+  id: string;
+  nickname: string;
+  fullName: string | null;
+  personalNumber: string | null;
+  gender: Gender;
+  isActive: boolean;
+  sortOrder: number;
+};
+
+export type WeekRow = {
+  teamMemberId: string;
+  nickname: string;
+  gender: Gender;
+  cells: { status: AttendanceStatus | null; note: string | null }[];
+};
+
+export type Week = {
+  dates: string[];
+  rows: WeekRow[];
+  presentPerDay: number[];
+};
+
+export type DeletionCheck = {
+  canDelete: boolean;
+  issuedCount: number;
+  instanceCount: number;
+  historyCount: number;
+  reasons: string[];
+};
+
+export type PublicUser = {
+  id: string;
+  username: string;
+  displayName: string;
+  role: Role;
+  companyScope: Company | null;
+  isActive: boolean;
+  createdAt: string;
 };
 
 export type MatrixRow = {

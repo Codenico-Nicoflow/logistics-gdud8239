@@ -4,14 +4,19 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export type SummaryRow = {
   itemName: string;
+  itemId: string;
   catalogNo: string | null;
   issued: number;
-  inArmory: number;
+  /** Counted on the shelf. `null` until someone has actually counted. */
+  inArmory: number | null;
   faulty: number;
-  serviceable: number;
-  total: number;
+  serviceable: number | null;
+  total: number | null;
   authorized: number;
-  gap: number;
+  /** מצבה − (מנופק + נספר), or `null` when there is no count to compare against. */
+  gap: number | null;
+  /** When the figure in `inArmory` was counted. */
+  countedAt: Date | null;
 };
 
 export type MatrixRow = {
@@ -60,11 +65,15 @@ export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * The `מסכם` sheet, computed. `issued` is the sum of open signatures, so it can
-   * never drift from the signature data the way the hand-kept sheet did.
+   * The `מסכם` sheet.
    *
-   * `inArmory` prefers the most recent count line for the item; with no count on
-   * record it falls back to `authorized - issued`.
+   * `issued` is the sum of open signatures, so it cannot drift from the
+   * signature data the way the hand-kept sheet did. `inArmory` is the number
+   * counted on the shelf, which is entered by hand each evening — it is
+   * deliberately NOT derived from `authorized - issued`, because that formula
+   * forces the gap to zero and would hide exactly the discrepancy the count
+   * exists to find. Until an item has been counted it reports `null` rather
+   * than a number nobody verified.
    */
   async summary(): Promise<SummaryRow[]> {
     const items = await this.prisma.item.findMany({
@@ -90,18 +99,20 @@ export class ReportsService {
     return items.map((item) => {
       const issued = issuedByItem.get(item.id) ?? 0;
       const counted = countByItem.get(item.id);
-      const inArmory = counted ? counted.counted : Math.max(item.authorizedQty - issued, 0);
+      const inArmory = counted?.counted ?? null;
       const faulty = counted?.faulty ?? 0;
       return {
         itemName: item.name,
+        itemId: item.id,
         catalogNo: item.catalogNo,
         issued,
         inArmory,
         faulty,
-        serviceable: inArmory - faulty,
-        total: issued + inArmory,
+        serviceable: inArmory === null ? null : inArmory - faulty,
+        total: inArmory === null ? null : issued + inArmory,
         authorized: item.authorizedQty,
-        gap: item.authorizedQty - (issued + inArmory),
+        gap: inArmory === null ? null : item.authorizedQty - (issued + inArmory),
+        countedAt: counted ? (latestSession?.sessionDate ?? null) : null,
       };
     });
   }
@@ -148,12 +159,13 @@ export class ReportsService {
 
     return items.map((item) => {
       const byCompany = byItem.get(item.id) ?? emptyByCompany();
-      const issued = totals.get(item.id) ?? 0;
       return {
         itemName: item.name,
         byCompany,
         total: COMPANIES.reduce((sum, c) => sum + byCompany[c], 0),
-        inArmory: Math.max(item.authorizedQty - issued, 0),
+        // Unissued stock, which is what the sheet's בנשקיה column means here.
+        // The counted figure lives in the מסכם report, where it is entered.
+        inArmory: Math.max(item.authorizedQty - (totals.get(item.id) ?? 0), 0),
       };
     });
   }
