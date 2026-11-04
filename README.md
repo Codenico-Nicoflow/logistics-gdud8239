@@ -163,3 +163,43 @@ An import sets `signed_by_user_id` on every restored signature to the user who
 ran it. That user therefore cannot be deleted afterwards — the foreign key is
 deliberate, since an orphaned audit trail is worse than an undeletable row.
 Deactivate such an account instead.
+
+## Frontend
+
+```bash
+npm run db:up
+npm run dev:api     # http://localhost:3000/api
+npm run dev:web     # http://localhost:5173
+```
+
+React 19 + Vite + RTK Query + Tailwind. Hebrew only, `dir="rtl"` throughout,
+with every string in `src/i18n/he.ts` so nothing English can leak into the UI
+and wording changes in one place.
+
+### Design
+
+The interface is a working tool used during a shift, often on a phone, so
+density and legibility come before decoration. The palette is drawn from
+field-manual stationery — ink on grey card stock — with **brass reserved for
+serial numbers**, since those are the one value stamped on metal and the one
+most costly to get wrong. Numbers are set in tabular figures so counts and
+serials line up down a column.
+
+One screen gets the design attention: **ניפוק**. A mistake there records a
+weapon against the wrong soldier, so it is a three-step sequence where the
+serial field is oversized and framed, and the confirm button stays disabled
+until a serial is entered — the same rule the API enforces.
+
+### Screens
+
+| Route | Screen | Who |
+|---|---|---|
+| `/` | לוח בקרה — totals, per-company bars, gaps, recent movements | all |
+| `/issue` | ניפוק — the signing flow | admin, logistics |
+| `/signatures` | חתימות — search and filter, with זיכוי | all |
+| `/attention` | דרוש טיפול — flagged import rows, with serial backfill | all |
+| `/summary` | מסכם | all |
+| `/companies` | פלוגות | all |
+| `/allocations` | הקצאות, with נשאר לחתום computed | all |
+| `/movements` | דוח תנועות — filterable audit log | all |
+| `/backups` | גיבויים — export, import, snapshots | admin |
