@@ -5,7 +5,10 @@ build/
 .env.local
 *.log
 .DS_Store
-data/snapshots/
+# Generated backups of live data — soldiers' names, personal numbers and
+# phone numbers. `**/` is required: a pattern with a slash in the middle is
+# anchored to the repo root, so plain `data/snapshots/` missed apps/api's.
+**/data/snapshots/
 coverage/
 apps/web/dist/
 apps/api/dist/
