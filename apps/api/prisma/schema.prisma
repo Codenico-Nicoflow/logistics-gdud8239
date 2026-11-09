@@ -164,8 +164,11 @@ model Item {
   name           String       @unique
   aliases        String[]     @default([])
   category       ItemCategory
-  catalogNo      String?      @map("catalog_no")
   isSerialized   Boolean      @default(true) @map("is_serialized")
+  /// Whether the item appears in מסכם and in the ספירת נשקיה sheet derived from
+  /// it. The catalog holds items nobody tracks daily (priced gear, zero-stock
+  /// spares); listing them all would make the evening count unusable.
+  inSummary      Boolean      @default(true) @map("in_summary")
   authorizedQty  Int          @default(0) @map("authorized_qty")
   unitPrice      Decimal?     @map("unit_price") @db.Decimal(10, 2)
   isActive       Boolean      @default(true) @map("is_active")

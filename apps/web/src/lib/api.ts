@@ -225,8 +225,8 @@ export const api = createApi({
         name: string;
         category: ItemCategory;
         isSerialized: boolean;
+        inSummary?: boolean;
         authorizedQty: number;
-        catalogNo?: string;
         aliases?: string[];
       }
     >({

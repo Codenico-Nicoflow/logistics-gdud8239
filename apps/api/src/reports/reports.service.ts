@@ -5,7 +5,6 @@ import { PrismaService } from '../prisma/prisma.service';
 export type SummaryRow = {
   itemName: string;
   itemId: string;
-  catalogNo: string | null;
   issued: number;
   /** Counted on the shelf. `null` until someone has actually counted. */
   inArmory: number | null;
@@ -74,10 +73,14 @@ export class ReportsService {
    * forces the gap to zero and would hide exactly the discrepancy the count
    * exists to find. Until an item has been counted it reports `null` rather
    * than a number nobody verified.
+   *
+   * Only items flagged `inSummary` are listed. The catalog also holds priced
+   * gear and zero-stock spares that nobody counts nightly, and including them
+   * buried the figures that matter.
    */
   async summary(): Promise<SummaryRow[]> {
     const items = await this.prisma.item.findMany({
-      where: { isActive: true },
+      where: { isActive: true, inSummary: true },
       orderBy: { name: 'asc' },
     });
 
@@ -104,7 +107,6 @@ export class ReportsService {
       return {
         itemName: item.name,
         itemId: item.id,
-        catalogNo: item.catalogNo,
         issued,
         inArmory,
         faulty,

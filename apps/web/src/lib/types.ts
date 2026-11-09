@@ -44,8 +44,10 @@ export type Item = {
   name: string;
   aliases: string[];
   category: ItemCategory;
-  catalogNo: string | null;
+  /** Whether a מסד is mandatory when signing this item out. */
   isSerialized: boolean;
+  /** Whether the item appears in מסכם and in ספירת נשקיה. */
+  inSummary: boolean;
   authorizedQty: number;
   unitPrice: string | null;
   isActive: boolean;
@@ -78,7 +80,6 @@ export type Signature = {
 export type SummaryRow = {
   itemName: string;
   itemId: string;
-  catalogNo: string | null;
   issued: number;
   /** Counted on the shelf; `null` until someone has counted. */
   inArmory: number | null;

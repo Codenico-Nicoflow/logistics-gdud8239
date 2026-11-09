@@ -3,7 +3,7 @@ import { Company, IssueKind, Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
-import { COMPANY_FROM_HE, SHEET } from './excel.constants';
+import { COMPANY_FROM_HE, COMPANY_HE, SHEET } from './excel.constants';
 
 /** Placeholder item for rows whose `סוג` column is empty. */
 const UNKNOWN_ITEM_NAME = 'לא מזוהה';
@@ -295,7 +295,14 @@ export class ExcelImportService {
         await tx.importIssue.deleteMany();
         await tx.signature.deleteMany();
         await tx.itemInstance.deleteMany();
-        await tx.soldier.deleteMany();
+        // A soldier named in דוח תנועות cannot be deleted: the audit log keeps
+        // its foreign key precisely so history cannot be orphaned. Those rows
+        // are deactivated and re-matched below, so the import re-attaches to
+        // the existing soldier instead of creating a duplicate. Soldiers with
+        // no history are deleted outright, which keeps the wipe clean.
+        await tx.soldier.deleteMany({ where: { movements: { none: {} } } });
+        await tx.soldier.updateMany({ data: { isActive: false } });
+        const survivors = await tx.soldier.findMany();
 
         const items = await tx.item.findMany();
         const itemByName = new Map<string, (typeof items)[number]>();
@@ -318,6 +325,15 @@ export class ExcelImportService {
         }
 
         const soldierCache = new Map<string, string>();
+        // Keyed exactly as the row loop keys an incoming row, so a surviving
+        // soldier is found rather than re-created.
+        for (const s of survivors) {
+          if (s.personalNumber) soldierCache.set(`pn:${s.personalNumber}`, s.id);
+          soldierCache.set(
+            `nm:${s.firstName}|${s.lastName}|${COMPANY_HE[s.company]}`,
+            s.id,
+          );
+        }
         const activeSerialHolder = new Map<string, string>();
         const instanceCache = new Map<string, string>();
         const activeBulk = new Map<string, string>();
@@ -382,13 +398,33 @@ export class ExcelImportService {
             soldierId = created.id;
             soldierCache.set(key, soldierId);
             soldiersCreated++;
+          } else {
+            // A soldier kept for its audit history: bring it back and refresh
+            // the details from the file, which is now the source of truth.
+            await tx.soldier.update({
+              where: { id: soldierId },
+              data: {
+                firstName: r.firstName || '(לא ידוע)',
+                lastName: r.lastName || '(לא ידוע)',
+                personalNumber: r.personalNumber,
+                phone: r.phone,
+                company,
+                platoon: r.platoon,
+                receiptNo: r.receiptNo,
+                isActive: true,
+              },
+            });
           }
 
           // Collisions are detected before inserting: the partial unique indexes
           // are the real guarantee, and in PostgreSQL a failed statement aborts
           // the whole transaction, so they cannot be caught and skipped.
           let itemInstanceId: string | null = null;
-          if (item.isSerialized) {
+          // A serial is used whenever the file supplies one, even for an item
+          // the catalog calls bulk — the number in the sheet is real and
+          // discarding it would lose data on import. The flag only decides
+          // whether a MISSING serial is an issue to flag.
+          if (item.isSerialized || r.serial) {
             if (!r.serial) {
               rowIssues.push({
                 kind: 'MISSING_SERIAL',

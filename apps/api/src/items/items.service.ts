@@ -60,8 +60,8 @@ export class ItemsService {
         name: dto.name.trim(),
         aliases: dto.aliases ?? [],
         category: dto.category,
-        catalogNo: dto.catalogNo ?? null,
         isSerialized: dto.isSerialized,
+        ...(dto.inSummary !== undefined ? { inSummary: dto.inSummary } : {}),
         authorizedQty: dto.authorizedQty,
         unitPrice: dto.unitPrice ?? null,
       },
@@ -99,8 +99,8 @@ export class ItemsService {
         ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
         ...(dto.aliases !== undefined ? { aliases: dto.aliases } : {}),
         ...(dto.category !== undefined ? { category: dto.category } : {}),
-        ...(dto.catalogNo !== undefined ? { catalogNo: dto.catalogNo } : {}),
         ...(dto.isSerialized !== undefined ? { isSerialized: dto.isSerialized } : {}),
+        ...(dto.inSummary !== undefined ? { inSummary: dto.inSummary } : {}),
         ...(dto.authorizedQty !== undefined ? { authorizedQty: dto.authorizedQty } : {}),
         ...(dto.unitPrice !== undefined ? { unitPrice: dto.unitPrice } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
@@ -111,9 +111,10 @@ export class ItemsService {
   async addInstance(itemId: string, dto: CreateInstanceDto) {
     const item = await this.prisma.item.findUnique({ where: { id: itemId } });
     if (!item) throw new NotFoundException('הפריט אינו קיים');
-    if (!item.isSerialized) {
-      throw new BadRequestException(`הפריט "${item.name}" אינו פריט מסד`);
-    }
+    // Deliberately not gated on `isSerialized`: staff do record a מסד for
+    // items the catalog calls bulk, and refusing it only pushed the number into
+    // a notes field where nothing can search it. `isSerialized` means a serial
+    // is *required*, not that it is the only item allowed to have one.
 
     const serial = dto.serial.trim();
     const clash = await this.prisma.itemInstance.findUnique({
