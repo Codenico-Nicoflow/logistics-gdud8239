@@ -26,6 +26,10 @@ import type {
   LatestCount,
   NewSoldier,
   SoldierDetail,
+  Kit,
+  IssueForm,
+  IssueFormSummary,
+  NewIssueForm,
 } from './types';
 
 /**
@@ -73,6 +77,8 @@ export const api = createApi({
     'Counts',
     'Attendance',
     'Users',
+    'Kits',
+    'IssueForms',
   ],
   endpoints: (build) => ({
     // --- auth ---
@@ -334,6 +340,41 @@ export const api = createApi({
       query: (id) => ({ url: `/users/${id}/reset-password`, method: 'POST' }),
     }),
 
+    // --- טופס 1008 ---
+    kits: build.query<Kit[], void>({
+      query: () => '/kits',
+      providesTags: ['Kits'],
+    }),
+    createKit: build.mutation<Kit, { name: string; notes?: string; lines: { itemId: string; quantity: number }[] }>({
+      query: (body) => ({ url: '/kits', method: 'POST', body }),
+      invalidatesTags: ['Kits'],
+    }),
+    updateKit: build.mutation<
+      Kit,
+      { id: string; name?: string; notes?: string; isActive?: boolean; lines?: { itemId: string; quantity: number }[] }
+    >({
+      query: ({ id, ...body }) => ({ url: `/kits/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['Kits'],
+    }),
+    deleteKit: build.mutation<{ deleted: true }, string>({
+      query: (id) => ({ url: `/kits/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Kits'],
+    }),
+
+    issueForms: build.query<Paginated<IssueFormSummary>, { soldierId?: string; take?: number; skip?: number }>({
+      query: (params) => ({ url: '/issue-forms', params }),
+      providesTags: ['IssueForms'],
+    }),
+    issueForm: build.query<IssueForm, string>({
+      query: (id) => `/issue-forms/${id}`,
+      providesTags: ['IssueForms'],
+    }),
+    /** A whole handover against one signature — everything the 1008 covers. */
+    createIssueForm: build.mutation<IssueForm, NewIssueForm>({
+      query: (body) => ({ url: '/issue-forms', method: 'POST', body }),
+      invalidatesTags: ['IssueForms', 'Signatures', 'Reports', 'Movements', 'Soldiers', 'Items'],
+    }),
+
     // --- excel ---
     previewImport: build.mutation<ImportPreview, FormData>({
       query: (body) => ({ url: '/excel/import/preview', method: 'POST', body }),
@@ -395,4 +436,11 @@ export const {
   useCreateUserMutation,
   useUpdateUserMutation,
   useResetPasswordMutation,
+  useKitsQuery,
+  useCreateKitMutation,
+  useUpdateKitMutation,
+  useDeleteKitMutation,
+  useIssueFormsQuery,
+  useIssueFormQuery,
+  useCreateIssueFormMutation,
 } = api;

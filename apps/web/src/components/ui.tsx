@@ -74,6 +74,7 @@ export function CategoryTag({ category }: { category: ItemCategory }) {
     WEAPON: 'bg-cat-weapon-wash text-cat-weapon border-cat-weapon/25',
     OPTICS: 'bg-cat-optics-wash text-cat-optics border-cat-optics/25',
     DRONE: 'bg-cat-drone-wash text-cat-drone border-cat-drone/25',
+    ACCESSORY: 'bg-cat-accessory-wash text-cat-accessory border-cat-accessory/25',
     GEAR: 'bg-cat-gear-wash text-cat-gear border-cat-gear/25',
   };
   return (
@@ -95,6 +96,7 @@ export function CategoryDot({ category }: { category: ItemCategory }) {
     WEAPON: 'bg-cat-weapon',
     OPTICS: 'bg-cat-optics',
     DRONE: 'bg-cat-drone',
+    ACCESSORY: 'bg-cat-accessory',
     GEAR: 'bg-cat-gear',
   };
   return (

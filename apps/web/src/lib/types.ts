@@ -2,7 +2,7 @@
 
 export type Role = 'admin' | 'logistics' | 'viewer';
 export type Company = 'A' | 'B' | 'C' | 'SUPPORT' | 'HQ';
-export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'GEAR';
+export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR';
 export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED';
 /** דוח תנועות holds weapon movements only: an item given out, or taken back. */
 export type MovementAction = 'ISSUE' | 'RETURN';
@@ -79,6 +79,10 @@ export type Item = {
   authorizedQty: number;
   unitPrice: string | null;
   isActive: boolean;
+  /** The quantity a 1008 starts at for this item — 5 for מחסנית, 1 for most. */
+  defaultQty: number;
+  /** How the printed form counts it: יח', זוג, ק"ג. */
+  unitOfMeasure: string;
 };
 
 export type ItemInstance = {
@@ -287,4 +291,83 @@ export type ImportPreview = {
   issues: { kind: IssueKind; count: number; examples: string[] }[];
   perItem: { itemName: string; count: number }[];
   perCompany: { company: string; count: number }[];
+};
+
+// --- טופס 1008: kits and signed handover forms ---
+
+/**
+ * A kit is a named standard handover — `ערכת M-4` is the rifle plus the
+ * magazines, sling and cleaning kit that always go out with it. Picking one
+ * fills the basket; every line stays editable, so the kit is a starting point
+ * rather than a rule.
+ */
+export type Kit = {
+  id: string;
+  name: string;
+  notes: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  lines: KitLine[];
+};
+
+export type KitLine = {
+  id: string;
+  kitId: string;
+  itemId: string;
+  quantity: number;
+  sortOrder: number;
+  item: {
+    id: string;
+    name: string;
+    category: ItemCategory;
+    isSerialized: boolean;
+    unitOfMeasure: string;
+  };
+};
+
+/** One line as it was handed over. Snapshots, so the form stays true later. */
+export type IssueFormLine = {
+  id: string;
+  itemId: string;
+  itemNameSnapshot: string;
+  serialSnapshot: string | null;
+  quantity: number;
+  unitOfMeasure: string;
+  lineNotes: string | null;
+};
+
+export type IssueForm = {
+  id: string;
+  formNo: number;
+  soldierId: string;
+  soldierNameSnapshot: string;
+  personalNumberSnapshot: string | null;
+  companySnapshot: Company;
+  phoneSnapshot: string | null;
+  receiptNo: string | null;
+  signedAt: string;
+  issuedByNameSnapshot: string;
+  notes: string | null;
+  lines: IssueFormLine[];
+};
+
+/** The list view omits the signature image and the soldier's phone. */
+export type IssueFormSummary = {
+  id: string;
+  formNo: number;
+  soldierNameSnapshot: string;
+  personalNumberSnapshot: string | null;
+  companySnapshot: Company;
+  signedAt: string;
+  issuedByNameSnapshot: string;
+  lines: { itemNameSnapshot: string; serialSnapshot: string | null; quantity: number }[];
+};
+
+/** What the 1008 screen sends: the whole basket against one signature. */
+export type NewIssueForm = {
+  soldierId: string;
+  lines: { itemId: string; serial?: string; quantity: number; lineNotes?: string }[];
+  signatureImage: string;
+  receiptNo?: string;
+  notes?: string;
 };
