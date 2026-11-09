@@ -14,6 +14,10 @@ export type SeedItem = {
   category: ItemCategory;
   isSerialized: boolean;
   authorizedQty: number;
+  /** Pre-filled on the issue form. Defaults to 1 when not given. */
+  defaultQty?: number;
+  /** Defaults to true; false keeps the item out of מסכם and the count sheet. */
+  inSummary?: boolean;
 };
 
 export const CATALOG: SeedItem[] = [
@@ -65,6 +69,20 @@ export const CATALOG: SeedItem[] = [
   { name: 'רחפן אווטה', category: 'DRONE', isSerialized: true, authorizedQty: 22 },
   { name: 'רחפן איבו', category: 'DRONE', isSerialized: true, authorizedQty: 6 },
   { name: 'שלט לאווטה', category: 'DRONE', isSerialized: true, authorizedQty: 6 },
+];
+
+/**
+ * `אבזור` — what goes out with a weapon.
+ *
+ * Signed for on the 1008 like anything else, but carries no מסד and is absent
+ * from the nightly count, so the armory is not asked to tally magazines every
+ * evening. The quantities are what a soldier normally receives; the operator
+ * changes them per issue.
+ */
+export const ACCESSORIES: SeedItem[] = [
+  { name: 'מחסנית', category: 'ACCESSORY', isSerialized: false, authorizedQty: 0, defaultQty: 5, inSummary: false },
+  { name: 'רצועה', category: 'ACCESSORY', isSerialized: false, authorizedQty: 0, defaultQty: 1, inSummary: false },
+  { name: 'מק פורק', category: 'ACCESSORY', isSerialized: false, authorizedQty: 0, defaultQty: 1, inSummary: false },
 ];
 
 /** `מחירון פריטים` sheet — priced gear, used by the v2 uniform module. */

@@ -59,6 +59,30 @@ type SoldierRef = {
   company: Company;
 };
 
+/** The same search as `searchClauses`, expressed against a soldier row. */
+function soldierClauses(raw: string): Prisma.SoldierWhereInput[] {
+  const q = raw.trim();
+  const clauses: Prisma.SoldierWhereInput[] = [
+    { firstName: { contains: q, mode: 'insensitive' } },
+    { lastName: { contains: q, mode: 'insensitive' } },
+    { personalNumber: { contains: q } },
+    // A מסד identifies a weapon, and the person holding it is the answer.
+    { signatures: { some: { returnedAt: null, itemInstance: { serial: { contains: q } } } } },
+  ];
+
+  const parts = q.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const [first, ...rest] = parts;
+    clauses.push({
+      AND: [
+        { firstName: { contains: first as string, mode: 'insensitive' } },
+        { lastName: { contains: rest.join(' '), mode: 'insensitive' } },
+      ],
+    });
+  }
+  return clauses;
+}
+
 @Injectable()
 export class SignaturesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -84,6 +108,63 @@ export class SignaturesService {
       this.prisma.signature.count({ where }),
     ]);
     return { rows, total };
+  }
+
+  /**
+   * חתימות grouped by soldier — one row per person, not per item.
+   *
+   * Once a handover is a rifle plus five magazines, a sling and a cleaning
+   * kit, a flat list of signatures is five rows for one event and thousands
+   * overall. The question the screen answers is "who holds what", and that is
+   * one row per soldier with their items underneath.
+   */
+  async holders(query: QuerySignaturesDto): Promise<Paginated<unknown>> {
+    const where: Prisma.SoldierWhereInput = {
+      signatures: { some: { returnedAt: null } },
+      ...(query.company ? { company: query.company } : {}),
+      ...(query.itemId ? { signatures: { some: { returnedAt: null, itemId: query.itemId } } } : {}),
+      ...(query.needsAttentionOnly
+        ? { signatures: { some: { returnedAt: null, needsAttention: true } } }
+        : {}),
+      ...(query.q ? { OR: soldierClauses(query.q) } : {}),
+    };
+
+    const [soldiers, total] = await Promise.all([
+      this.prisma.soldier.findMany({
+        where,
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        skip: query.skip ?? 0,
+        take: query.take ?? 50,
+        include: {
+          signatures: {
+            where: { returnedAt: null },
+            include: { item: true, itemInstance: true },
+            orderBy: [{ signedAt: 'desc' }],
+          },
+          issueForms: {
+            orderBy: { signedAt: 'desc' },
+            select: { id: true, formNo: true, signedAt: true },
+          },
+        },
+      }),
+      this.prisma.soldier.count({ where }),
+    ]);
+
+    return {
+      rows: soldiers.map((s) => ({
+        id: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        personalNumber: s.personalNumber,
+        phone: s.phone,
+        company: s.company,
+        itemCount: s.signatures.length,
+        needsAttention: s.signatures.some((sig) => sig.needsAttention),
+        signatures: s.signatures,
+        forms: s.issueForms,
+      })),
+      total,
+    };
   }
 
   /**

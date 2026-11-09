@@ -23,10 +23,15 @@ enum Company {
 }
 
 enum ItemCategory {
-  WEAPON @map("נשק")
-  OPTICS @map("אופטיקה")
-  DRONE  @map("רחפן")
-  GEAR   @map("ציוד")
+  WEAPON    @map("נשק")
+  OPTICS    @map("אופטיקה")
+  DRONE     @map("רחפן")
+  /// Magazines, slings, cleaning kits. Signed for on the 1008 like anything
+  /// else, but carries no מסד and is never counted in the nightly ספירה —
+  /// which is `isSerialized: false` plus `inSummary: false`, not a rule of
+  /// its own. The category exists to group them in the catalog and the form.
+  ACCESSORY @map("אבזור")
+  GEAR      @map("ציוד")
 }
 
 enum InstanceStatus {
@@ -94,6 +99,7 @@ model User {
   movements          Movement[]
   countSessions      CountSession[]
   snapshots          Snapshot[]
+  issueForms         IssueForm[]
 
   @@map("users")
 }
@@ -136,6 +142,7 @@ model Soldier {
 
   signatures Signature[]
   movements  Movement[]
+  issueForms IssueForm[]
 
   @@index([lastName, firstName])
   @@index([company])
@@ -170,6 +177,12 @@ model Item {
   /// spares); listing them all would make the evening count unusable.
   inSummary      Boolean      @default(true) @map("in_summary")
   authorizedQty  Int          @default(0) @map("authorized_qty")
+  /// Pre-filled on the issue form — five מחסניות, one רצועה. The operator can
+  /// change it, including to zero, which drops the line from the form.
+  defaultQty     Int          @default(1) @map("default_qty")
+  /// `י"ח` on the 1008 — the unit the quantity is counted in. Almost always
+  /// יח', but the paper form has the column so some items are not.
+  unitOfMeasure  String       @default("יח'") @map("unit_of_measure")
   unitPrice      Decimal?     @map("unit_price") @db.Decimal(10, 2)
   isActive       Boolean      @default(true) @map("is_active")
   createdAt      DateTime     @default(now()) @map("created_at")
@@ -179,6 +192,8 @@ model Item {
   allocations Allocation[]
   countLines  CountLine[]
   movements   Movement[]
+  formLines   IssueFormLine[]
+  kitLines    KitLine[]
 
   @@map("items")
 }
@@ -229,6 +244,116 @@ model Signature {
   @@index([returnedAt])
   @@index([needsAttention])
   @@map("signatures")
+}
+
+/// A standard handover: `ערכת M-4` is the rifle, five magazines, a sling and
+/// a cleaning kit.
+///
+/// Choosing a kit fills the form's lines with their usual quantities, which
+/// the operator then edits — a soldier who declines a magazine gets a form
+/// that says so. The kit is a starting point, never a constraint: nothing
+/// stops a line being removed or another item added alongside it.
+model Kit {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  notes     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lines KitLine[]
+
+  @@map("kits")
+}
+
+model KitLine {
+  id     String @id @default(uuid())
+  kitId  String @map("kit_id")
+  itemId String @map("item_id")
+  /// What this kit normally includes, which may differ from the item's own
+  /// default — a sniper kit might carry three magazines where a rifle carries
+  /// five.
+  quantity Int  @default(1)
+  sortOrder Int @default(0) @map("sort_order")
+
+  kit  Kit  @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([kitId, itemId])
+  @@index([kitId])
+  @@map("kit_lines")
+}
+
+/// `טופס 1008` — one signing event covering everything a soldier received at
+/// once: a weapon with its מסד alongside the magazines, sling and cleaning kit
+/// that go with it.
+///
+/// The soldier's drawn signature is captured on the device at the counter and
+/// stored here, so the form can be reproduced exactly as it was agreed to.
+/// Every detail is snapshotted rather than joined: the form is evidence of
+/// what was signed on a date, and must not change because a soldier later
+/// moved company or an item was renamed.
+model IssueForm {
+  id          String   @id @default(uuid())
+  /// Sequential, human-quotable form number. Printed on the PDF.
+  formNo      Int      @unique @default(autoincrement()) @map("form_no")
+  soldierId   String   @map("soldier_id")
+
+  /// `פרטי החייל השואל` — the borrower, as they were when they signed.
+  soldierNameSnapshot String  @map("soldier_name_snapshot")
+  personalNumberSnapshot String? @map("personal_number_snapshot")
+  companySnapshot     Company @map("company_snapshot")
+  phoneSnapshot       String? @map("phone_snapshot")
+
+  /// `מס קבלה` in the header box of the paper form.
+  receiptNo      String?  @map("receipt_no")
+
+  /// PNG data URL of the borrower's signature, drawn on the device.
+  signatureImage String  @map("signature_image")
+  signedAt       DateTime @default(now()) @map("signed_at")
+
+  /// `פרטי החייל המשאיל` — the issuer. Their own signature is drawn too, so
+  /// the printed form carries both halves the paper one has.
+  issuedByUserId String  @map("issued_by_user_id")
+  issuedByNameSnapshot String @map("issued_by_name_snapshot")
+  issuerPersonalNumber String? @map("issuer_personal_number")
+  issuerSignatureImage String? @map("issuer_signature_image")
+
+  notes          String?
+
+  soldier Soldier         @relation(fields: [soldierId], references: [id], onDelete: Restrict)
+  issuedBy User           @relation(fields: [issuedByUserId], references: [id])
+  lines   IssueFormLine[]
+
+  @@index([soldierId])
+  @@index([signedAt])
+  @@map("issue_forms")
+}
+
+/// One line of a 1008: an item, how many, and its מסד when it has one.
+model IssueFormLine {
+  id          String  @id @default(uuid())
+  issueFormId String  @map("issue_form_id")
+  itemId      String  @map("item_id")
+  /// Snapshotted for the same reason as the soldier's name.
+  itemNameSnapshot String @map("item_name_snapshot")
+  /// `מזהה` on the paper form: the weapon's serial, known as מסד or צ׳.
+  serialSnapshot   String? @map("serial_snapshot")
+  /// `י"ח` — the unit the quantity is counted in, as it was when signed.
+  unitOfMeasure    String  @default("יח'") @map("unit_of_measure")
+  quantity    Int     @default(1)
+  /// `הערות` — the per-line note column the paper form has.
+  lineNotes        String? @map("line_notes")
+  /// The signature this line created, so a return can be traced back to the
+  /// form it was issued on. Not a foreign key: an Excel import replaces every
+  /// signature, and a signed form must outlive that.
+  signatureId String? @map("signature_id")
+
+  issueForm IssueForm @relation(fields: [issueFormId], references: [id], onDelete: Cascade)
+  item      Item      @relation(fields: [itemId], references: [id])
+
+  @@index([issueFormId])
+  @@map("issue_form_lines")
 }
 
 // Append-only audit log. No update/delete route exists for this table.
