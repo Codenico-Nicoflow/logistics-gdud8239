@@ -16,6 +16,24 @@ export type WeekRow = {
   cells: WeekCell[];
 };
 
+export type TodayMember = {
+  teamMemberId: string;
+  nickname: string;
+  gender: Gender;
+  status: AttendanceStatus | null;
+  note: string | null;
+};
+
+export type Today = {
+  date: string;
+  /** Grouped by status so the dashboard can show each bucket by name. */
+  byStatus: { status: AttendanceStatus; members: TodayMember[] }[];
+  /** Nobody has filled this person's cell for today. */
+  unmarked: TodayMember[];
+  present: number;
+  total: number;
+};
+
 export type Week = {
   /** Sunday through Saturday, ISO dates. */
   dates: string[];
@@ -92,6 +110,53 @@ export class AttendanceService {
     );
 
     return { dates, rows, presentPerDay };
+  }
+
+  /**
+   * Today's roster, grouped by status.
+   *
+   * The weekly grid answers "what does the week look like"; this answers the
+   * question actually asked at the start of a shift — who is on base right
+   * now. People with no cell filled are listed separately rather than counted
+   * as absent, because a blank means nobody has said yet.
+   */
+  async today(isoDate?: string): Promise<Today> {
+    const date = isoDate ? new Date(isoDate) : new Date();
+    if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
+    const day = toIsoDate(date);
+
+    const [members, records] = await Promise.all([
+      this.listMembers(),
+      this.prisma.attendance.findMany({ where: { date: new Date(day) } }),
+    ]);
+    const byMember = new Map(records.map((r) => [r.teamMemberId, r]));
+
+    const all: TodayMember[] = members.map((m) => {
+      const record = byMember.get(m.id);
+      return {
+        teamMemberId: m.id,
+        nickname: m.nickname,
+        gender: m.gender,
+        status: record?.status ?? null,
+        note: record?.note ?? null,
+      };
+    });
+
+    const grouped = new Map<AttendanceStatus, TodayMember[]>();
+    for (const member of all) {
+      if (!member.status) continue;
+      const list = grouped.get(member.status) ?? [];
+      list.push(member);
+      grouped.set(member.status, list);
+    }
+
+    return {
+      date: day,
+      byStatus: [...grouped.entries()].map(([status, list]) => ({ status, members: list })),
+      unmarked: all.filter((m) => m.status === null),
+      present: all.filter((m) => m.status !== null && PRESENT_STATUSES.includes(m.status)).length,
+      total: all.length,
+    };
   }
 
   /**

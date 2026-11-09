@@ -145,6 +145,70 @@ export class CountsService {
     });
   }
 
+  /**
+   * Status of the most recent count, for the dashboard.
+   *
+   * What matters at the start of a shift is whether last night's count was
+   * actually done, how much of it was filled in, and what did not match. An
+   * item nobody counted is reported separately from an item that was counted
+   * and disagreed — the first is unfinished work, the second is a discrepancy.
+   */
+  async latest(): Promise<{
+    session: {
+      id: string;
+      sessionDate: Date;
+      shift: CountShift;
+      isClosed: boolean;
+      recordedBy: string | null;
+    } | null;
+    countedItems: number;
+    totalItems: number;
+    mismatches: { itemName: string; gap: number }[];
+  }> {
+    const [session, items, issuedRows] = await Promise.all([
+      this.prisma.countSession.findFirst({
+        orderBy: [{ sessionDate: 'desc' }, { recordedAt: 'desc' }],
+        include: { lines: true, recordedBy: { select: { displayName: true } } },
+      }),
+      this.prisma.item.findMany({ where: { isActive: true, inSummary: true } }),
+      this.prisma.signature.groupBy({
+        by: ['itemId'],
+        where: { returnedAt: null },
+        _sum: { quantity: true },
+      }),
+    ]);
+
+    if (!session) {
+      return { session: null, countedItems: 0, totalItems: items.length, mismatches: [] };
+    }
+
+    const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
+    const lineByItem = new Map(session.lines.map((l) => [l.itemId, l]));
+
+    const mismatches: { itemName: string; gap: number }[] = [];
+    let countedItems = 0;
+    for (const item of items) {
+      const line = lineByItem.get(item.id);
+      if (!line) continue;
+      countedItems++;
+      const gap = item.authorizedQty - ((issuedByItem.get(item.id) ?? 0) + line.countedQty);
+      if (gap !== 0) mismatches.push({ itemName: item.name, gap });
+    }
+
+    return {
+      session: {
+        id: session.id,
+        sessionDate: session.sessionDate,
+        shift: session.shift,
+        isClosed: session.isClosed,
+        recordedBy: session.recordedBy?.displayName ?? null,
+      },
+      countedItems,
+      totalItems: items.length,
+      mismatches: mismatches.sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap)),
+    };
+  }
+
   /** Closing freezes a count so the evening figure cannot drift afterwards. */
   async close(id: string): Promise<{ id: string; isClosed: boolean }> {
     const session = await this.prisma.countSession.findUnique({ where: { id } });

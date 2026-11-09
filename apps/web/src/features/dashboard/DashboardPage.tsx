@@ -1,24 +1,24 @@
 import { Link } from 'react-router-dom';
 import {
   useCompanyMatrixQuery,
-  useMovementsQuery,
+  useLatestCountQuery,
+  useMeQuery,
   useNeedsAttentionQuery,
   useSummaryQuery,
+  useTodayQuery,
 } from '../../lib/api';
 import {
   EmptyState,
   Figure,
   Panel,
-  Serial,
   Spinner,
   TableScroll,
   Tag,
   Td,
   Th,
-  formatDateTime,
 } from '../../components/ui';
 import { he } from '../../i18n/he';
-import { COMPANIES, type Company } from '../../lib/types';
+import { COMPANIES, type AttendanceStatus, type Company, type TodayMember } from '../../lib/types';
 
 /** A distinct shade per company, so the bars are comparable and identifiable. */
 const COMPANY_COLOR: Record<Company, string> = {
@@ -29,11 +29,32 @@ const COMPANY_COLOR: Record<Company, string> = {
   HQ: 'var(--brass-bright)',
 };
 
+const STATUS_TONE: Record<AttendanceStatus, 'field' | 'brass' | 'oxide' | 'neutral'> = {
+  PRESENT: 'field',
+  RETURNING: 'field',
+  LEAVING: 'brass',
+  ON_LEAVE: 'neutral',
+  GIMELIM: 'oxide',
+  CLOSED_ORDER: 'oxide',
+  OTHER: 'neutral',
+};
+
+/** Whole days between a count's date and today. */
+function daysSince(iso: string): number {
+  const then = new Date(iso);
+  const now = new Date();
+  const a = Date.UTC(then.getUTCFullYear(), then.getUTCMonth(), then.getUTCDate());
+  const b = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((b - a) / 86_400_000);
+}
+
 export function DashboardPage() {
   const summary = useSummaryQuery();
   const matrix = useCompanyMatrixQuery();
-  const movements = useMovementsQuery({ take: 8 });
   const attention = useNeedsAttentionQuery();
+  const today = useTodayQuery();
+  const count = useLatestCountQuery();
+  const me = useMeQuery();
 
   if (summary.isLoading) return <Spinner />;
 
@@ -66,7 +87,15 @@ export function DashboardPage() {
           value={countedRows.length === 0 ? he.common.none : inArmory}
           hint={uncounted > 0 ? he.dashboard.uncounted(uncounted) : undefined}
         />
-        <Figure label={he.dashboard.gaps} value={gapRows.length} tone={gapRows.length ? 'oxide' : 'ink'} />
+        <Figure
+          label={he.dashboard.gaps}
+          value={gapRows.length}
+          tone={gapRows.length ? 'oxide' : 'ink'}
+          // A gap can only be found on an item somebody counted, so the number
+          // of unchecked items belongs next to it — without that, "0 gaps"
+          // reads as "all clear" when most of the shelf was never looked at.
+          hint={uncounted > 0 ? he.dashboard.uncounted(uncounted) : undefined}
+        />
         <Figure
           label={he.dashboard.needsAttention}
           value={attentionCount}
@@ -75,9 +104,18 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
+        <WhoIsHere
+          data={today.data}
+          isLoading={today.isLoading}
+          canEdit={me.data?.user?.role !== 'viewer'}
+        />
+        <LastCount data={count.data} isLoading={count.isLoading} />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
         <Panel title={he.dashboard.byCompany}>
           <div className="space-y-2 px-4 py-4">
-            {perCompany.map(({ company, count }) => (
+            {perCompany.map(({ company, count: total }) => (
               <div key={company} className="flex items-center gap-3">
                 <span className="w-16 shrink-0 text-meta text-ink-soft">
                   {he.companies[company]}
@@ -88,12 +126,12 @@ export function DashboardPage() {
                   <span
                     className="block h-full rounded-ctl transition-all"
                     style={{
-                      width: `${(count / maxCompany) * 100}%`,
+                      width: `${(total / maxCompany) * 100}%`,
                       background: COMPANY_COLOR[company],
                     }}
                   />
                 </span>
-                <span className="w-12 shrink-0 text-start text-meta font-semibold">{count}</span>
+                <span className="w-12 shrink-0 text-start text-meta font-semibold">{total}</span>
               </div>
             ))}
           </div>
@@ -132,56 +170,163 @@ export function DashboardPage() {
           )}
         </Panel>
       </div>
-
-      <Panel
-        title={he.dashboard.recentActivity}
-        action={
-          <Link to="/movements" className="text-meta font-semibold text-field hover:underline">
-            {he.movements.title}
-          </Link>
-        }
-      >
-        {movements.isLoading ? (
-          <Spinner />
-        ) : (movements.data?.rows.length ?? 0) === 0 ? (
-          <EmptyState>{he.dashboard.noActivity}</EmptyState>
-        ) : (
-          <TableScroll>
-            <table className="row-hover w-full">
-              <thead>
-                <tr>
-                  <Th>{he.movements.when}</Th>
-                  <Th>{he.movements.action}</Th>
-                  <Th>{he.movements.soldier}</Th>
-                  <Th>{he.movements.item}</Th>
-                  <Th>{he.movements.serial}</Th>
-                  <Th>{he.movements.performedBy}</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.data?.rows.map((m) => (
-                  <tr key={m.id}>
-                    <Td className="whitespace-nowrap text-meta text-graphite">
-                      {formatDateTime(m.occurredAt)}
-                    </Td>
-                    <Td>
-                      <Tag tone={m.action === 'ISSUE' ? 'field' : m.action === 'RETURN' ? 'neutral' : 'brass'}>
-                        {he.actions[m.action]}
-                      </Tag>
-                    </Td>
-                    <Td>{m.soldierName}</Td>
-                    <Td>{m.itemName}</Td>
-                    <Td>
-                      <Serial value={m.serial} />
-                    </Td>
-                    <Td className="text-meta text-graphite">{m.performedBy}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableScroll>
-        )}
-      </Panel>
     </div>
+  );
+}
+
+/**
+ * Today's roster, grouped by status.
+ *
+ * The weekly grid in ימי יציאה answers what the week looks like; the question
+ * at the start of a shift is narrower — who is on base right now. People whose
+ * cell is still blank are shown as such rather than counted absent, because
+ * nobody has said yet.
+ */
+function WhoIsHere({
+  data,
+  isLoading,
+  canEdit,
+}: {
+  data: import('../../lib/types').Today | undefined;
+  isLoading: boolean;
+  /** ימי יציאה is closed to viewers, so they are not offered a dead link. */
+  canEdit: boolean;
+}) {
+  return (
+    <Panel
+      title={he.dashboard.whoIsHere}
+      action={
+        canEdit ? (
+          <Link to="/attendance" className="text-meta font-semibold text-field hover:underline">
+            {he.dashboard.fillAttendance}
+          </Link>
+        ) : undefined
+      }
+    >
+      {isLoading ? (
+        <Spinner />
+      ) : !data || data.total === 0 ? (
+        <EmptyState>{he.dashboard.noTeam}</EmptyState>
+      ) : (
+        <div className="space-y-3 px-4 py-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-figure font-bold text-field-dark">{data.present}</span>
+            <span className="text-meta text-graphite">
+              {he.dashboard.present} / {data.total}
+            </span>
+          </div>
+
+          {data.byStatus.map(({ status, members }) => (
+            <div key={status} className="flex flex-wrap items-center gap-1.5">
+              <span className="w-16 shrink-0 text-meta font-semibold text-ink-soft">
+                {he.attendance.statuses[status]}
+              </span>
+              {members.map((m) => (
+                <Tag key={m.teamMemberId} tone={STATUS_TONE[status]}>
+                  {m.nickname}
+                </Tag>
+              ))}
+            </div>
+          ))}
+
+          {data.unmarked.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-rule pt-3">
+              <span className="w-16 shrink-0 text-meta font-semibold text-graphite">
+                {he.dashboard.unmarked}
+              </span>
+              {data.unmarked.map((m: TodayMember) => (
+                <Tag key={m.teamMemberId}>{m.nickname}</Tag>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * Whether last night's count was actually done.
+ *
+ * An item nobody counted is reported apart from an item that was counted and
+ * disagreed: the first is unfinished work, the second is a discrepancy to
+ * chase. The age of the count is shown because a stale one is the easiest
+ * thing to overlook.
+ */
+function LastCount({
+  data,
+  isLoading,
+}: {
+  data: import('../../lib/types').LatestCount | undefined;
+  isLoading: boolean;
+}) {
+  const session = data?.session;
+  const age = session ? daysSince(session.sessionDate) : null;
+  const stale = age !== null && age > 0;
+
+  return (
+    <Panel
+      title={he.dashboard.lastCount}
+      action={
+        <Link to="/counts" className="text-meta font-semibold text-field hover:underline">
+          {he.counts.title}
+        </Link>
+      }
+    >
+      {isLoading ? (
+        <Spinner />
+      ) : !session ? (
+        <EmptyState>{he.dashboard.noCount}</EmptyState>
+      ) : (
+        <div className="space-y-3 px-4 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`text-lead font-bold ${stale ? 'text-oxide' : 'text-field-dark'}`}>
+              {he.dashboard.daysAgo(age ?? 0)}
+            </span>
+            <span className="text-meta text-graphite">
+              {new Date(session.sessionDate).toLocaleDateString('he-IL')} ·{' '}
+              {session.shift === 'EVENING' ? he.counts.evening : he.counts.morning}
+            </span>
+            <Tag tone={session.isClosed ? 'field' : 'brass'}>
+              {session.isClosed ? he.dashboard.countClosed : he.dashboard.countOpen}
+            </Tag>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between text-meta">
+              <span className="text-ink-soft">
+                {he.dashboard.countedOf(data.countedItems, data.totalItems)}
+              </span>
+              {session.recordedBy && (
+                <span className="text-graphite">{he.dashboard.countedBy(session.recordedBy)}</span>
+              )}
+            </div>
+            <span className="mt-1 block h-2 overflow-hidden rounded-ctl border border-rule bg-card">
+              <span
+                className="block h-full rounded-ctl bg-field transition-all"
+                style={{
+                  width: `${(data.countedItems / Math.max(1, data.totalItems)) * 100}%`,
+                }}
+              />
+            </span>
+          </div>
+
+          {data.mismatches.length === 0 ? (
+            <p className="text-meta text-field-dark">{he.dashboard.allMatch}</p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-meta font-semibold text-oxide">
+                {he.dashboard.mismatchCount(data.mismatches.length)}
+              </span>
+              {data.mismatches.slice(0, 6).map((m) => (
+                <Tag key={m.itemName} tone="oxide">
+                  {m.itemName} {m.gap > 0 ? `חסר ${m.gap}` : `עודף ${-m.gap}`}
+                </Tag>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Panel>
   );
 }
