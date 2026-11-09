@@ -140,13 +140,12 @@ export class SignaturesService {
       include: { signatures: { where: { returnedAt: null }, include: { soldier: true } } },
     });
     if (!instance) {
-      // For a serialized item an unknown מסד is an error: its instances are the
-      // register of what the armory owns, and inventing one on a typo would
-      // quietly corrupt it. For an item not flagged serialized there is no such
-      // register to protect, so the serial the user typed is recorded as it is.
-      if (item.isSerialized) {
-        throw new NotFoundException(`מסד "${serial}" אינו קיים עבור ${item.name}`);
-      }
+      // A מסד the register has not seen is recorded rather than rejected. The
+      // armory's instance list was never complete — it is being built from the
+      // signatures as they are entered — so refusing an unknown serial would
+      // block real work to protect a register that does not yet exist. The
+      // one-active-holder index still applies the moment the serial is known,
+      // which is the guarantee that actually matters.
       instance = {
         ...(await this.prisma.itemInstance.create({
           data: { itemId: item.id, serial },

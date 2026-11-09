@@ -201,12 +201,29 @@ describe('ניפוק — serialized items', () => {
       .expect(400);
   });
 
-  it('refuses an unknown serial', async () => {
+  it('records a serial the register has not seen yet', async () => {
+    // The armory's instance list is incomplete and is being built from the
+    // signatures as they are entered, so an unknown מסד is created rather than
+    // rejected — refusing it would block real work to protect a register that
+    // does not yet exist.
+    const res = await request(app.getHttpServer())
+      .post('/api/signatures/issue')
+      .set('Cookie', staffJar)
+      .send({ soldierId: soldierAId, itemId: itemSerializedId, serial: 'E2E-BRAND-NEW' })
+      .expect(201);
+
+    const signature = await prisma.signature.findUniqueOrThrow({
+      where: { id: res.body.id },
+      include: { itemInstance: true },
+    });
+    expect(signature.itemInstance?.serial).toBe('E2E-BRAND-NEW');
+
+    // And the guarantee that matters still holds the moment it is known.
     await request(app.getHttpServer())
       .post('/api/signatures/issue')
       .set('Cookie', staffJar)
-      .send({ soldierId: soldierAId, itemId: itemSerializedId, serial: 'NOPE-9999' })
-      .expect(404);
+      .send({ soldierId: soldierBId, itemId: itemSerializedId, serial: 'E2E-BRAND-NEW' })
+      .expect(409);
   });
 
   it('frees the serial again after it is returned', async () => {
@@ -227,6 +244,76 @@ describe('ניפוק — serialized items', () => {
       .set('Cookie', staffJar)
       .send({ soldierId: soldierBId, itemId: itemSerializedId, serial: 'E2E-0001' })
       .expect(201);
+  });
+});
+
+describe('adding a soldier from within ניפוק', () => {
+  /**
+   * A soldier who has never signed for anything is not in the system, and
+   * ניפוק is where that is discovered. Two different checks guard it: a מ.א.
+   * is unique and enforced, while a repeated name is only worth a warning
+   * because two soldiers in one company really can share one.
+   */
+  const NEW_PN = '7777701';
+
+  async function removeTestSoldier(): Promise<void> {
+    await prisma.soldier.deleteMany({
+      where: { personalNumber: NEW_PN, signatures: { none: {} }, movements: { none: {} } },
+    });
+  }
+
+  beforeEach(removeTestSoldier);
+  afterAll(removeTestSoldier);
+
+  it('refuses a מ.א. that belongs to someone else', async () => {
+    await request(app.getHttpServer())
+      .post('/api/soldiers')
+      .set('Cookie', staffJar)
+      .send({ firstName: 'ראשון', lastName: 'E2E-מ"א', company: 'A', personalNumber: NEW_PN })
+      .expect(201);
+
+    // The same מ.א. identifies one person, so a second claim on it is an error
+    // rather than a warning.
+    const clash = await request(app.getHttpServer())
+      .post('/api/soldiers')
+      .set('Cookie', staffJar)
+      .send({ firstName: 'שני', lastName: 'אחר', company: 'B', personalNumber: NEW_PN })
+      .expect(409);
+    expect(clash.body.message).toContain(NEW_PN);
+
+    await prisma.soldier.deleteMany({ where: { personalNumber: NEW_PN } });
+  });
+
+  it('warns about a repeated name in the same company without blocking it', async () => {
+    const existing = await prisma.soldier.findFirstOrThrow({ where: { isActive: true } });
+
+    const found = await request(app.getHttpServer())
+      .post('/api/soldiers/check-duplicates')
+      .set('Cookie', staffJar)
+      .send({
+        firstName: existing.firstName,
+        lastName: existing.lastName,
+        company: existing.company,
+      })
+      .expect(201);
+
+    // Reported so the operator can compare מ.א. and decide — not refused.
+    expect(found.body.length).toBeGreaterThan(0);
+    expect(found.body[0].id).toBeTruthy();
+  });
+
+  it('does not warn when the same name is in a different company', async () => {
+    const existing = await prisma.soldier.findFirstOrThrow({
+      where: { isActive: true, company: 'A' },
+    });
+
+    const found = await request(app.getHttpServer())
+      .post('/api/soldiers/check-duplicates')
+      .set('Cookie', staffJar)
+      .send({ firstName: existing.firstName, lastName: existing.lastName, company: 'SUPPORT' })
+      .expect(201);
+
+    expect(found.body.every((s: { id: string }) => s.id !== existing.id)).toBe(true);
   });
 });
 
