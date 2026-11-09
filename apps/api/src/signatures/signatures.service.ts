@@ -109,14 +109,19 @@ export class SignaturesService {
       throw new BadRequestException('אין לך הרשאה לחתום על חיילים מפלוגה זו');
     }
 
-    return item.isSerialized
+    // An item flagged `isSerialized` MUST have a serial. An item not flagged
+    // may still be given one — staff do track מסד on items the catalog calls
+    // bulk, and refusing it only pushed the number into a free-text note. So
+    // the route is chosen by whether a serial is present, with the flag
+    // deciding only whether its absence is an error.
+    return item.isSerialized || dto.serial?.trim()
       ? this.issueSerialized(dto, item, soldier, actor)
       : this.issueBulk(dto, item, soldier, actor);
   }
 
   private async issueSerialized(
     dto: IssueDto,
-    item: { id: string; name: string },
+    item: { id: string; name: string; isSerialized: boolean },
     soldier: SoldierRef,
     actor: AuthUser,
   ): Promise<Signature> {
@@ -130,12 +135,24 @@ export class SignaturesService {
       throw new BadRequestException('פריט מסד מנופק ביחידה אחת בכל חתימה');
     }
 
-    const instance = await this.prisma.itemInstance.findUnique({
+    let instance = await this.prisma.itemInstance.findUnique({
       where: { itemId_serial: { itemId: item.id, serial } },
       include: { signatures: { where: { returnedAt: null }, include: { soldier: true } } },
     });
     if (!instance) {
-      throw new NotFoundException(`מסד "${serial}" אינו קיים עבור ${item.name}`);
+      // For a serialized item an unknown מסד is an error: its instances are the
+      // register of what the armory owns, and inventing one on a typo would
+      // quietly corrupt it. For an item not flagged serialized there is no such
+      // register to protect, so the serial the user typed is recorded as it is.
+      if (item.isSerialized) {
+        throw new NotFoundException(`מסד "${serial}" אינו קיים עבור ${item.name}`);
+      }
+      instance = {
+        ...(await this.prisma.itemInstance.create({
+          data: { itemId: item.id, serial },
+        })),
+        signatures: [],
+      };
     }
     if (instance.status !== 'OK') {
       throw new BadRequestException(`מסד "${serial}" מסומן כ"${instance.status}" ולא ניתן לניפוק`);
@@ -197,9 +214,6 @@ export class SignaturesService {
     soldier: SoldierRef,
     actor: AuthUser,
   ): Promise<Signature> {
-    if (dto.serial) {
-      throw new BadRequestException(`הפריט "${item.name}" אינו פריט מסד — אין להזין מסד`);
-    }
     const quantity = dto.quantity ?? 1;
 
     return this.prisma.$transaction(async (tx) => {
@@ -330,9 +344,8 @@ export class SignaturesService {
     if (!signature) throw new NotFoundException('החתימה אינה קיימת');
     if (signature.returnedAt) throw new BadRequestException('החתימה זוכתה כבר');
     if (signature.itemInstanceId) throw new BadRequestException('לחתימה זו יש כבר מסד');
-    if (!signature.item.isSerialized) {
-      throw new BadRequestException(`הפריט "${signature.item.name}" אינו פריט מסד`);
-    }
+    // Allowed whatever the item's flag: recording a מסד that was missing is an
+    // improvement to the record either way.
 
     const trimmed = serial.trim();
     if (!trimmed) throw new BadRequestException('נדרש מסד');

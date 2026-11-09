@@ -131,10 +131,11 @@ export class ExcelExportService {
       { width: 9 },
       { width: 9 },
       { width: 9 },
-      { width: 14 },
     ];
+    // מק"ט is not tracked by the battalion, so the column the original sheet
+    // carried is no longer written.
     this.styleHeader(
-      ws.addRow(['צלמ', 'סה"כ מנופק', 'בנשקיה', 'תקול', 'תקין', 'סה"כ', 'מצבה', 'פער', 'מק"ט']),
+      ws.addRow(['צלמ', 'סה"כ מנופק', 'בנשקיה', 'תקול', 'תקין', 'סה"כ', 'מצבה', 'פער']),
     );
 
     for (const r of await this.reports.summary()) {
@@ -147,7 +148,6 @@ export class ExcelExportService {
         r.total,
         r.authorized,
         r.gap,
-        r.catalogNo ?? '',
       ]);
     }
   }
@@ -293,9 +293,9 @@ export class ExcelExportService {
       where: { unitPrice: { not: null } },
       orderBy: { name: 'asc' },
     });
-    for (const item of priced) {
+    for (const [index, item] of priced.entries()) {
       const row = ws.addRow([
-        item.catalogNo ?? '',
+        index + 1,
         item.name,
         item.unitPrice ? Number(item.unitPrice) : '',
         CATEGORY_HE[item.category],

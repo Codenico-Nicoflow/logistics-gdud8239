@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, Company } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
-import { CATALOG, PRICED_GEAR, GEAR_PRICES, ALLOCATIONS, TEAM, SeedItem } from './catalog';
+import { CATALOG, GEAR_PRICES, ALLOCATIONS, TEAM, SeedItem } from './catalog';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -39,15 +39,20 @@ async function seedUsers(): Promise<void> {
 }
 
 async function seedItems(): Promise<void> {
-  const all: SeedItem[] = [...CATALOG, ...PRICED_GEAR];
+  // PRICED_GEAR is the `מחירון פריטים` sheet: uniform and personal kit for the
+  // v2 module. The battalion tracks weapons and optics today, and seeding 43
+  // zero-stock gear rows only buried the items that are actually counted. The
+  // data stays in catalog.ts, unseeded, until that module exists.
+  const all: SeedItem[] = [...CATALOG];
   for (const item of all) {
     const price = GEAR_PRICES[item.name];
     await prisma.item.upsert({
       where: { name: item.name },
+      // `inSummary` is set only on create. It is an operational choice an admin
+      // makes in the UI, and re-running the seed must not undo it.
       update: {
         aliases: item.aliases ?? [],
         category: item.category,
-        catalogNo: item.catalogNo ?? null,
         isSerialized: item.isSerialized,
         authorizedQty: item.authorizedQty,
         unitPrice: price ?? null,
@@ -56,14 +61,15 @@ async function seedItems(): Promise<void> {
         name: item.name,
         aliases: item.aliases ?? [],
         category: item.category,
-        catalogNo: item.catalogNo ?? null,
         isSerialized: item.isSerialized,
         authorizedQty: item.authorizedQty,
         unitPrice: price ?? null,
+        // Priced gear is the v2 module and is not part of the nightly count.
+        inSummary: price === undefined,
       },
     });
   }
-  console.log(`  פריטים: ${all.length} (מהם ${PRICED_GEAR.length} במחירון)`);
+  console.log(`  פריטים: ${all.length}`);
 }
 
 async function seedAllocations(): Promise<void> {

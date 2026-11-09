@@ -25,6 +25,9 @@ export class CountsService {
    * The count sheet for a date and shift: every active item, with the number
    * issued (computed) alongside the number counted on the shelf (entered by
    * hand). Pre-filled from an existing session so a count can be corrected.
+   *
+   * The item list is exactly מסכם's, so whatever an admin removes from the
+   * summary disappears from the evening count too — one list, maintained once.
    */
   async sheet(sessionDate: string, shift: CountShift): Promise<{
     session: { id: string; isClosed: boolean } | null;
@@ -35,7 +38,10 @@ export class CountsService {
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
 
     const [items, issuedRows, session] = await Promise.all([
-      this.prisma.item.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+      this.prisma.item.findMany({
+        where: { isActive: true, inSummary: true },
+        orderBy: { name: 'asc' },
+      }),
       this.prisma.signature.groupBy({
         by: ['itemId'],
         where: { returnedAt: null },

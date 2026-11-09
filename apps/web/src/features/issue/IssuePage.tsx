@@ -70,7 +70,8 @@ export function IssuePage() {
     const result = await issue({
       soldierId: soldier.id,
       itemId: item.id,
-      ...(item.isSerialized ? { serial: serial.trim() } : { quantity: Number(quantity) || 1 }),
+      // A serial wins over a quantity: an instance is a single physical unit.
+      ...(serial.trim() ? { serial: serial.trim() } : { quantity: Number(quantity) || 1 }),
       ...(receiptNo ? { receiptNo } : {}),
       ...(notes ? { notes } : {}),
     });
@@ -236,13 +237,26 @@ export function IssuePage() {
                 )}
               </div>
             ) : (
-              <TextField
-                label={he.issue.quantityLabel}
-                value={quantity}
-                onChange={setQuantity}
-                type="number"
-                required
-              />
+              <>
+                {/* This item does not require a מסד, but one may still be
+                    recorded — staff do track serials on items the catalog
+                    calls bulk. Entering one signs a single unit. */}
+                <TextField
+                  label={he.issue.serialOptionalLabel}
+                  value={serial}
+                  onChange={setSerial}
+                  hint={he.issue.serialOptionalHint}
+                />
+                {!serial.trim() && (
+                  <TextField
+                    label={he.issue.quantityLabel}
+                    value={quantity}
+                    onChange={setQuantity}
+                    type="number"
+                    required
+                  />
+                )}
+              </>
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">

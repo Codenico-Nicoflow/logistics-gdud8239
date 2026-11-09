@@ -56,7 +56,7 @@ export function CatalogPage() {
                 <Th numeric>{he.catalog.serialized}</Th>
                 <Th numeric>{he.catalog.authorized}</Th>
                 <Th numeric>{he.catalog.issued}</Th>
-                <Th>{he.catalog.catalogNo}</Th>
+                <Th numeric>{he.catalog.inSummary}</Th>
                 <Th />
               </tr>
             </thead>
@@ -85,7 +85,9 @@ export function CatalogPage() {
                   <Td numeric className="text-field-dark">
                     {issuedByName.get(item.name) ?? 0}
                   </Td>
-                  <Td className="text-meta text-graphite">{item.catalogNo ?? he.common.none}</Td>
+                  <Td numeric>
+                    <SummaryToggle item={item} />
+                  </Td>
                   <Td>
                     <div className="flex gap-1">
                       <Button variant="quiet" size="sm" onClick={() => setEditing(item)}>
@@ -143,8 +145,8 @@ function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
   const [name, setName] = useState(item?.name ?? '');
   const [category, setCategory] = useState<ItemCategory>(item?.category ?? 'WEAPON');
   const [isSerialized, setIsSerialized] = useState(item?.isSerialized ?? true);
+  const [inSummary, setInSummary] = useState(item?.inSummary ?? true);
   const [authorizedQty, setAuthorizedQty] = useState(String(item?.authorizedQty ?? 0));
-  const [catalogNo, setCatalogNo] = useState(item?.catalogNo ?? '');
   const [aliases, setAliases] = useState((item?.aliases ?? []).join(', '));
 
   const [create, createState] = useCreateItemMutation();
@@ -157,8 +159,8 @@ function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
       name: name.trim(),
       category,
       isSerialized,
+      inSummary,
       authorizedQty: Number(authorizedQty) || 0,
-      ...(catalogNo ? { catalogNo } : {}),
       aliases: aliases
         .split(',')
         .map((a) => a.trim())
@@ -182,24 +184,25 @@ function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
         onChange={(v) => v && setCategory(v as ItemCategory)}
         options={CATEGORIES.map((c) => ({ value: c, label: he.categories[c] }))}
       />
-      <label className="flex items-center gap-2 rounded-ctl border border-rule bg-card px-3 py-2">
-        <input
-          type="checkbox"
-          checked={isSerialized}
-          onChange={(e) => setIsSerialized(e.target.checked)}
-        />
-        <span className="font-semibold">{he.catalog.serialized}</span>
-      </label>
-      <div className="grid grid-cols-2 gap-3">
-        <TextField
-          label={he.catalog.authorized}
-          value={authorizedQty}
-          onChange={setAuthorizedQty}
-          type="number"
-          required
-        />
-        <TextField label={he.catalog.catalogNo} value={catalogNo} onChange={setCatalogNo} />
-      </div>
+      <CheckRow
+        label={he.catalog.serialized}
+        hint={he.catalog.serializedHint}
+        checked={isSerialized}
+        onChange={setIsSerialized}
+      />
+      <CheckRow
+        label={he.catalog.inSummary}
+        hint={he.catalog.inSummaryHint}
+        checked={inSummary}
+        onChange={setInSummary}
+      />
+      <TextField
+        label={he.catalog.authorized}
+        value={authorizedQty}
+        onChange={setAuthorizedQty}
+        type="number"
+        required
+      />
       <TextField
         label={he.catalog.aliases}
         value={aliases}
@@ -299,5 +302,53 @@ function RemoveDialog({ item, onClose }: { item: Item; onClose: () => void }) {
         </p>
       )}
     </Dialog>
+  );
+}
+
+/** A labelled checkbox with an explanation, which these two flags both need. */
+function CheckRow({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-ctl border border-rule bg-card px-3 py-2">
+      <input
+        type="checkbox"
+        className="mt-1"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>
+        <span className="block font-semibold">{label}</span>
+        <span className="block text-meta text-graphite">{hint}</span>
+      </span>
+    </label>
+  );
+}
+
+/**
+ * Clears an item out of מסכם straight from the table.
+ *
+ * Deciding which items to count is a pass down the whole list, so it would be
+ * tedious through the edit dialog one item at a time.
+ */
+function SummaryToggle({ item }: { item: Item }) {
+  const [update, { isLoading }] = useUpdateItemMutation();
+  return (
+    <input
+      type="checkbox"
+      className="cursor-pointer"
+      aria-label={`${he.catalog.inSummary} — ${item.name}`}
+      checked={item.inSummary}
+      disabled={isLoading}
+      onChange={(e) => void update({ id: item.id, inSummary: e.target.checked })}
+    />
   );
 }

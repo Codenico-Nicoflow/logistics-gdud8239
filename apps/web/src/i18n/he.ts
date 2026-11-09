@@ -125,6 +125,8 @@ export const he = {
     serialRequired: 'פריט זה דורש מסד — לא ניתן להמשיך בלעדיו',
     serialHelp: 'בחר מסד פנוי או הקלד אותו',
     noAvailable: 'אין מסדים פנויים לפריט זה',
+    serialOptionalLabel: 'מסד (לא חובה)',
+    serialOptionalHint: 'פריט זה אינו דורש מסד. אם יוזן מסד, תיחתם יחידה אחת.',
     quantityLabel: 'כמות',
     receiptLabel: 'מספר קבלה',
     notesLabel: 'הערה',
@@ -172,7 +174,6 @@ export const he = {
     total: 'סה"כ',
     authorized: 'מצבה',
     gap: 'פער',
-    catalogNo: 'מק"ט',
   },
 
   companiesReport: {
@@ -276,8 +277,10 @@ export const he = {
     name: 'שם הפריט',
     category: 'קטגוריה',
     serialized: 'דורש מסד',
+    serializedHint: 'חתימה על פריט זה לא תתאפשר ללא מסד. גם ללא סימון ניתן להזין מסד.',
+    inSummary: 'מופיע במסכם',
+    inSummaryHint: 'פריטים המופיעים במסכם הם אלו שנספרים בספירת הנשקיה.',
     authorized: 'מצבה',
-    catalogNo: 'מק"ט',
     aliases: 'שמות נוספים',
     aliasesHint: 'שמות חלופיים שהיבוא מאקסל יזהה, מופרדים בפסיק',
     issued: 'מנופק',

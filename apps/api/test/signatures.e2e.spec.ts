@@ -231,12 +231,34 @@ describe('ניפוק — serialized items', () => {
 });
 
 describe('ניפוק — non-serialized items', () => {
-  it('rejects a serial on an item that does not take one', async () => {
+  it('accepts an optional serial and records it as an instance', async () => {
+    // An item not flagged `isSerialized` may still carry a מסד: staff do track
+    // serials on items the catalog calls bulk, and refusing them pushed the
+    // number into a free-text note where nothing could search it.
+    const res = await request(app.getHttpServer())
+      .post('/api/signatures/issue')
+      .set('Cookie', staffJar)
+      .send({ soldierId: soldierAId, itemId: itemBulkId, serial: 'E2E-BULK-SERIAL' })
+      .expect(201);
+
+    const signature = await prisma.signature.findUniqueOrThrow({
+      where: { id: res.body.id },
+      include: { itemInstance: true },
+    });
+    expect(signature.itemInstance?.serial).toBe('E2E-BULK-SERIAL');
+    // An instance is one physical unit, so the quantity is 1 regardless.
+    expect(signature.quantity).toBe(1);
+
+    // And it is now held: a second soldier cannot be signed on the same מסד.
     await request(app.getHttpServer())
       .post('/api/signatures/issue')
       .set('Cookie', staffJar)
-      .send({ soldierId: soldierAId, itemId: itemBulkId, serial: 'SHOULD-NOT-BE-HERE' })
-      .expect(400);
+      .send({ soldierId: soldierBId, itemId: itemBulkId, serial: 'E2E-BULK-SERIAL' })
+      .expect(409);
+
+    // Cleared so the quantity-accumulation case below starts from nothing.
+    await prisma.signature.delete({ where: { id: signature.id } });
+    await prisma.itemInstance.delete({ where: { id: signature.itemInstanceId as string } });
   });
 
   it('accumulates quantity on one open signature', async () => {

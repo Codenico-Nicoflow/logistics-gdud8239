@@ -28,13 +28,14 @@ export class CreateItemDto {
   @IsEnum(ItemCategory, { message: 'קטגוריה לא חוקית' })
   category!: ItemCategory;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  catalogNo?: string;
-
+  /** Whether a מסד is mandatory when signing this item out. */
   @IsBoolean()
   isSerialized!: boolean;
+
+  /** Whether the item shows in מסכם and the ספירת נשקיה sheet. Defaults to true. */
+  @IsOptional()
+  @IsBoolean()
+  inSummary?: boolean;
 
   @Type(() => Number)
   @IsInt()

@@ -34,7 +34,6 @@ export function SummaryPage() {
                 <Th numeric>{he.summary.total}</Th>
                 <Th numeric>{he.summary.authorized}</Th>
                 <Th numeric>{he.summary.gap}</Th>
-                <Th>{he.summary.catalogNo}</Th>
               </tr>
             </thead>
             <tbody>
@@ -55,7 +54,6 @@ export function SummaryPage() {
                       <Tag tone="oxide">{r.gap}</Tag>
                     )}
                   </Td>
-                  <Td className="text-meta text-graphite">{r.catalogNo ?? he.common.none}</Td>
                 </tr>
               ))}
             </tbody>
