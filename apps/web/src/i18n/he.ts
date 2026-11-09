@@ -131,6 +131,31 @@ export const he = {
     count: (shown: number, total: number) => `מוצגות ${shown} מתוך ${total}`,
   },
 
+  toast: {
+    // Phrased in the past tense: a toast reports what already happened.
+    issued: 'הפריט נופק',
+    returned: 'הפריט זוכה',
+    soldierCreated: 'החייל נוסף',
+    soldierUpdated: 'פרטי החייל עודכנו',
+    itemCreated: 'הפריט נוסף לקטלוג',
+    itemUpdated: 'הפריט עודכן',
+    itemRemoved: 'הפריט נמחק',
+    itemDeactivated: 'הפריט הושבת',
+    countSaved: 'הספירה נשמרה',
+    countClosed: 'הספירה נסגרה',
+    attendanceSaved: 'ימי היציאה עודכנו',
+    serialAdded: 'המסד נוסף',
+    serialBackfilled: 'המסד הושלם',
+    userCreated: 'המשתמש נוסף',
+    userUpdated: 'המשתמש עודכן',
+    snapshotCreated: 'הגיבוי נוצר',
+    imported: 'הייבוא הושלם',
+    summaryChanged: 'המסכם עודכן',
+    failed: 'הפעולה נכשלה',
+    viewSoldier: 'הצג את החייל',
+    undo: 'בטל',
+  },
+
   soldiers: {
     title: 'חיילים',
     subtitle: 'רשימת החיילים בגדוד והפריטים שברשותם',
@@ -317,6 +342,8 @@ export const he = {
     previewIssues: 'ממצאים',
     confirmImport: 'אשר יבוא',
     importing: 'מייבא…',
+    importedDetail: (signatures: number, soldiers: number) =>
+      `${signatures} חתימות · ${soldiers} חיילים`,
     imported: (n: number) => `יובאו ${n} חתימות`,
   },
 
@@ -344,6 +371,8 @@ export const he = {
     officer: 'בעל תפקיד',
     withGaps: (n: number) => `${n} פריטים עם פער`,
     noGaps: 'אין פערים',
+    savedClean: (n: number) => `${n} פריטים נספרו · אין פערים`,
+    savedWithGaps: (n: number, gaps: number) => `${n} פריטים נספרו · ${gaps} בפער`,
   },
 
   catalog: {
@@ -355,6 +384,8 @@ export const he = {
     serializedHint: 'חתימה על פריט זה לא תתאפשר ללא מסד. גם ללא סימון ניתן להזין מסד.',
     inSummary: 'מופיע במסכם',
     inSummaryHint: 'פריטים המופיעים במסכם הם אלו שנספרים בספירת הנשקיה.',
+    nowInSummary: (name: string) => `${name} יופיע במסכם ובספירת הנשקיה`,
+    nowOutOfSummary: (name: string) => `${name} לא יופיע במסכם ובספירת הנשקיה`,
     authorized: 'מצבה',
     aliases: 'שמות נוספים',
     aliasesHint: 'שמות חלופיים שהיבוא מאקסל יזהה, מופרדים בפסיק',
@@ -411,6 +442,7 @@ export const he = {
       CLOSED_ORDER: 'צו סגור',
       OTHER: 'אחר',
     },
+    memberAdded: 'איש הצוות נוסף',
     days: ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'],
   },
 

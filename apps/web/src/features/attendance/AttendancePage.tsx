@@ -14,6 +14,7 @@ import {
   Th,
   TextField,
 } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { AttendanceStatus, Gender } from '../../lib/types';
 
@@ -178,10 +179,19 @@ function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const [nickname, setNickname] = useState('');
   const [gender, setGender] = useState<Gender>('M');
   const [create, { isLoading, error }] = useCreateTeamMemberMutation();
+  const toast = useToast();
 
   async function submit(): Promise<void> {
+    // Only the roster change is announced. Setting a cell is a single click
+    // that shows its own result in the grid, and a toast per cell would bury
+    // the screen while a week is filled in.
     const result = await create({ nickname: nickname.trim(), gender });
-    if (result.data) onClose();
+    if (result.data) {
+      toast.success({ title: he.attendance.memberAdded, detail: nickname.trim() });
+      onClose();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   return (

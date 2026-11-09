@@ -13,15 +13,20 @@ type NavItem = { to: string; label: string; roles?: Role[]; badge?: number };
 function navGroups(attentionCount: number): { heading: string; items: NavItem[] }[] {
   return [
     {
+      // לוח בקרה stands alone above the groups: it is the landing page and a
+      // summary of everything below, not one of the day's jobs.
+      heading: '',
+      items: [{ to: '/', label: he.nav.dashboard, roles: ['admin'] }],
+    },
+    {
       heading: 'עבודה יומית',
       items: [
-        { to: '/', label: he.nav.dashboard },
         { to: '/issue', label: he.nav.issue, roles: ['admin', 'logistics'] },
         { to: '/signatures', label: he.nav.signatures },
         { to: '/soldiers', label: he.nav.soldiers },
-        { to: '/attention', label: he.nav.attention, badge: attentionCount },
         { to: '/counts', label: he.nav.counts },
         { to: '/attendance', label: he.nav.attendance, roles: ['admin', 'logistics'] },
+        { to: '/attention', label: he.nav.attention, badge: attentionCount },
       ],
     },
     {
@@ -94,9 +99,11 @@ export function Shell({ user }: { user: AuthUser }) {
             if (items.length === 0) return null;
             return (
               <div key={group.heading} className="mb-4">
-                <div className="px-2 pb-1.5 text-micro font-semibold text-white/40">
-                  {group.heading}
-                </div>
+                {group.heading && (
+                  <div className="px-2 pb-1.5 text-micro font-semibold text-white/40">
+                    {group.heading}
+                  </div>
+                )}
                 {items.map((item) => (
                   <NavLink
                     key={item.to}

@@ -15,6 +15,7 @@ import {
   TextField,
 } from '../../components/ui';
 import { AddSoldierDialog } from './AddSoldierDialog';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { COMPANIES, type Company, type SoldierSummary } from '../../lib/types';
 
@@ -216,6 +217,7 @@ function EditSoldierDialog({
   const [platoon, setPlatoon] = useState(soldier.platoon ?? '');
   const [company, setCompany] = useState<Company>(soldier.company);
   const [update, { isLoading, error }] = useUpdateSoldierMutation();
+  const toast = useToast();
 
   async function submit(): Promise<void> {
     const result = await update({
@@ -227,7 +229,15 @@ function EditSoldierDialog({
       ...(phone.trim() ? { phone: phone.trim() } : {}),
       ...(platoon.trim() ? { platoon: platoon.trim() } : {}),
     });
-    if ('data' in result && result.data) onClose();
+    if ('data' in result && result.data) {
+      toast.success({
+        title: he.toast.soldierUpdated,
+        detail: `${firstName.trim()} ${lastName.trim()}`,
+      });
+      onClose();
+    } else if ('error' in result) {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   const message = apiErrorMessage(error);

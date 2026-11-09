@@ -29,7 +29,12 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Shell user={user} />} path="/">
-          <Route index element={<DashboardPage />} />
+          {/* לוח בקרה is an admin overview. Everyone else starts where their
+              work does, rather than on a page they cannot open. */}
+          <Route
+            index
+            element={isAdmin ? <DashboardPage /> : <Navigate to="/signatures" replace />}
+          />
           <Route path="signatures" element={<SignaturesPage />} />
           <Route path="attention" element={<AttentionPage />} />
           <Route path="summary" element={<SummaryPage />} />
