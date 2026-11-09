@@ -16,6 +16,12 @@ export class SignaturesController {
     return this.signatures.findAll(query);
   }
 
+  /** חתימות as the screen shows it: one row per soldier, items nested. */
+  @Get('holders')
+  holders(@Query() query: QuerySignaturesDto) {
+    return this.signatures.holders(query);
+  }
+
   /** ניפוק */
   @Post('issue')
   @Roles('admin', 'logistics')

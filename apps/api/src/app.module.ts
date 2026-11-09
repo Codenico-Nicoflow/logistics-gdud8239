@@ -11,6 +11,8 @@ import { ReportsModule } from './reports/reports.module';
 import { SoldiersModule } from './soldiers/soldiers.module';
 import { ItemsModule } from './items/items.module';
 import { SignaturesModule } from './signatures/signatures.module';
+import { IssueFormsModule } from './issue-forms/issue-forms.module';
+import { KitsModule } from './kits/kits.module';
 import { MovementsModule } from './movements/movements.module';
 import { CountsModule } from './counts/counts.module';
 import { AttendanceModule } from './attendance/attendance.module';
@@ -76,6 +78,8 @@ import { RolesGuard } from './auth/guards/roles.guard';
     SoldiersModule,
     ItemsModule,
     SignaturesModule,
+    IssueFormsModule,
+    KitsModule,
     MovementsModule,
     CountsModule,
     AttendanceModule,

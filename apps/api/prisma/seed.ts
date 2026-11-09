@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaClient, Company } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
-import { CATALOG, GEAR_PRICES, ALLOCATIONS, TEAM, SeedItem } from './catalog';
+import { ACCESSORIES, CATALOG, GEAR_PRICES, ALLOCATIONS, TEAM, SeedItem } from './catalog';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -43,7 +43,7 @@ async function seedItems(): Promise<void> {
   // v2 module. The battalion tracks weapons and optics today, and seeding 43
   // zero-stock gear rows only buried the items that are actually counted. The
   // data stays in catalog.ts, unseeded, until that module exists.
-  const all: SeedItem[] = [...CATALOG];
+  const all: SeedItem[] = [...CATALOG, ...ACCESSORIES];
   for (const item of all) {
     const price = GEAR_PRICES[item.name];
     await prisma.item.upsert({
@@ -55,6 +55,7 @@ async function seedItems(): Promise<void> {
         category: item.category,
         isSerialized: item.isSerialized,
         authorizedQty: item.authorizedQty,
+        defaultQty: item.defaultQty ?? 1,
         unitPrice: price ?? null,
       },
       create: {
@@ -63,9 +64,10 @@ async function seedItems(): Promise<void> {
         category: item.category,
         isSerialized: item.isSerialized,
         authorizedQty: item.authorizedQty,
+        defaultQty: item.defaultQty ?? 1,
         unitPrice: price ?? null,
         // Priced gear is the v2 module and is not part of the nightly count.
-        inSummary: price === undefined,
+        inSummary: item.inSummary ?? price === undefined,
       },
     });
   }
