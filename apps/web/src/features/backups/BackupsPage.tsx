@@ -19,12 +19,14 @@ import {
   formatBytes,
   formatDateTime,
 } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { ImportPreview } from '../../lib/types';
 
 export function BackupsPage() {
   const { data, isLoading } = useSnapshotsQuery();
   const [createSnapshot, createState] = useCreateSnapshotMutation();
+  const toast = useToast();
   const [sendSlack] = useSendSnapshotToSlackMutation();
 
   return (
@@ -43,7 +45,16 @@ export function BackupsPage() {
         </a>
         <Button
           variant="quiet"
-          onClick={() => void createSnapshot()}
+          onClick={() =>
+            void createSnapshot().then((r) =>
+              'data' in r && r.data
+                ? toast.success({ title: he.toast.snapshotCreated })
+                : toast.error({
+                    title: he.toast.failed,
+                    detail: apiErrorMessage('error' in r ? r.error : undefined) ?? undefined,
+                  }),
+            )
+          }
           disabled={createState.isLoading}
         >
           {createState.isLoading ? he.backups.creating : he.backups.createNow}
@@ -125,6 +136,7 @@ function ImportPanel() {
   const [result, setResult] = useState<string | null>(null);
   const [runPreview, previewState] = usePreviewImportMutation();
   const [runCommit, commitState] = useCommitImportMutation();
+  const toast = useToast();
 
   async function choose(selected: File | null): Promise<void> {
     setFile(selected);
@@ -144,9 +156,15 @@ function ImportPanel() {
     const res = await runCommit(form);
     if (res.data) {
       setResult(he.backups.imported(res.data.signatures));
+      toast.success({
+        title: he.toast.imported,
+        detail: he.backups.importedDetail(res.data.signatures, res.data.soldiers),
+      });
       setPreview(null);
       setFile(null);
       if (fileRef.current) fileRef.current.value = '';
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(res.error) ?? undefined });
     }
   }
 

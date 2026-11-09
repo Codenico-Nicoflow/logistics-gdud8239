@@ -12,6 +12,7 @@ import {
   Th,
   TextField,
 } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { CountShift } from '../../lib/types';
 
@@ -34,6 +35,7 @@ export function CountsPage() {
 
   const { data, isLoading, isFetching } = useCountSheetQuery({ date, shift });
   const [save, { isLoading: isSaving, error }] = useSaveCountMutation();
+  const toast = useToast();
 
   // Reload the entered values whenever the sheet changes, so switching date or
   // shift shows what was actually recorded rather than a stale draft.
@@ -72,7 +74,18 @@ export function CountsPage() {
       .map((r) => ({ itemId: r.itemId, countedQty: Number(counted[r.itemId]) }));
 
     const result = await save({ sessionDate: date, shift, lines });
-    if (result.data) setSaved(true);
+    if (result.data) {
+      setSaved(true);
+      // The gap count is the reason to look again, so it leads the detail.
+      toast.success({
+        title: he.toast.countSaved,
+        detail: gapCount > 0
+          ? he.counts.savedWithGaps(lines.length, gapCount)
+          : he.counts.savedClean(lines.length),
+      });
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   /** Pre-fills what should be on the shelf, as a starting point to check against. */

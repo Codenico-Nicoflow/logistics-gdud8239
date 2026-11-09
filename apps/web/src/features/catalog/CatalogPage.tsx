@@ -20,6 +20,7 @@ import {
   Th,
   TextField,
 } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { DeletionCheck, Item, ItemCategory } from '../../lib/types';
 
@@ -151,6 +152,7 @@ function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
 
   const [create, createState] = useCreateItemMutation();
   const [update, updateState] = useUpdateItemMutation();
+  const toast = useToast();
   const isSaving = createState.isLoading || updateState.isLoading;
   const message = apiErrorMessage(createState.error ?? updateState.error);
 
@@ -169,7 +171,15 @@ function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
     const result = item
       ? await update({ id: item.id, ...payload })
       : await create(payload);
-    if (result.data) onClose();
+    if (result.data) {
+      toast.success({
+        title: item ? he.toast.itemUpdated : he.toast.itemCreated,
+        detail: payload.name,
+      });
+      onClose();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   return (
@@ -238,6 +248,7 @@ function RemoveDialog({ item, onClose }: { item: Item; onClose: () => void }) {
   const [runCheck, { isFetching }] = useLazyDeletionCheckQuery();
   const [remove, removeState] = useDeleteItemMutation();
   const [update, updateState] = useUpdateItemMutation();
+  const toast = useToast();
 
   useEffect(() => {
     void runCheck(item.id).then((r) => {
@@ -247,12 +258,22 @@ function RemoveDialog({ item, onClose }: { item: Item; onClose: () => void }) {
 
   async function confirmDelete(): Promise<void> {
     const result = await remove(item.id);
-    if (result.data) onClose();
+    if (result.data) {
+      toast.success({ title: he.toast.itemRemoved, detail: item.name });
+      onClose();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   async function deactivate(): Promise<void> {
     const result = await update({ id: item.id, isActive: false });
-    if (result.data) onClose();
+    if (result.data) {
+      toast.success({ title: he.toast.itemDeactivated, detail: item.name });
+      onClose();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   const message = apiErrorMessage(removeState.error ?? updateState.error);
@@ -341,6 +362,25 @@ function CheckRow({
  */
 function SummaryToggle({ item }: { item: Item }) {
   const [update, { isLoading }] = useUpdateItemMutation();
+  const toast = useToast();
+
+  async function toggle(inSummary: boolean): Promise<void> {
+    const result = await update({ id: item.id, inSummary });
+    if ('data' in result && result.data) {
+      // Worth announcing because the effect is elsewhere: the item appears in
+      // or disappears from מסכם and the count sheet, neither of which is on
+      // screen when the box is ticked.
+      toast.success({
+        title: he.toast.summaryChanged,
+        detail: inSummary
+          ? he.catalog.nowInSummary(item.name)
+          : he.catalog.nowOutOfSummary(item.name),
+      });
+    } else if ('error' in result) {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
+  }
+
   return (
     <input
       type="checkbox"
@@ -348,7 +388,7 @@ function SummaryToggle({ item }: { item: Item }) {
       aria-label={`${he.catalog.inSummary} — ${item.name}`}
       checked={item.inSummary}
       disabled={isLoading}
-      onChange={(e) => void update({ id: item.id, inSummary: e.target.checked })}
+      onChange={(e) => void toggle(e.target.checked)}
     />
   );
 }

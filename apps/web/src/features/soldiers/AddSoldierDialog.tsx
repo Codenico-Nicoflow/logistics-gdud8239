@@ -4,6 +4,7 @@ import {
   useCreateSoldierMutation,
 } from '../../lib/api';
 import { apiErrorMessage, Button, Select, TextField } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { COMPANIES, type Company, type NewSoldier, type SoldierSummary } from '../../lib/types';
 
@@ -36,6 +37,7 @@ export function AddSoldierDialog({
 
   const [checkDuplicate] = useCheckDuplicateSoldierMutation();
   const [create, { isLoading, error }] = useCreateSoldierMutation();
+  const toast = useToast();
 
   function payload(): NewSoldier {
     return {
@@ -60,7 +62,18 @@ export function AddSoldierDialog({
       setDuplicates([]);
     }
     const result = await create(payload());
-    if ('data' in result && result.data) onCreated(result.data);
+    if ('data' in result && result.data) {
+      const created = result.data;
+      toast.success({
+        title: he.toast.soldierCreated,
+        detail: `${created.firstName} ${created.lastName} · ${he.companies[created.company]}${
+          created.personalNumber ? ` · ${created.personalNumber}` : ''
+        }`,
+      });
+      onCreated(created);
+    } else if ('error' in result) {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   // A מ.א. is required for anyone added from here. The Excel carries soldiers

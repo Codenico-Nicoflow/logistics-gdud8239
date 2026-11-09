@@ -18,6 +18,7 @@ import {
   TextField,
   formatDateTime,
 } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { Role } from '../../lib/types';
 
@@ -148,14 +149,20 @@ function AddUserDialog({
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<Role>('logistics');
   const [create, { isLoading, error }] = useCreateUserMutation();
+  const toast = useToast();
 
   async function submit(): Promise<void> {
     const result = await create({ username: username.trim(), displayName: displayName.trim(), role });
     if (result.data) {
+      // Deliberately no success toast: the generated password is shown in a
+      // panel that must stay until it is copied, and a toast announcing the
+      // same thing would pull attention away from the one-time secret.
       if (result.data.generatedPassword) {
         onCreated(result.data.displayName, result.data.generatedPassword);
       }
       onClose();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
     }
   }
 

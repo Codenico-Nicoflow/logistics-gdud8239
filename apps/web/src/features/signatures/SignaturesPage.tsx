@@ -21,6 +21,7 @@ import {
   TextField,
   formatDateTime,
 } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { COMPANIES, type Company, type Signature } from '../../lib/types';
 
@@ -30,7 +31,6 @@ export function SignaturesPage() {
   const [q, setQ] = useState('');
   const [company, setCompany] = useState<Company | ''>('');
   const [itemId, setItemId] = useState('');
-  const [includeReturned, setIncludeReturned] = useState(false);
   const [take, setTake] = useState(PAGE_SIZE);
   const [returning, setReturning] = useState<Signature | null>(null);
 
@@ -39,7 +39,6 @@ export function SignaturesPage() {
     ...(q ? { q } : {}),
     ...(company ? { company } : {}),
     ...(itemId ? { itemId } : {}),
-    includeReturned,
     take,
   });
 
@@ -72,15 +71,9 @@ export function SignaturesPage() {
             ]}
           />
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-rule px-4 py-2.5">
-          <label className="flex items-center gap-2 text-meta">
-            <input
-              type="checkbox"
-              checked={includeReturned}
-              onChange={(e) => setIncludeReturned(e.target.checked)}
-            />
-            {he.signatures.showReturned}
-          </label>
+        {/* No "show returned" toggle: this screen answers who holds what now.
+            A returned item is not held, and its history lives in דוח תנועות. */}
+        <div className="flex items-center justify-end gap-3 border-t border-rule px-4 py-2.5">
           {data && (
             <span className="text-meta text-graphite">
               {he.signatures.count(data.rows.length, data.total)}
@@ -112,7 +105,7 @@ export function SignaturesPage() {
                 </thead>
                 <tbody>
                   {data?.rows.map((s) => (
-                    <tr key={s.id} className={s.returnedAt ? 'text-graphite' : undefined}>
+                    <tr key={s.id}>
                       <Td>
                         <span className="font-semibold">
                           {s.soldier.firstName} {s.soldier.lastName}
@@ -144,13 +137,9 @@ export function SignaturesPage() {
                         {formatDateTime(s.signedAt)}
                       </Td>
                       <Td>
-                        {s.returnedAt ? (
-                          <Tag>{he.signatures.returned}</Tag>
-                        ) : (
-                          <Button variant="quiet" size="sm" onClick={() => setReturning(s)}>
-                            {he.returnItem.action}
-                          </Button>
-                        )}
+                        <Button variant="quiet" size="sm" onClick={() => setReturning(s)}>
+                          {he.returnItem.action}
+                        </Button>
                       </Td>
                     </tr>
                   ))}
@@ -183,6 +172,7 @@ function ReturnDialog({ signature, onClose }: { signature: Signature; onClose: (
   const [quantity, setQuantity] = useState(String(signature.quantity));
   const [notes, setNotes] = useState('');
   const [returnItem, { isLoading, error }] = useReturnItemMutation();
+  const toast = useToast();
 
   async function submit(): Promise<void> {
     const result = await returnItem({
@@ -190,7 +180,17 @@ function ReturnDialog({ signature, onClose }: { signature: Signature; onClose: (
       ...(isSerialized ? {} : { quantity: Number(quantity) || signature.quantity }),
       ...(notes ? { notes } : {}),
     });
-    if (result.data) onClose();
+    if (result.data) {
+      toast.success({
+        title: he.toast.returned,
+        detail: `${signature.item.name}${
+          signature.itemInstance ? ` · ${signature.itemInstance.serial}` : ''
+        } ← ${signature.soldier.firstName} ${signature.soldier.lastName}`,
+      });
+      onClose();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   const apiMessage = apiErrorMessage(error);

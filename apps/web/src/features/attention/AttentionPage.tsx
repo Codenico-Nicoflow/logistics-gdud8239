@@ -12,6 +12,7 @@ import {
   Td,
   Th,
 } from '../../components/ui';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { ImportIssue, Signature } from '../../lib/types';
 
@@ -150,10 +151,19 @@ function BackfillDialog({
 }) {
   const [serial, setSerial] = useState('');
   const [backfill, { isLoading, error }] = useBackfillSerialMutation();
+  const toast = useToast();
 
   async function submit(): Promise<void> {
     const result = await backfill({ id: signature.id, serial: serial.trim() });
-    if (result.data) onClose();
+    if (result.data) {
+      toast.success({
+        title: he.toast.serialBackfilled,
+        detail: `${signature.item.name} · ${serial.trim()} → ${signature.soldier.firstName} ${signature.soldier.lastName}`,
+      });
+      onClose();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
   }
 
   const apiMessage = apiErrorMessage(error);

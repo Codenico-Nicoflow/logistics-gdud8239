@@ -20,6 +20,7 @@ import {
   TextField,
 } from '../../components/ui';
 import { AddSoldierDialog } from '../soldiers/AddSoldierDialog';
+import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { COMPANIES, type Company, type Item, type SoldierSummary } from '../../lib/types';
 
@@ -42,7 +43,7 @@ export function IssuePage() {
   const [notes, setNotes] = useState('');
   const [query, setQuery] = useState('');
   const [itemQuery, setItemQuery] = useState('');
-  const [done, setDone] = useState<string | null>(null);
+  const toast = useToast();
 
   const soldiers = useSoldiersQuery({ q: query, take: 8 }, { skip: query.length < 2 });
   const items = useItemsQuery();
@@ -82,8 +83,19 @@ export function IssuePage() {
       ...(notes ? { notes } : {}),
     });
     if (result.data) {
-      setDone(he.issue.success(`${soldier.firstName} ${soldier.lastName}`, item.name));
+      // The detail line carries what was actually recorded, so the operator
+      // can check it against the weapon in their hand without reopening
+      // anything. A מסד is the part most worth confirming.
+      const serialText = serial.trim() ? ` · ${he.issue.stepSerial} ${serial.trim()}` : '';
+      const quantityText =
+        !serial.trim() && Number(quantity) > 1 ? ` · ${he.issue.quantityLabel} ${quantity}` : '';
+      toast.success({
+        title: he.toast.issued,
+        detail: `${item.name}${serialText}${quantityText} → ${soldier.firstName} ${soldier.lastName} · ${he.companies[soldier.company]}`,
+      });
       reset();
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
     }
   }
 
@@ -99,21 +111,6 @@ export function IssuePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <h1 className="text-display font-bold">{he.issue.title}</h1>
-
-      {done && (
-        <div
-          role="status"
-          className="flex items-center justify-between gap-3 rounded-panel border border-field/30 bg-field-wash px-4 py-3"
-        >
-          <span className="font-semibold text-field-dark">{done}</span>
-          <button
-            onClick={() => setDone(null)}
-            className="text-meta font-semibold text-field-dark hover:underline"
-          >
-            {he.common.close}
-          </button>
-        </div>
-      )}
 
       <Steps step={step} soldier={soldier} item={item} />
 
