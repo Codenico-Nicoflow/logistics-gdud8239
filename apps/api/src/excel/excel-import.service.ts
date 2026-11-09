@@ -41,6 +41,8 @@ export type ImportPreview = {
   signatures: number;
   instances: number;
   mergedIntoQuantity: number;
+  /** Rows with a blank `סוג`: items already returned, so no signature is made. */
+  returnedRows: number;
   issues: { kind: IssueKind; count: number; examples: string[] }[];
   perItem: { itemName: string; count: number }[];
   perCompany: { company: string; count: number }[];
@@ -143,9 +145,20 @@ export class ExcelImportService {
     let signatures = 0;
     let instances = 0;
     let merged = 0;
+    /** Rows whose `סוג` is blank: items already returned, so nothing to sign. */
+    let returnedRows = 0;
 
     for (const r of rows) {
       const raw = `${r.itemName} | ${r.serial ?? ''} | ${r.firstName} ${r.lastName} | ${r.company}`;
+      // A blank `סוג` is how a return is recorded in the sheet: the row is kept
+      // with the soldier and מסד so the item is easy to re-issue, and only the
+      // type is cleared. The item is back on the shelf, so the row carries
+      // nothing to restore — it is skipped whole, soldier included. A soldier
+      // who also holds real items still arrives through those rows.
+      if (!r.itemName.trim()) {
+        returnedRows++;
+        continue;
+      }
       const item = itemByName.get(r.itemName);
       const itemName = item?.name ?? UNKNOWN_ITEM_NAME;
 
@@ -154,9 +167,7 @@ export class ExcelImportService {
           kind: 'UNKNOWN_ITEM',
           rowNumber: r.rowNumber,
           rawRow: raw,
-          detail: r.itemName
-            ? `שם פריט לא קיים בקטלוג: "${r.itemName}"`
-            : 'עמודת "סוג" ריקה — לא ידוע על איזה פריט החייל חתום',
+          detail: `שם פריט לא קיים בקטלוג: "${r.itemName}"`,
           serial: r.serial ?? undefined,
         });
       }
@@ -258,6 +269,7 @@ export class ExcelImportService {
       signatures,
       instances,
       mergedIntoQuantity: merged,
+      returnedRows,
       issues: [...byKind.entries()]
         .map(([kind, list]) => ({
           kind,
@@ -289,6 +301,7 @@ export class ExcelImportService {
     let signaturesCreated = 0;
     let merged = 0;
     let flagged = 0;
+    let returned = 0;
 
     await this.prisma.$transaction(
       async (tx) => {
@@ -342,6 +355,13 @@ export class ExcelImportService {
           const raw = `${r.itemName} | ${r.serial ?? ''} | ${r.firstName} ${r.lastName} | ${r.company}`;
           const rowIssues: PendingIssue[] = [];
 
+          // See the preview pass: a blank `סוג` means the item came back, so
+          // the row carries nothing to restore and is skipped whole.
+          if (!r.itemName.trim()) {
+            returned++;
+            continue;
+          }
+
           let item = itemByName.get(r.itemName);
           if (!item) {
             item = unknownItem;
@@ -349,9 +369,7 @@ export class ExcelImportService {
               kind: 'UNKNOWN_ITEM',
               rowNumber: r.rowNumber,
               rawRow: raw,
-              detail: r.itemName
-                ? `שם פריט לא קיים בקטלוג: "${r.itemName}"`
-                : 'עמודת "סוג" ריקה — לא ידוע על איזה פריט החייל חתום',
+              detail: `שם פריט לא קיים בקטלוג: "${r.itemName}"`,
               serial: r.serial ?? undefined,
             });
           }
@@ -566,6 +584,7 @@ export class ExcelImportService {
       signatures: signaturesCreated,
       instances: instancesCreated,
       mergedIntoQuantity: merged,
+      returnedRows: returned,
       issues: [...byKind.entries()]
         .map(([kind, list]) => ({
           kind,

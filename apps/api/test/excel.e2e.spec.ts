@@ -236,6 +236,66 @@ describe('import', () => {
   });
 });
 
+describe('a returned item — blank סוג', () => {
+  /**
+   * The battalion records a return by clearing the `סוג` cell and keeping the
+   * rest of the row, so the item is easy to re-issue to the same soldier. The
+   * row therefore describes something that is back on the shelf: it must not
+   * come in as a signature, and the soldier it names must not be restored from
+   * it either.
+   */
+  async function importSheet(rows: unknown[][]): Promise<request.Response> {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(SHEET.signatures);
+    ws.addRow([...SIGNATURES_HEADER]);
+    for (const row of rows) ws.addRow(row);
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    return request(app.getHttpServer())
+      .post('/api/excel/import/preview')
+      .set('Cookie', adminJar)
+      .attach('file', buffer, 'returns.xlsx')
+      .expect(201);
+  }
+
+  it('skips the row and the soldier it names', async () => {
+    const res = await importSheet([
+      // סוג, מסד, שם, שם משפחה, פלוגה, טלפון, מ.א., קבלה, הערה, מחלקה
+      ['', '956164', 'יונתן', 'לויה', 'א', '', '6150336', '', '', ''],
+      ['', '', 'דב', 'פישמן', 'א', '', '8448432', '', '', ''],
+    ]);
+
+    expect(res.body.totalRows).toBe(2);
+    expect(res.body.returnedRows).toBe(2);
+    expect(res.body.signatures).toBe(0);
+    // Neither soldier is restored: every row naming them was a return.
+    expect(res.body.soldiers).toBe(0);
+  });
+
+  it('still restores a soldier who also holds something', async () => {
+    const res = await importSheet([
+      ['M-4', 'SERIAL-RT-1', 'יונתן', 'לויה', 'א', '', '6150336', '', '', ''],
+      ['', '956164', 'יונתן', 'לויה', 'א', '', '6150336', '', '', ''],
+    ]);
+
+    expect(res.body.returnedRows).toBe(1);
+    expect(res.body.signatures).toBe(1);
+    expect(res.body.soldiers).toBe(1);
+  });
+
+  it('does not report a blank סוג as an unknown item', async () => {
+    // It is a deliberate convention, not a data error, so it must not land in
+    // דרוש טיפול alongside the rows that genuinely need fixing.
+    const res = await importSheet([
+      ['', '', 'דב', 'פישמן', 'א', '', '8448432', '', '', ''],
+      ['פריט שלא קיים', '', 'מישהו', 'אחר', 'ב', '', '1234567', '', '', ''],
+    ]);
+
+    const kinds = (res.body.issues as { kind: string; count: number }[]);
+    expect(kinds.find((i) => i.kind === 'UNKNOWN_ITEM')?.count).toBe(1);
+    expect(res.body.returnedRows).toBe(1);
+  });
+});
+
 describe('disaster recovery round trip', () => {
   it('restores the same state from its own export, keeps the audit log, and snapshots first', async () => {
     const before = await snapshotCounts();
