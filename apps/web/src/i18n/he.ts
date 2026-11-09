@@ -91,6 +91,25 @@ export const he = {
     noGaps: 'אין פערים במצבה',
     uncounted: (n: number) => `${n} פריטים טרם נספרו`,
     notCounted: 'טרם נספר',
+
+    whoIsHere: 'מי נמצא היום',
+    present: 'נוכחים',
+    unmarked: 'טרם סומנו',
+    noTeam: 'לא הוגדרו אנשי צוות',
+    fillAttendance: 'מילוי ימי יציאה',
+
+    lastCount: 'ספירת נשקיה אחרונה',
+    noCount: 'טרם בוצעה ספירה',
+    startCount: 'התחל ספירה',
+    countOpen: 'פתוחה',
+    countClosed: 'סגורה',
+    countedOf: (counted: number, total: number) => `${counted} מתוך ${total} פריטים נספרו`,
+    countedBy: (name: string) => `נספר ע"י ${name}`,
+    daysAgo: (n: number) =>
+      n === 0 ? 'היום' : n === 1 ? 'אתמול' : `לפני ${n} ימים`,
+    staleCount: 'הספירה אינה מהיום',
+    mismatchCount: (n: number) => `${n} פריטים אינם תואמים`,
+    allMatch: 'כל הפריטים שנספרו תואמים',
   },
 
   signatures: {

@@ -10,6 +10,11 @@ import type { AuthUser } from '../auth/auth.types';
 export class CountsController {
   constructor(private readonly counts: CountsService) {}
 
+  @Get('latest')
+  latest() {
+    return this.counts.latest();
+  }
+
   @Get('recent')
   recent() {
     return this.counts.recent();

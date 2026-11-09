@@ -146,6 +146,36 @@ export type Week = {
   presentPerDay: number[];
 };
 
+export type TodayMember = {
+  teamMemberId: string;
+  nickname: string;
+  gender: Gender;
+  status: AttendanceStatus | null;
+  note: string | null;
+};
+
+export type Today = {
+  date: string;
+  byStatus: { status: AttendanceStatus; members: TodayMember[] }[];
+  /** Nobody has filled this person's cell yet — not the same as absent. */
+  unmarked: TodayMember[];
+  present: number;
+  total: number;
+};
+
+export type LatestCount = {
+  session: {
+    id: string;
+    sessionDate: string;
+    shift: CountShift;
+    isClosed: boolean;
+    recordedBy: string | null;
+  } | null;
+  countedItems: number;
+  totalItems: number;
+  mismatches: { itemName: string; gap: number }[];
+};
+
 export type DeletionCheck = {
   canDelete: boolean;
   issuedCount: number;

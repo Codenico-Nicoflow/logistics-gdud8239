@@ -22,6 +22,8 @@ import type {
   SoldierSummary,
   Snapshot,
   SummaryRow,
+  Today,
+  LatestCount,
 } from './types';
 
 /**
@@ -258,6 +260,14 @@ export const api = createApi({
       query: (date) => ({ url: '/attendance/week', params: { date } }),
       providesTags: ['Attendance'],
     }),
+    today: build.query<Today, void>({
+      query: () => '/attendance/today',
+      providesTags: ['Attendance'],
+    }),
+    latestCount: build.query<LatestCount, void>({
+      query: () => '/counts/latest',
+      providesTags: ['Counts'],
+    }),
     teamMembers: build.query<TeamMember[], void>({
       query: () => '/attendance/members',
       providesTags: ['Attendance'],
@@ -345,6 +355,8 @@ export const {
   useDeleteItemMutation,
   useAddInstanceMutation,
   useWeekQuery,
+  useTodayQuery,
+  useLatestCountQuery,
   useTeamMembersQuery,
   useSetAttendanceMutation,
   useCreateTeamMemberMutation,
