@@ -60,7 +60,17 @@ export class SoldiersService {
       ...(query.includeInactive ? {} : { isActive: true }),
       ...(query.company ? { company: query.company } : {}),
       ...(query.withOpenSignatures ? { signatures: { some: { returnedAt: null } } } : {}),
-      ...(query.q ? { OR: soldierSearchClauses(query.q) } : {}),
+      ...(query.holding === 'with' ? { signatures: { some: { returnedAt: null } } } : {}),
+      // `none` rather than counting: a soldier who returned everything holds
+      // nothing, and the closed signatures they still have must not hide them.
+      ...(query.holding === 'without' ? { signatures: { none: { returnedAt: null } } } : {}),
+      // Filtered here rather than in the page, so the count reflects the whole
+      // roster: a cleanup list that only searches the rows already loaded
+      // hides most of the work it exists to surface.
+      ...(query.incompleteOnly
+        ? { OR: [{ personalNumber: null }, { phone: null }] }
+        : {}),
+      ...(query.q ? { AND: [{ OR: soldierSearchClauses(query.q) }] } : {}),
     };
 
     const [rows, total] = await Promise.all([

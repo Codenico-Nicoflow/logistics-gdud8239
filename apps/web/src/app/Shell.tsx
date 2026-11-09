@@ -18,6 +18,7 @@ function navGroups(attentionCount: number): { heading: string; items: NavItem[] 
         { to: '/', label: he.nav.dashboard },
         { to: '/issue', label: he.nav.issue, roles: ['admin', 'logistics'] },
         { to: '/signatures', label: he.nav.signatures },
+        { to: '/soldiers', label: he.nav.soldiers },
         { to: '/attention', label: he.nav.attention, badge: attentionCount },
         { to: '/counts', label: he.nav.counts },
         { to: '/attendance', label: he.nav.attendance, roles: ['admin', 'logistics'] },

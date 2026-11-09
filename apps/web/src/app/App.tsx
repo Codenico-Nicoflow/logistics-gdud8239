@@ -13,6 +13,7 @@ import { BackupsPage } from '../features/backups/BackupsPage';
 import { CountsPage } from '../features/counts/CountsPage';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
+import { SoldiersPage } from '../features/soldiers/SoldiersPage';
 import { UsersPage } from '../features/users/UsersPage';
 
 export function App() {
@@ -36,6 +37,7 @@ export function App() {
           <Route path="allocations" element={<AllocationsPage />} />
           <Route path="movements" element={<MovementsPage />} />
           <Route path="counts" element={<CountsPage />} />
+          <Route path="soldiers" element={<SoldiersPage />} />
           {user.role !== 'viewer' && <Route path="issue" element={<IssuePage />} />}
           {user.role !== 'viewer' && <Route path="attendance" element={<AttendancePage />} />}
           {isAdmin && <Route path="catalog" element={<CatalogPage />} />}
