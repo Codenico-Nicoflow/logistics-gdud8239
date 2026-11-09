@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
 import {
   useAvailableInstancesQuery,
+  useCheckDuplicateSoldierMutation,
+  useCreateSoldierMutation,
   useIssueItemMutation,
   useItemsQuery,
+  useSoldierQuery,
   useSoldiersQuery,
+  useUpdateSoldierMutation,
 } from '../../lib/api';
 import {
   apiErrorMessage,
@@ -11,15 +15,16 @@ import {
   CategoryDot,
   Panel,
   SearchField,
+  Select,
   Serial,
   Spinner,
   Tag,
   TextField,
 } from '../../components/ui';
 import { he } from '../../i18n/he';
-import type { Item, SoldierSummary } from '../../lib/types';
+import { COMPANIES, type Company, type Item, type NewSoldier, type SoldierSummary } from '../../lib/types';
 
-type Step = 'soldier' | 'item' | 'details';
+type Step = 'soldier' | 'confirm' | 'item' | 'details';
 
 /**
  * ניפוק is the one flow that gets full attention rather than table chrome:
@@ -29,6 +34,7 @@ type Step = 'soldier' | 'item' | 'details';
  */
 export function IssuePage() {
   const [step, setStep] = useState<Step>('soldier');
+  const [adding, setAdding] = useState(false);
   const [soldier, setSoldier] = useState<SoldierSummary | null>(null);
   const [item, setItem] = useState<Item | null>(null);
   const [serial, setSerial] = useState('');
@@ -55,6 +61,7 @@ export function IssuePage() {
 
   function reset(): void {
     setStep('soldier');
+    setAdding(false);
     setSoldier(null);
     setItem(null);
     setSerial('');
@@ -82,6 +89,12 @@ export function IssuePage() {
   }
 
   const serialMissing = Boolean(item?.isSerialized) && serial.trim().length === 0;
+  // Typed a serial the register has not seen: allowed, and worth saying so, so
+  // a typo is noticed before it becomes a new instance.
+  const isNewSerial =
+    serial.trim().length > 0 &&
+    available.data !== undefined &&
+    !available.data.some((i) => i.serial === serial.trim());
   const apiMessage = apiErrorMessage(error);
 
   return (
@@ -125,17 +138,41 @@ export function IssuePage() {
                     <button
                       onClick={() => {
                         setSoldier(s);
-                        setStep('item');
+                        setStep('confirm');
                       }}
                       className="flex w-full items-center justify-between gap-3 px-1 py-2.5 text-start hover:bg-card"
                     >
-                      <span>
+                      <span className="min-w-0">
                         <span className="font-semibold">
                           {s.firstName} {s.lastName}
                         </span>
-                        <span className="ms-2 text-meta text-graphite">
-                          {he.companies[s.company]}
-                          {s.personalNumber ? ` · ${s.personalNumber}` : ''}
+                        {/* Everything needed to tell two soldiers apart before
+                            committing to one. A field nobody recorded is named
+                            as missing rather than left blank, because a blank
+                            reads as "no such thing" instead of "unknown". */}
+                        <span className="mt-0.5 flex flex-wrap gap-x-3 text-meta text-graphite">
+                          <span>{he.companies[s.company]}</span>
+                          <span>
+                            {he.issue.personalNumber}:{' '}
+                            {s.personalNumber ? (
+                              <span className="serial text-ink-soft">{s.personalNumber}</span>
+                            ) : (
+                              <span className="text-oxide">{he.issue.missing}</span>
+                            )}
+                          </span>
+                          <span>
+                            {he.issue.phone}:{' '}
+                            {s.phone ? (
+                              <span className="serial text-ink-soft">{s.phone}</span>
+                            ) : (
+                              <span className="text-oxide">{he.issue.missing}</span>
+                            )}
+                          </span>
+                          {s.platoon && (
+                            <span>
+                              {he.issue.platoon}: {s.platoon}
+                            </span>
+                          )}
                         </span>
                       </span>
                       {s.openSignatureCount > 0 && (
@@ -146,8 +183,28 @@ export function IssuePage() {
                 ))}
               </ul>
             )}
+
+            {/* Offered whether or not the search found anyone: a soldier who
+                has never signed for anything is not in the system yet, and
+                ניפוק is where that is discovered. */}
+            <div className="mt-4 border-t border-rule pt-3">
+              <Button variant="quiet" size="sm" onClick={() => setAdding(true)}>
+                {he.issue.addSoldier}
+              </Button>
+            </div>
           </div>
         </Panel>
+      )}
+
+      {step === 'confirm' && soldier && (
+        <ConfirmSoldier
+          soldierId={soldier.id}
+          onBack={() => {
+            setSoldier(null);
+            setStep('soldier');
+          }}
+          onContinue={() => setStep('item')}
+        />
       )}
 
       {step === 'item' && (
@@ -180,11 +237,22 @@ export function IssuePage() {
                 </li>
               ))}
             </ul>
-            <Button variant="quiet" size="sm" onClick={() => setStep('soldier')} className="mt-4">
+            <Button variant="quiet" size="sm" onClick={() => setStep('confirm')} className="mt-4">
               {he.issue.back}
             </Button>
           </div>
         </Panel>
+      )}
+
+      {adding && (
+        <AddSoldierDialog
+          onClose={() => setAdding(false)}
+          onCreated={(created) => {
+            setAdding(false);
+            setSoldier(created);
+            setStep('confirm');
+          }}
+        />
       )}
 
       {step === 'details' && item && soldier && (
@@ -215,26 +283,34 @@ export function IssuePage() {
                 </label>
                 <p className="mt-1 text-meta text-graphite">{he.issue.serialHelp}</p>
 
+                {/* The register of serials is still being built from the
+                    signatures as they are entered, so this list is a shortcut
+                    for what is already known — never a restriction. A serial
+                    nobody has recorded yet is typed in and created on issue. */}
                 {available.data && available.data.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {available.data.slice(0, 24).map((inst) => (
-                      <button
-                        key={inst.id}
-                        onClick={() => setSerial(inst.serial)}
-                        className={`rounded-ctl border px-2 py-1 text-meta ${
-                          serial === inst.serial
-                            ? 'border-brass bg-brass text-white'
-                            : 'border-rule-strong hover:border-brass'
-                        }`}
-                      >
-                        <Serial value={inst.serial} />
-                      </button>
-                    ))}
+                  <div className="mt-3">
+                    <span className="text-meta text-graphite">{he.issue.availableSerials}</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {available.data.slice(0, 24).map((inst) => (
+                        <button
+                          key={inst.id}
+                          onClick={() => setSerial(inst.serial)}
+                          className={`rounded-ctl border px-2 py-1 text-meta ${
+                            serial === inst.serial
+                              ? 'border-brass bg-brass text-white'
+                              : 'border-rule-strong hover:border-brass'
+                          }`}
+                        >
+                          <Serial value={inst.serial} />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {available.data?.length === 0 && (
-                  <p className="mt-2 text-meta text-oxide">{he.issue.noAvailable}</p>
+                  <p className="mt-2 text-meta text-graphite">{he.issue.noAvailable}</p>
                 )}
+                {isNewSerial && <p className="mt-2 text-meta text-brass">{he.issue.newSerial}</p>}
               </div>
             ) : (
               <>
@@ -301,9 +377,10 @@ function Steps({
   item: Item | null;
 }) {
   const steps: { key: Step; label: string; value: string | null }[] = [
+    { key: 'soldier', label: he.issue.stepSoldier, value: null },
     {
-      key: 'soldier',
-      label: he.issue.stepSoldier,
+      key: 'confirm',
+      label: he.issue.confirmSoldier,
       value: soldier ? `${soldier.firstName} ${soldier.lastName}` : null,
     },
     { key: 'item', label: he.issue.stepItem, value: item?.name ?? null },
@@ -328,5 +405,323 @@ function Steps({
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Step 2 — confirm the soldier before anything is signed to them.
+ *
+ * A weapon recorded against the wrong person is the expensive mistake this
+ * flow exists to prevent, and the four fields that identify someone are not
+ * all visible in a search result. Missing details are called out rather than
+ * left blank, and can be filled in here instead of in another tab.
+ */
+function ConfirmSoldier({
+  soldierId,
+  onBack,
+  onContinue,
+}: {
+  soldierId: string;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  const { data, isLoading } = useSoldierQuery(soldierId);
+  const [editing, setEditing] = useState(false);
+
+  if (isLoading) return <Spinner />;
+  if (!data) return null;
+
+  return (
+    <Panel
+      title={he.issue.confirmSoldier}
+      action={
+        <button onClick={onBack} className="text-meta font-semibold text-field hover:underline">
+          {he.issue.changeSoldier}
+        </button>
+      }
+    >
+      <div className="space-y-4 px-4 py-4">
+        {editing ? (
+          <EditSoldier soldier={data} onDone={() => setEditing(false)} />
+        ) : (
+          <>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+              <Detail label={he.issue.fullName} value={`${data.firstName} ${data.lastName}`} />
+              <Detail label={he.issue.personalNumber} value={data.personalNumber} mono />
+              <Detail label={he.issue.company} value={he.companies[data.company]} />
+              <Detail label={he.issue.phone} value={data.phone} mono />
+            </dl>
+
+            <div className="border-t border-rule pt-3">
+              <span className="text-meta font-semibold text-ink-soft">
+                {he.issue.currentlyHolds}
+              </span>
+              {data.signatures.length === 0 ? (
+                <p className="mt-1 text-meta text-graphite">{he.issue.holdsNothing}</p>
+              ) : (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {data.signatures.map((s) => (
+                    <Tag key={s.id}>
+                      {s.item.name}
+                      {s.itemInstance ? ` · ${s.itemInstance.serial}` : ''}
+                      {s.quantity > 1 ? ` ×${s.quantity}` : ''}
+                    </Tag>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={onContinue}>{he.issue.continueToItem}</Button>
+              <Button variant="quiet" onClick={() => setEditing(true)}>
+                {he.issue.editDetails}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string | null;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-meta text-graphite">{label}</dt>
+      {/* A missing field is named as missing: a blank cell reads as "nothing
+          to see here" when it actually means nobody has recorded it. */}
+      <dd
+        className={`font-semibold ${value ? '' : 'text-oxide'} ${mono && value ? 'serial' : ''}`}
+      >
+        {value || he.issue.missing}
+      </dd>
+    </div>
+  );
+}
+
+/** Correcting details in place, so a wrong מ.א. does not send you to another tab. */
+function EditSoldier({
+  soldier,
+  onDone,
+}: {
+  soldier: import('../../lib/types').SoldierDetail;
+  onDone: () => void;
+}) {
+  const [firstName, setFirstName] = useState(soldier.firstName);
+  const [lastName, setLastName] = useState(soldier.lastName);
+  const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
+  const [phone, setPhone] = useState(soldier.phone ?? '');
+  const [company, setCompany] = useState<Company>(soldier.company);
+  const [update, { isLoading, error }] = useUpdateSoldierMutation();
+
+  async function submit(): Promise<void> {
+    const result = await update({
+      id: soldier.id,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      company,
+      ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
+      ...(phone.trim() ? { phone: phone.trim() } : {}),
+    });
+    if ('data' in result) onDone();
+  }
+
+  const message = apiErrorMessage(error);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField label={he.issue.fullName} value={firstName} onChange={setFirstName} required />
+        <TextField label=" " value={lastName} onChange={setLastName} required />
+        <TextField
+          label={he.issue.personalNumber}
+          value={personalNumber}
+          onChange={setPersonalNumber}
+        />
+        <TextField label={he.issue.phone} value={phone} onChange={setPhone} />
+        <Select
+          label={he.issue.company}
+          value={company}
+          onChange={(v) => v && setCompany(v as Company)}
+          options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
+        />
+      </div>
+      {message && (
+        <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
+          {message}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button onClick={() => void submit()} disabled={isLoading}>
+          {he.issue.saveDetails}
+        </Button>
+        <Button variant="quiet" onClick={onDone}>
+          {he.common.cancel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Creating a soldier without leaving ניפוק.
+ *
+ * A soldier who has never signed for anything is not in the system, and this
+ * is where that is discovered — sending the operator to another tab mid-issue
+ * loses the thread. A same-name-same-company match is shown as a warning
+ * rather than a block, because it is common enough to be genuine.
+ */
+function AddSoldierDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (soldier: SoldierSummary) => void;
+}) {
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [personalNumber, setPersonalNumber] = useState('');
+  const [phone, setPhone] = useState('');
+  const [company, setCompany] = useState<Company>('A');
+  const [duplicates, setDuplicates] = useState<SoldierSummary[] | null>(null);
+
+  const [checkDuplicate] = useCheckDuplicateSoldierMutation();
+  const [create, { isLoading, error }] = useCreateSoldierMutation();
+
+  function payload(): NewSoldier {
+    return {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      company,
+      ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
+      ...(phone.trim() ? { phone: phone.trim() } : {}),
+    };
+  }
+
+  async function submit(): Promise<void> {
+    // Checked once. A second press means the operator has seen the warning and
+    // decided, so it is not asked again.
+    if (duplicates === null) {
+      const found = await checkDuplicate(payload());
+      const matches = 'data' in found ? (found.data ?? []) : [];
+      if (matches.length > 0) {
+        setDuplicates(matches);
+        return;
+      }
+      setDuplicates([]);
+    }
+    const result = await create(payload());
+    if ('data' in result && result.data) onCreated(result.data);
+  }
+
+  // A מ.א. is required for anyone added from here. The Excel carries soldiers
+  // without one and those records are left alone, but a new record created
+  // today gets the field that makes a duplicate impossible rather than merely
+  // flagged.
+  const ready =
+    firstName.trim().length > 0 && lastName.trim().length > 0 && /^\d{5,9}$/.test(personalNumber.trim());
+  const message = apiErrorMessage(error);
+
+  return (
+    <div
+      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-md rounded-panel border border-rule bg-card-raised shadow-lift"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="rounded-t-panel border-b border-rule bg-card px-4 py-3">
+          <h2 className="text-lead font-semibold">{he.issue.addSoldierTitle}</h2>
+        </header>
+        <div className="space-y-3 px-4 py-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField
+              label={he.issue.firstName}
+              value={firstName}
+              onChange={setFirstName}
+              autoFocus
+              required
+            />
+            <TextField
+              label={he.issue.lastName}
+              value={lastName}
+              onChange={setLastName}
+              required
+            />
+          </div>
+          <Select
+            label={he.issue.company}
+            value={company}
+            onChange={(v) => v && setCompany(v as Company)}
+            options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField
+              label={he.issue.personalNumber}
+              value={personalNumber}
+              onChange={setPersonalNumber}
+              hint={he.issue.personalNumberHint}
+              required
+            />
+            <TextField
+              label={he.issue.phone}
+              value={phone}
+              onChange={setPhone}
+              hint={he.issue.optional}
+            />
+          </div>
+
+          {duplicates && duplicates.length > 0 && (
+            <div className="rounded-ctl bg-brass-wash px-3 py-2">
+              <p className="text-meta font-semibold text-brass">{he.issue.duplicateWarning}</p>
+              <ul className="mt-1.5 space-y-1">
+                {duplicates.map((d) => (
+                  <li key={d.id} className="flex items-center justify-between gap-2">
+                    <span className="text-meta">
+                      {d.firstName} {d.lastName}
+                      {d.personalNumber ? ` · ${d.personalNumber}` : ''}
+                    </span>
+                    <button
+                      onClick={() => onCreated(d)}
+                      className="text-meta font-semibold text-field hover:underline"
+                    >
+                      {he.issue.useExisting}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {message && (
+            <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
+              {message}
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <Button onClick={() => void submit()} disabled={!ready || isLoading}>
+              {duplicates && duplicates.length > 0
+                ? he.issue.createAnyway
+                : he.issue.createAndContinue}
+            </Button>
+            <Button variant="quiet" onClick={onClose}>
+              {he.common.cancel}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

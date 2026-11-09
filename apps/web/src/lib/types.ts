@@ -39,6 +39,34 @@ export type SoldierSummary = {
   openSignatureCount: number;
 };
 
+/** A soldier with what they currently hold, for the confirmation step. */
+export type SoldierDetail = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  personalNumber: string | null;
+  phone: string | null;
+  company: Company;
+  platoon: string | null;
+  isActive: boolean;
+  signatures: {
+    id: string;
+    quantity: number;
+    item: { id: string; name: string };
+    itemInstance: { id: string; serial: string } | null;
+  }[];
+};
+
+/** The fields accepted when creating a soldier; only these four are required. */
+export type NewSoldier = {
+  firstName: string;
+  lastName: string;
+  company: Company;
+  personalNumber?: string;
+  phone?: string;
+  platoon?: string;
+};
+
 export type Item = {
   id: string;
   name: string;

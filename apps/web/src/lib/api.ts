@@ -24,6 +24,8 @@ import type {
   SummaryRow,
   Today,
   LatestCount,
+  NewSoldier,
+  SoldierDetail,
 } from './types';
 
 /**
@@ -94,6 +96,23 @@ export const api = createApi({
     >({
       query: (params) => ({ url: '/soldiers', params }),
       providesTags: ['Soldiers'],
+    }),
+
+    soldier: build.query<SoldierDetail, string>({
+      query: (id) => `/soldiers/${id}`,
+      providesTags: ['Soldiers', 'Signatures'],
+    }),
+    updateSoldier: build.mutation<SoldierSummary, { id: string } & Partial<NewSoldier>>({
+      query: ({ id, ...body }) => ({ url: `/soldiers/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['Soldiers'],
+    }),
+    createSoldier: build.mutation<SoldierSummary, NewSoldier>({
+      query: (body) => ({ url: '/soldiers', method: 'POST', body }),
+      invalidatesTags: ['Soldiers'],
+    }),
+    /** Asked before creating, so a likely duplicate is shown rather than made. */
+    checkDuplicateSoldier: build.mutation<SoldierSummary[], NewSoldier>({
+      query: (body) => ({ url: '/soldiers/check-duplicates', method: 'POST', body }),
     }),
 
     // --- items ---
@@ -355,6 +374,10 @@ export const {
   useDeleteItemMutation,
   useAddInstanceMutation,
   useWeekQuery,
+  useSoldierQuery,
+  useUpdateSoldierMutation,
+  useCreateSoldierMutation,
+  useCheckDuplicateSoldierMutation,
   useTodayQuery,
   useLatestCountQuery,
   useTeamMembersQuery,
