@@ -92,7 +92,15 @@ export const api = createApi({
     // --- soldiers ---
     soldiers: build.query<
       Paginated<SoldierSummary>,
-      { q?: string; company?: Company; take?: number; skip?: number; withOpenSignatures?: boolean }
+      {
+        q?: string;
+        company?: Company;
+        take?: number;
+        skip?: number;
+        withOpenSignatures?: boolean;
+        holding?: 'with' | 'without';
+        incompleteOnly?: boolean;
+      }
     >({
       query: (params) => ({ url: '/soldiers', params }),
       providesTags: ['Soldiers'],
