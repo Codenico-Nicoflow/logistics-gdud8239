@@ -25,6 +25,12 @@ export class IssueFormLineDto {
   @IsInt()
   @Min(1, { message: 'כמות חייבת להיות לפחות 1' })
   quantity!: number;
+
+  /** The `הערות` column the paper form keeps per line. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  lineNotes?: string;
 }
 
 export class CreateIssueFormDto {
@@ -53,4 +59,10 @@ export class CreateIssueFormDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  /** `מס קבלה` in the form's header box. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  receiptNo?: string;
 }

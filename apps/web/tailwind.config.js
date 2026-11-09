@@ -30,6 +30,8 @@ export default {
           'optics-wash': 'var(--cat-optics-wash)',
           drone: 'var(--cat-drone)',
           'drone-wash': 'var(--cat-drone-wash)',
+          accessory: 'var(--cat-accessory)',
+          'accessory-wash': 'var(--cat-accessory-wash)',
           gear: 'var(--cat-gear)',
           'gear-wash': 'var(--cat-gear-wash)',
         },

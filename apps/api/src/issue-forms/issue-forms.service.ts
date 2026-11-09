@@ -78,6 +78,7 @@ export class IssueFormsService {
             signatureImage: dto.signatureImage,
             issuedByUserId: actor.id,
             issuedByNameSnapshot: actor.displayName,
+            receiptNo: dto.receiptNo?.trim() || null,
             notes: dto.notes ?? null,
           },
         });
@@ -132,6 +133,7 @@ export class IssueFormsService {
                   itemId: item.id,
                   itemInstanceId,
                   quantity: line.quantity,
+                  receiptNo: dto.receiptNo?.trim() || null,
                   signedByUserId: actor.id,
                 },
               });
@@ -142,7 +144,11 @@ export class IssueFormsService {
               itemId: item.id,
               itemNameSnapshot: item.name,
               serialSnapshot: serial ?? null,
+              // Snapshotted with the line: the printed form must keep saying
+              // י"ח as it read when signed, even if the catalog changes later.
+              unitOfMeasure: item.unitOfMeasure,
               quantity: line.quantity,
+              lineNotes: line.lineNotes?.trim() || null,
               signatureId: signature.id,
             },
           });
@@ -159,6 +165,7 @@ export class IssueFormsService {
               quantity: line.quantity,
               performedByUserId: actor.id,
               performedByNameSnapshot: actor.displayName,
+              receiptNo: dto.receiptNo?.trim() || null,
               signatureId: signature.id,
             },
           });

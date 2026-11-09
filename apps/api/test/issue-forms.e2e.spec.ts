@@ -237,7 +237,10 @@ describe('טופס 1008', () => {
     const created = await post({
       soldierId: soldierA,
       signatureImage: SIGNATURE,
-      lines: [{ itemId: weaponId, serial: 'FORM-PRINT', quantity: 1 }],
+      receiptNo: 'REC-77',
+      lines: [
+        { itemId: weaponId, serial: 'FORM-PRINT', quantity: 1, lineNotes: 'הערת שורה' },
+      ],
     }).expect(201);
 
     const res = await request(app.getHttpServer())
@@ -246,7 +249,20 @@ describe('טופס 1008', () => {
       .expect(200);
 
     expect(res.headers['content-type']).toContain('text/html');
-    expect(res.text).toContain('טופס חתימה 1008');
+    // Titled and laid out like the paper שובר the battalion already signs, so
+    // whoever files it is not asked to learn a new form.
+    expect(res.text).toContain('שובר השאלה פנימית 1008');
+    expect(res.text).toContain('8239');
+    expect(res.text).toContain('פרטי החייל המשאיל');
+    expect(res.text).toContain('פרטי החייל השואל');
+    // The six columns of the paper sheet, in its own order.
+    for (const column of ['מס"ד', 'תיאור', 'י"ח', 'כמות', 'מזהה', 'הערות']) {
+      expect(res.text).toContain(column);
+    }
+    // דרגה is deliberately absent: the battalion does not track it here.
+    expect(res.text).not.toContain('דרגה');
+    expect(res.text).toContain('REC-77');
+    expect(res.text).toContain('הערת שורה');
     expect(res.text).toContain(`ראשון ${LAST}`);
     expect(res.text).toContain('FORM-PRINT');
     expect(res.text).toContain(SIGNATURE);

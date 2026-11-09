@@ -55,6 +55,7 @@ export const he = {
     WEAPON: 'נשק',
     OPTICS: 'אופטיקה',
     DRONE: 'רחפן',
+    ACCESSORY: 'אבזור',
     GEAR: 'ציוד',
   },
 
@@ -141,6 +142,7 @@ export const he = {
     itemUpdated: 'הפריט עודכן',
     itemRemoved: 'הפריט נמחק',
     itemDeactivated: 'הפריט הושבת',
+    formSigned: 'הטופס נחתם והפריטים נופקו',
     countSaved: 'הספירה נשמרה',
     countClosed: 'הספירה נסגרה',
     attendanceSaved: 'ימי היציאה עודכנו',
@@ -238,6 +240,50 @@ export const he = {
     duplicateWarning: 'קיים כבר חייל בשם זהה בפלוגה זו:',
     useExisting: 'השתמש בקיים',
     createAnyway: 'צור בכל זאת',
+  },
+
+  // טופס 1008 — a whole handover against one signature.
+  form1008: {
+    title: 'ניפוק וחתימה — טופס 1008',
+    formName: 'שובר השאלה פנימית 1008',
+    stepBasket: 'הפריטים',
+    stepSign: 'חתימת החייל',
+
+    // Choosing what goes out.
+    kits: 'ערכות',
+    kitHint: 'בחר ערכה כדי למלא את הפריטים, ואז ערוך כרצונך',
+    noKits: 'לא הוגדרו ערכות',
+    addItem: 'הוסף פריט',
+    searchItem: 'חפש פריט להוספה',
+    basket: 'פריטים לחתימה',
+    basketEmpty: 'לא נבחרו פריטים. בחר ערכה או הוסף פריט.',
+    remove: 'הסר',
+    alreadyInBasket: 'הפריט כבר ברשימה',
+    quantityZeroHint: 'כמות 0 מסירה את הפריט מהטופס',
+    serialNeeded: 'חובה מסד',
+    lineNotes: 'הערה',
+    unit: 'י"ח',
+
+    // The form's own header fields.
+    receiptNo: 'מספר קבלה',
+    formNotes: 'הערות לטופס',
+
+    // Signing.
+    signHere: 'חתום כאן',
+    signHint: 'החייל חותם באצבע או בעכבר',
+    clearSignature: 'נקה חתימה',
+    signatureRequired: 'נדרשת חתימת החייל',
+    declaration:
+      'אני מאשר/ת שקיבלתי את הפריטים המפורטים לעיל, בדקתי אותם, ואני אחראי/ת לשמירתם ולהחזרתם.',
+    reviewBeforeSign: 'הקרא את הרשימה לחייל לפני החתימה',
+    submit: 'חתום ונפק',
+    submitting: 'מנפק…',
+
+    // After.
+    created: (n: number) => `טופס 1008 מספר ${n} נחתם`,
+    openForm: 'הצג והדפס את הטופס',
+    newForm: 'ניפוק נוסף',
+    linesCount: (n: number) => `${n} פריטים`,
   },
 
   returnItem: {
