@@ -73,8 +73,17 @@ export function ConfirmSoldier({
               )}
             </div>
 
+            {data.signatures.length > 0 && (
+              <p className="rounded-ctl bg-brass-wash px-3 py-2 text-meta font-semibold text-brass">
+                {he.issue.alreadyHoldsWarning}
+              </p>
+            )}
+
             <div className="flex gap-2">
-              <Button onClick={onContinue} disabled={data.isEnlisted === false}>
+              <Button
+                onClick={onContinue}
+                disabled={data.isEnlisted === false || data.signatures.length > 0}
+              >
                 {he.issue.continueToItem}
               </Button>
               <Button variant="quiet" onClick={() => setEditing(true)}>

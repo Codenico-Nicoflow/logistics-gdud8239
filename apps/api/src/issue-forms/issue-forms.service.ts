@@ -41,6 +41,17 @@ export class IssueFormsService {
       throw new BadRequestException('אין לך הרשאה לחתום על חיילים מפלוגה זו');
     }
 
+    // One live 1008 per soldier: anything he already holds is changed through
+    // `reissue` (חתימות → ערוך וחתום מחדש), which only writes movements for
+    // the lines that actually changed. A second fresh ניפוק would leave two
+    // parallel forms describing what he holds.
+    const alreadyHolds = await this.prisma.signature.count({
+      where: { soldierId: soldier.id, returnedAt: null },
+    });
+    if (alreadyHolds > 0) {
+      throw new ConflictException('לחייל כבר יש ציוד חתום — שינויים נעשים דרך מסך חתימות');
+    }
+
     const items = await this.prisma.item.findMany({
       where: { id: { in: dto.lines.map((l) => l.itemId) } },
     });
