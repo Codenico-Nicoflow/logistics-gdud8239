@@ -13,7 +13,10 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
   app.use(cookieParser());
-  app.setGlobalPrefix('api');
+  // Excludes bare '/' so it stays reachable outside the API prefix — a plain
+  // 200 there for anyone (or any infra check) that visits the service root
+  // directly, instead of a 404 that reads as the deploy being broken.
+  app.setGlobalPrefix('api', { exclude: ['/'] });
 
   // Tokens travel in cookies, so the browser must be allowed to send them and
   // the allowed origin must be explicit — a wildcard origin cannot use credentials.
