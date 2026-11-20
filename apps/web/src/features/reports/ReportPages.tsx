@@ -112,6 +112,12 @@ export function SummaryPage() {
             <Button onClick={() => void submit()} disabled={isSaving}>
               {isSaving ? he.summary.saving : he.summary.save}
             </Button>
+            <Button
+              variant="quiet"
+              onClick={() => window.open(`/api/mesakem/export?date=${date}`, '_blank')}
+            >
+              {he.summary.downloadExcel}
+            </Button>
             <Button variant="quiet" onClick={() => void finish()} disabled={isFinishing}>
               {isFinishing ? he.summary.finishing : he.summary.finishDay}
             </Button>

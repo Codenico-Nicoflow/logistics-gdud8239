@@ -4,6 +4,30 @@ import { WebClient } from '@slack/web-api';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
+import type { ItemCategory } from '@prisma/client';
+import { CATEGORY_HE } from '../excel/excel.constants';
+import {
+  PALETTE,
+  addBodyRow,
+  addHeaderRow,
+  addKpiRow,
+  addTitleBlock,
+  addTotalsRow,
+  createSheet,
+  finalizeSheet,
+  generatedAtLabel,
+  pill,
+  type Tone,
+} from '../excel/excel-theme';
+
+const CATEGORY_TONE: Record<string, Tone> = {
+  WEAPON: 'field',
+  OPTICS: 'sky',
+  DRONE: 'violet',
+  ACCESSORY: 'brass',
+  GEAR: 'graphite',
+  AMMO: 'oxide',
+};
 
 export type MesakemRow = {
   itemId: string;
@@ -105,27 +129,69 @@ export class MesakemService {
     wb.creator = 'מערכת לוגיסטיקה';
     wb.created = new Date();
 
-    const ws = wb.addWorksheet('מסכם', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] });
-    ws.columns = [{ width: 24 }, { width: 14 }, { width: 14 }, { width: 10 }];
-    const header = ws.addRow(['שם פריט', 'סה"כ מנופק', 'בנשקייה', 'פער']);
-    header.font = { bold: true };
-    header.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1E8' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    const COLS = 6;
+    const ws = createSheet(wb, 'מסכם', [26, 13, 12, 13, 13, 14]);
+    const dateLabel = date.toLocaleDateString('he-IL', {
+      weekday: 'long',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'Asia/Jerusalem',
+    });
+    addTitleBlock(ws, COLS, 'מסכם יומי', `${dateLabel}   ·   הופק ${generatedAtLabel()}`);
+
+    const filled = rows.filter((r) => r.nashkiyaQty !== null);
+    const withGap = filled.filter((r) => r.gap !== 0);
+    addKpiRow(ws, COLS, [
+      { label: 'פריטים', value: rows.length, tone: 'graphite' },
+      { label: 'מולאו', value: filled.length, tone: 'sky' },
+      { label: 'תקינים', value: filled.length - withGap.length, tone: 'field' },
+      { label: 'בפער', value: withGap.length, tone: withGap.length ? 'oxide' : 'field' },
+    ]);
+
+    const header = addHeaderRow(ws, ['צל"מ', 'קטגוריה', 'מצבה', 'סה"כ מנופק', 'בנשקייה', 'פער']);
+
+    rows.forEach((r, i) => {
+      const row = addBodyRow(
+        ws,
+        [r.itemName, CATEGORY_HE[r.category as ItemCategory] ?? r.category, r.authorizedQty, r.issued, r.nashkiyaQty, r.gap],
+        i,
+        [2, 3, 4, 5, 6],
+      );
+      row.getCell(1).font = { name: 'Arial', size: 10.5, bold: true };
+      pill(row.getCell(2), CATEGORY_TONE[r.category] ?? 'graphite');
+
+      const gapCell = row.getCell(6);
+      if (r.gap === null) {
+        gapCell.value = '—';
+        gapCell.font = { name: 'Arial', size: 10.5, color: { argb: PALETTE.graphite } };
+      } else {
+        gapCell.value = r.gap === 0 ? '✓ תקין' : r.gap > 0 ? `חסר ${r.gap}` : `עודף ${-r.gap}`;
+        pill(gapCell, r.gap === 0 ? 'field' : 'oxide');
+      }
     });
 
-    for (const row of rows) {
-      const excelRow = ws.addRow([row.itemName, row.issued, row.nashkiyaQty, row.gap]);
-      const gapCell = excelRow.getCell(4);
-      if (row.gap !== null && row.gap !== 0) {
-        gapCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4CCCC' } };
-        gapCell.font = { bold: true };
-      } else if (row.gap === 0) {
-        gapCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9EAD3' } };
-      }
-    }
+    addTotalsRow(
+      ws,
+      [
+        'סה"כ',
+        '',
+        rows.reduce((s, r) => s + r.authorizedQty, 0),
+        rows.reduce((s, r) => s + r.issued, 0),
+        filled.reduce((s, r) => s + (r.nashkiyaQty ?? 0), 0),
+        withGap.length ? `${withGap.length} בפער` : 'הכל תקין',
+      ],
+      [3, 4, 5, 6],
+    );
+    finalizeSheet(ws, header, COLS, 'מסכם יומי · מערכת הלוגיסטיקה של גדוד 8239');
 
     return { wb, date };
+  }
+
+  async exportExcel(sessionDate: string): Promise<{ buffer: Buffer; fileName: string }> {
+    const { wb, date } = await this.buildWorkbook(sessionDate);
+    const data = await wb.xlsx.writeBuffer();
+    return { buffer: Buffer.from(data), fileName: `mesakem-${date.toISOString().slice(0, 10)}.xlsx` };
   }
 
   /**
