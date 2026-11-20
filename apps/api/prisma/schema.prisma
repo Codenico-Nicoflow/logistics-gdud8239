@@ -139,6 +139,7 @@ model User {
   dbBackups          DbBackup[]
   issueForms         IssueForm[]
   issueFormAmendments IssueFormAmendment[]
+  dailySummaryLines  DailySummaryLine[]
 
   @@map("users")
 }
@@ -260,6 +261,7 @@ model Item {
   signatures  Signature[]
   allocations Allocation[]
   countLines  CountLine[]
+  dailySummaryLines DailySummaryLine[]
   movements   Movement[]
   formLines   IssueFormLine[]
   companyAllocations CompanyAllocation[]
@@ -582,6 +584,40 @@ model CountLine {
 
   @@unique([countSessionId, itemId])
   @@map("count_lines")
+}
+
+/// `מסכם` — the once-a-day armory headcount entered by hand (`בבקשה`/`בנשקייה`
+/// on the old sheet), one value per item per calendar day, no morning/evening
+/// split the way `CountSession` has. `ספירת נשקיה` then reads this same value
+/// back as the figure the two signers verify together — one number is typed
+/// once here, never re-typed there.
+model DailySummaryLine {
+  id            String   @id @default(uuid())
+  sessionDate   DateTime @map("session_date") @db.Date
+  itemId        String   @map("item_id")
+  nashkiyaQty   Int      @map("nashkiya_qty")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedByUserId String @map("updated_by_user_id")
+
+  item        Item @relation(fields: [itemId], references: [id])
+  updatedBy   User @relation(fields: [updatedByUserId], references: [id])
+
+  @@unique([sessionDate, itemId])
+  @@map("daily_summary_lines")
+}
+
+/// One row per day once "סיים יום" is pressed — tracks whether that day's
+/// מסכם Excel made it to Slack, same shape as `DbBackup`'s own
+/// `slackSentAt`/`slackError` pair, so a failed send is visible and retriable
+/// instead of silently lost.
+model DailySummaryExport {
+  id          String   @id @default(uuid())
+  sessionDate DateTime @unique @map("session_date") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+  slackSentAt DateTime? @map("slack_sent_at")
+  slackError  String?   @map("slack_error")
+
+  @@map("daily_summary_exports")
 }
 
 model Attendance {

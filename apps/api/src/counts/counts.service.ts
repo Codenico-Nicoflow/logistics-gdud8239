@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CountShift } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MesakemService } from '../mesakem/mesakem.service';
 import type { AuthUser } from '../auth/auth.types';
 import type { SaveCountDto } from './dto/save-count.dto';
 
@@ -8,70 +9,66 @@ export type CountSheetRow = {
   itemId: string;
   itemName: string;
   category: string;
-  authorizedQty: number;
-  issued: number;
-  countedQty: number | null;
-  faultyQty: number;
-  /** מצבה − (מנופק + נספר). Non-zero means the shelf does not match the books. */
-  gap: number | null;
-  notes: string | null;
+  /** The day's בנשקייה figure from מסכם — read-only here, never typed twice. */
+  nashkiyaQty: number | null;
 };
 
+/**
+ * `ספירת נשקיה` — the two-party sign-off on the day's already-entered מסכם
+ * figure. Deliberately shows only `nashkiyaQty`: it used to also show
+ * מצבה/מנופק/פער and take its own hand-typed count, but that duplicated what
+ * מסכם already collects once a day. This screen's only job now is verifying
+ * and signing that existing number, not re-deriving it.
+ */
 @Injectable()
 export class CountsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mesakem: MesakemService,
+  ) {}
 
   /**
-   * The count sheet for a date and shift: every active item, with the number
-   * issued (computed) alongside the number counted on the shelf (entered by
-   * hand). Pre-filled from an existing session so a count can be corrected.
+   * The sign-off sheet for a date and shift: every active item with the
+   * day's מסכם figure next to it. Pre-filled from an existing session so the
+   * signer details can be corrected before closing.
    *
    * The item list is exactly מסכם's, so whatever an admin removes from the
-   * summary disappears from the evening count too — one list, maintained once.
+   * summary disappears from here too — one list, maintained once.
    */
   async sheet(sessionDate: string, shift: CountShift): Promise<{
     session: { id: string; isClosed: boolean } | null;
     rows: CountSheetRow[];
-    signers: Record<string, string | null>;
+    signers: {
+      responsibleName: string | null;
+      responsiblePn: string | null;
+      responsibleRank: string | null;
+      responsibleSignatureImage: string | null;
+      officerName: string | null;
+      officerPn: string | null;
+      officerRank: string | null;
+      officerSignatureImage: string | null;
+    };
   }> {
     const date = new Date(sessionDate);
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
 
-    const [items, issuedRows, session] = await Promise.all([
+    const [items, nashkiyaByItem, session] = await Promise.all([
       this.prisma.item.findMany({
         where: { isActive: true, inSummary: true },
         orderBy: { name: 'asc' },
       }),
-      this.prisma.signature.groupBy({
-        by: ['itemId'],
-        where: { returnedAt: null },
-        _sum: { quantity: true },
-      }),
+      this.mesakem.nashkiyaFor(sessionDate),
       this.prisma.countSession.findUnique({
         where: { sessionDate_shift: { sessionDate: date, shift } },
-        include: { lines: true },
       }),
     ]);
 
-    const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
-    const lineByItem = new Map((session?.lines ?? []).map((l) => [l.itemId, l]));
-
-    const rows: CountSheetRow[] = items.map((item) => {
-      const issued = issuedByItem.get(item.id) ?? 0;
-      const line = lineByItem.get(item.id);
-      const countedQty = line?.countedQty ?? null;
-      return {
-        itemId: item.id,
-        itemName: item.name,
-        category: item.category,
-        authorizedQty: item.authorizedQty,
-        issued,
-        countedQty,
-        faultyQty: line?.faultyQty ?? 0,
-        gap: countedQty === null ? null : item.authorizedQty - (issued + countedQty),
-        notes: line?.notes ?? null,
-      };
-    });
+    const rows: CountSheetRow[] = items.map((item) => ({
+      itemId: item.id,
+      itemName: item.name,
+      category: item.category,
+      nashkiyaQty: nashkiyaByItem.get(item.id) ?? null,
+    }));
 
     return {
       session: session ? { id: session.id, isClosed: session.isClosed } : null,
@@ -90,10 +87,11 @@ export class CountsService {
   }
 
   /**
-   * Saves a count. Re-saving the same date and shift replaces its lines, so a
-   * miscount can be corrected rather than producing a second session.
+   * Saves (or updates) the signer details for a session. Re-saving the same
+   * date and shift replaces them, so a correction before closing doesn't
+   * create a second session.
    */
-  async save(dto: SaveCountDto, actor: AuthUser): Promise<{ id: string; lines: number }> {
+  async save(dto: SaveCountDto, actor: AuthUser): Promise<{ id: string }> {
     const date = new Date(dto.sessionDate);
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
 
@@ -104,61 +102,39 @@ export class CountsService {
       throw new BadRequestException('הספירה נסגרה ולא ניתן לשנות אותה');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const session = await tx.countSession.upsert({
-        where: { sessionDate_shift: { sessionDate: date, shift: dto.shift } },
-        update: {
-          responsibleName: dto.responsibleName ?? null,
-          responsiblePn: dto.responsiblePn ?? null,
-          responsibleRank: dto.responsibleRank ?? null,
-          officerName: dto.officerName ?? null,
-          officerPn: dto.officerPn ?? null,
-          officerRank: dto.officerRank ?? null,
-          responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
-          officerSignatureImage: dto.officerSignatureImage ?? null,
-          recordedByUserId: actor.id,
-          recordedAt: new Date(),
-        },
-        create: {
-          sessionDate: date,
-          shift: dto.shift,
-          responsibleName: dto.responsibleName ?? null,
-          responsiblePn: dto.responsiblePn ?? null,
-          responsibleRank: dto.responsibleRank ?? null,
-          officerName: dto.officerName ?? null,
-          officerPn: dto.officerPn ?? null,
-          officerRank: dto.officerRank ?? null,
-          responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
-          officerSignatureImage: dto.officerSignatureImage ?? null,
-          recordedByUserId: actor.id,
-        },
-      });
-
-      await tx.countLine.deleteMany({ where: { countSessionId: session.id } });
-      if (dto.lines.length) {
-        await tx.countLine.createMany({
-          data: dto.lines.map((l) => ({
-            countSessionId: session.id,
-            itemId: l.itemId,
-            countedQty: l.countedQty,
-            faultyQty: l.faultyQty ?? 0,
-            notes: l.notes ?? null,
-          })),
-        });
-      }
-
-      return { id: session.id, lines: dto.lines.length };
+    const session = await this.prisma.countSession.upsert({
+      where: { sessionDate_shift: { sessionDate: date, shift: dto.shift } },
+      update: {
+        responsibleName: dto.responsibleName ?? null,
+        responsiblePn: dto.responsiblePn ?? null,
+        responsibleRank: dto.responsibleRank ?? null,
+        officerName: dto.officerName ?? null,
+        officerPn: dto.officerPn ?? null,
+        officerRank: dto.officerRank ?? null,
+        responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
+        officerSignatureImage: dto.officerSignatureImage ?? null,
+        recordedByUserId: actor.id,
+        recordedAt: new Date(),
+      },
+      create: {
+        sessionDate: date,
+        shift: dto.shift,
+        responsibleName: dto.responsibleName ?? null,
+        responsiblePn: dto.responsiblePn ?? null,
+        responsibleRank: dto.responsibleRank ?? null,
+        officerName: dto.officerName ?? null,
+        officerPn: dto.officerPn ?? null,
+        officerRank: dto.officerRank ?? null,
+        responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
+        officerSignatureImage: dto.officerSignatureImage ?? null,
+        recordedByUserId: actor.id,
+      },
     });
+
+    return { id: session.id };
   }
 
-  /**
-   * Status of the most recent count, for the dashboard.
-   *
-   * What matters at the start of a shift is whether last night's count was
-   * actually done, how much of it was filled in, and what did not match. An
-   * item nobody counted is reported separately from an item that was counted
-   * and disagreed — the first is unfinished work, the second is a discrepancy.
-   */
+  /** Status of the most recent sign-off, for the dashboard. */
   async latest(): Promise<{
     session: {
       id: string;
@@ -167,39 +143,13 @@ export class CountsService {
       isClosed: boolean;
       recordedBy: string | null;
     } | null;
-    countedItems: number;
-    totalItems: number;
-    mismatches: { itemName: string; gap: number }[];
   }> {
-    const [session, items, issuedRows] = await Promise.all([
-      this.prisma.countSession.findFirst({
-        orderBy: [{ sessionDate: 'desc' }, { recordedAt: 'desc' }],
-        include: { lines: true, recordedBy: { select: { displayName: true } } },
-      }),
-      this.prisma.item.findMany({ where: { isActive: true, inSummary: true } }),
-      this.prisma.signature.groupBy({
-        by: ['itemId'],
-        where: { returnedAt: null },
-        _sum: { quantity: true },
-      }),
-    ]);
+    const session = await this.prisma.countSession.findFirst({
+      orderBy: [{ sessionDate: 'desc' }, { recordedAt: 'desc' }],
+      include: { recordedBy: { select: { displayName: true } } },
+    });
 
-    if (!session) {
-      return { session: null, countedItems: 0, totalItems: items.length, mismatches: [] };
-    }
-
-    const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
-    const lineByItem = new Map(session.lines.map((l) => [l.itemId, l]));
-
-    const mismatches: { itemName: string; gap: number }[] = [];
-    let countedItems = 0;
-    for (const item of items) {
-      const line = lineByItem.get(item.id);
-      if (!line) continue;
-      countedItems++;
-      const gap = item.authorizedQty - ((issuedByItem.get(item.id) ?? 0) + line.countedQty);
-      if (gap !== 0) mismatches.push({ itemName: item.name, gap });
-    }
+    if (!session) return { session: null };
 
     return {
       session: {
@@ -209,9 +159,6 @@ export class CountsService {
         isClosed: session.isClosed,
         recordedBy: session.recordedBy?.displayName ?? null,
       },
-      countedItems,
-      totalItems: items.length,
-      mismatches: mismatches.sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap)),
     };
   }
 
@@ -231,39 +178,19 @@ export class CountsService {
     };
     rows: CountSheetRow[];
   }> {
-    const session = await this.prisma.countSession.findUniqueOrThrow({
-      where: { id },
-      include: { lines: true },
-    });
+    const session = await this.prisma.countSession.findUniqueOrThrow({ where: { id } });
 
-    const [items, issuedRows] = await Promise.all([
+    const [items, nashkiyaByItem] = await Promise.all([
       this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: { name: 'asc' } }),
-      this.prisma.signature.groupBy({
-        by: ['itemId'],
-        where: { returnedAt: null },
-        _sum: { quantity: true },
-      }),
+      this.mesakem.nashkiyaFor(session.sessionDate.toISOString().slice(0, 10)),
     ]);
 
-    const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
-    const lineByItem = new Map(session.lines.map((l) => [l.itemId, l]));
-
-    const rows: CountSheetRow[] = items.map((item) => {
-      const issued = issuedByItem.get(item.id) ?? 0;
-      const line = lineByItem.get(item.id);
-      const countedQty = line?.countedQty ?? null;
-      return {
-        itemId: item.id,
-        itemName: item.name,
-        category: item.category,
-        authorizedQty: item.authorizedQty,
-        issued,
-        countedQty,
-        faultyQty: line?.faultyQty ?? 0,
-        gap: countedQty === null ? null : item.authorizedQty - (issued + countedQty),
-        notes: line?.notes ?? null,
-      };
-    });
+    const rows: CountSheetRow[] = items.map((item) => ({
+      itemId: item.id,
+      itemName: item.name,
+      category: item.category,
+      nashkiyaQty: nashkiyaByItem.get(item.id) ?? null,
+    }));
 
     return {
       session: {
@@ -283,11 +210,11 @@ export class CountsService {
   }
 
   /**
-   * Closing freezes a count so the evening figure cannot drift afterwards.
-   * Both signers' full details are required at this point — the fields stay
-   * optional on every earlier `save()` so progress can be kept mid-day before
-   * either party is present to sign, but a closed sheet without a name, מ.א.,
-   * דרגה and drawn signature for both sides is not actually a signed document.
+   * Closing freezes a sign-off so it cannot drift afterwards. Both signers'
+   * full details are required at this point — the fields stay optional on
+   * every earlier `save()` so progress can be kept before either party is
+   * present, but a closed sheet without a name, מ.א., דרגה and drawn
+   * signature for both sides is not actually a signed document.
    */
   async close(id: string): Promise<{ id: string; isClosed: boolean }> {
     const session = await this.prisma.countSession.findUnique({ where: { id } });
@@ -320,7 +247,6 @@ export class CountsService {
       take: limit,
       include: {
         recordedBy: { select: { displayName: true } },
-        _count: { select: { lines: true } },
       },
     });
   }

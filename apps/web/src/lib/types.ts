@@ -156,15 +156,27 @@ export type SummaryRow = {
   itemName: string;
   itemId: string;
   issued: number;
-  /** Counted on the shelf; `null` until someone has counted. */
+  /** בנשקייה, entered once a day in מסכם; `null` until filled in for the date. */
   inArmory: number | null;
-  faulty: number;
-  serviceable: number | null;
   total: number | null;
   authorized: number;
-  /** מצבה − (מנופק + נספר); `null` with no count to compare against. */
+  /** מצבה − (מנופק + בנשקייה); `null` with nothing to compare against. */
   gap: number | null;
-  countedAt: string | null;
+};
+
+export type MesakemRow = {
+  itemId: string;
+  itemName: string;
+  category: ItemCategory;
+  issued: number;
+  authorizedQty: number;
+  nashkiyaQty: number | null;
+  gap: number | null;
+};
+
+export type MesakemSheet = {
+  rows: MesakemRow[];
+  sentAt: string | null;
 };
 
 export type CountShift = 'EVENING' | 'MORNING';
@@ -173,12 +185,7 @@ export type CountSheetRow = {
   itemId: string;
   itemName: string;
   category: ItemCategory;
-  authorizedQty: number;
-  issued: number;
-  countedQty: number | null;
-  faultyQty: number;
-  gap: number | null;
-  notes: string | null;
+  nashkiyaQty: number | null;
 };
 
 export type CountSheet = {

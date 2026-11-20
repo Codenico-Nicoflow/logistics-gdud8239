@@ -31,10 +31,10 @@ const SHIFT_HE: Record<CountShift, string> = { EVENING: 'ספירת ערב', MOR
 /**
  * `ספירת נשקייה` as a print-ready page — one shift's signed sheet.
  *
- * Column order and labels (שם פריט / מצבה / סה"כ מנופק / ספירה / פער) and the
- * two signer boxes (אחראי משק ארמון, בעל תפקיד ארמון) match the Excel sheet
- * the battalion already signs by hand, so the printed page reads the same way
- * to someone used to the paper. Rendered as HTML, same reasoning as the 1008
+ * Shows only the day's בנשקייה figure (from מסכם) per item, plus the two
+ * signer boxes (אחראי משק ארמון, בעל תפקיד ארמון) — this screen signs off on
+ * an existing number rather than re-deriving מצבה/מנופק/פער, which מסכם
+ * already computes once a day. Rendered as HTML, same reasoning as the 1008
  * printout (`issue-form.html.ts`): the browser's own bidi handling is correct
  * for Hebrew, a PDF library's would need a bundled font and its own.
  */
@@ -45,11 +45,7 @@ export function renderCountSession(session: CountSessionForPrint): string {
         <tr>
           <td class="c narrow">${i + 1}</td>
           <td class="desc">${esc(r.itemName)}</td>
-          <td class="c">${r.authorizedQty}</td>
-          <td class="c">${r.issued}</td>
-          <td class="c">${r.countedQty ?? ''}</td>
-          <td class="c ${r.gap !== null && r.gap !== 0 ? 'gap-bad' : ''}">${r.gap ?? ''}</td>
-          <td>${esc(r.notes) || ''}</td>
+          <td class="c">${r.nashkiyaQty ?? ''}</td>
         </tr>`,
     )
     .join('');
@@ -79,7 +75,6 @@ export function renderCountSession(session: CountSessionForPrint): string {
   td.c { text-align: center; }
   .narrow { width: 7%; }
   .desc { width: 30%; }
-  .gap-bad { background: #f6c6c6; font-weight: 700; }
 
   .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; margin-top: 10pt; }
   .party { border: 1px solid #000; }
@@ -118,11 +113,7 @@ export function renderCountSession(session: CountSessionForPrint): string {
         <tr>
           <th class="narrow">מס"ד</th>
           <th class="desc">שם פריט</th>
-          <th>מצבה</th>
-          <th>סה"כ מנופק</th>
-          <th>ספירה</th>
-          <th>פער</th>
-          <th>הערות</th>
+          <th>בנשקייה</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>

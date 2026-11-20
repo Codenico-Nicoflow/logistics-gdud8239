@@ -24,6 +24,7 @@ import type {
   SoldierSummary,
   Snapshot,
   SummaryRow,
+  MesakemSheet,
   Today,
   LatestCount,
   NewSoldier,
@@ -88,6 +89,7 @@ export const api = createApi({
     'DbBackups',
     'Attention',
     'Counts',
+    'Mesakem',
     'Attendance',
     'Users',
     'ServicePeriods',
@@ -252,6 +254,23 @@ export const api = createApi({
       query: () => '/reports/summary',
       providesTags: ['Reports'],
     }),
+
+    // --- מסכם (editable daily armory headcount) ---
+    mesakemSheet: build.query<MesakemSheet, { date: string }>({
+      query: ({ date }) => ({ url: '/mesakem/sheet', params: { date } }),
+      providesTags: ['Mesakem'],
+    }),
+    saveMesakem: build.mutation<
+      { saved: number },
+      { sessionDate: string; lines: { itemId: string; nashkiyaQty: number }[] }
+    >({
+      query: (body) => ({ url: '/mesakem', method: 'POST', body }),
+      invalidatesTags: ['Mesakem', 'Reports', 'Counts'],
+    }),
+    finishMesakemDay: build.mutation<{ sent: boolean; error?: string }, { sessionDate: string }>({
+      query: (body) => ({ url: '/mesakem/finish-day', method: 'POST', body }),
+      invalidatesTags: ['Mesakem'],
+    }),
     companyMatrix: build.query<MatrixRow[], void>({
       query: () => '/reports/companies',
       providesTags: ['Reports'],
@@ -314,11 +333,10 @@ export const api = createApi({
       providesTags: ['Counts'],
     }),
     saveCount: build.mutation<
-      { id: string; lines: number },
+      { id: string },
       {
         sessionDate: string;
         shift: CountShift;
-        lines: { itemId: string; countedQty: number; faultyQty?: number; notes?: string }[];
         responsibleName?: string;
         responsiblePn?: string;
         responsibleRank?: string;
@@ -632,6 +650,9 @@ export const {
   useReturnItemMutation,
   useBackfillSerialMutation,
   useSummaryQuery,
+  useMesakemSheetQuery,
+  useSaveMesakemMutation,
+  useFinishMesakemDayMutation,
   useCompanyMatrixQuery,
   useAllocationsQuery,
   useMovementsQuery,

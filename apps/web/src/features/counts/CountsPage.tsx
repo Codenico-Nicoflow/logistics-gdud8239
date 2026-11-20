@@ -22,17 +22,14 @@ function today(): string {
 }
 
 /**
- * `ספירת נשקיה` — the evening count.
- *
- * The counted figure is entered by hand rather than derived: deriving it as
- * `מצבה − מנופק` would force the gap to zero and hide exactly the discrepancy
- * the count exists to find.
+ * `ספירת נשקיה` — the two-party sign-off on the day's already-entered מסכם
+ * figure (`בנשקייה`). Shows only that one number per item, read-only: the
+ * actual count happens once a day in מסכם, so this screen's only job is
+ * verifying and signing that existing figure together, not re-entering it.
  */
 export function CountsPage() {
   const [date, setDate] = useState(today());
   const [shift, setShift] = useState<CountShift>('EVENING');
-  const [counted, setCounted] = useState<Record<string, string>>({});
-  const [saved, setSaved] = useState(false);
 
   const [responsibleName, setResponsibleName] = useState('');
   const [responsiblePn, setResponsiblePn] = useState('');
@@ -50,17 +47,10 @@ export function CountsPage() {
 
   const isClosed = data?.session?.isClosed ?? false;
 
-  // Reload the entered values whenever the sheet changes, so switching date or
+  // Reload the signer fields whenever the sheet changes, so switching date or
   // shift shows what was actually recorded rather than a stale draft.
   useEffect(() => {
     if (!data) return;
-    const next: Record<string, string> = {};
-    for (const row of data.rows) {
-      if (row.countedQty !== null) next[row.itemId] = String(row.countedQty);
-    }
-    setCounted(next);
-    setSaved(false);
-
     setResponsibleName(data.signers.responsibleName ?? '');
     setResponsiblePn(data.signers.responsiblePn ?? '');
     setResponsibleRank(data.signers.responsibleRank ?? '');
@@ -71,33 +61,12 @@ export function CountsPage() {
     setOfficerSignature(data.signers.officerSignatureImage ?? null);
   }, [data]);
 
-  const rows = useMemo(() => {
-    const all = data?.rows ?? [];
-    return all.filter((r) => r.authorizedQty > 0 || r.issued > 0);
-  }, [data]);
-
-  /** The live gap, recomputed as the operator types. */
-  function gapFor(row: (typeof rows)[number]): number | null {
-    const raw = counted[row.itemId];
-    if (raw === undefined || raw === '') return null;
-    const value = Number(raw);
-    if (Number.isNaN(value)) return null;
-    return row.authorizedQty - (row.issued + value);
-  }
-
-  const gapCount = rows.filter((r) => {
-    const gap = gapFor(r);
-    return gap !== null && gap !== 0;
-  }).length;
+  const rows = useMemo(() => data?.rows ?? [], [data]);
 
   function buildBody() {
-    const lines = rows
-      .filter((r) => counted[r.itemId] !== undefined && counted[r.itemId] !== '')
-      .map((r) => ({ itemId: r.itemId, countedQty: Number(counted[r.itemId]) }));
     return {
       sessionDate: date,
       shift,
-      lines,
       responsibleName: responsibleName.trim() || undefined,
       responsiblePn: responsiblePn.trim() || undefined,
       responsibleRank: responsibleRank.trim() || undefined,
@@ -110,17 +79,9 @@ export function CountsPage() {
   }
 
   async function submit(): Promise<void> {
-    const body = buildBody();
-    const result = await save(body);
+    const result = await save(buildBody());
     if (result.data) {
-      setSaved(true);
-      // The gap count is the reason to look again, so it leads the detail.
-      toast.success({
-        title: he.toast.countSaved,
-        detail: gapCount > 0
-          ? he.counts.savedWithGaps(body.lines.length, gapCount)
-          : he.counts.savedClean(body.lines.length),
-      });
+      toast.success({ title: he.toast.countSaved });
     } else {
       toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
     }
@@ -153,16 +114,6 @@ export function CountsPage() {
     } else {
       toast.error({ title: he.toast.failed, detail: apiErrorMessage(closeResult.error) ?? undefined });
     }
-  }
-
-  /** Pre-fills what should be on the shelf, as a starting point to check against. */
-  function fillExpected(): void {
-    const next: Record<string, string> = {};
-    for (const row of rows) {
-      next[row.itemId] = String(Math.max(row.authorizedQty - row.issued, 0));
-    }
-    setCounted(next);
-    setSaved(false);
   }
 
   return (
@@ -208,14 +159,9 @@ export function CountsPage() {
               </Button>
             )}
             {!isClosed && (
-              <>
-                <Button variant="quiet" onClick={fillExpected}>
-                  {he.counts.fillAll}
-                </Button>
-                <Button onClick={() => void submit()} disabled={isSaving}>
-                  {isSaving ? he.counts.saving : he.counts.save}
-                </Button>
-              </>
+              <Button onClick={() => void submit()} disabled={isSaving}>
+                {isSaving ? he.counts.saving : he.counts.save}
+              </Button>
             )}
           </div>
         </div>
@@ -227,18 +173,11 @@ export function CountsPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 border-t border-rule px-4 py-2.5">
-          <span className="text-meta text-graphite">{he.counts.gapHint}</span>
-          {gapCount > 0 ? (
-            <Tag tone="oxide">{he.counts.withGaps(gapCount)}</Tag>
-          ) : (
-            <Tag tone="field">{he.counts.noGaps}</Tag>
-          )}
-          {saved && <Tag tone="field">{he.counts.saved}</Tag>}
-          {apiErrorMessage(error) && (
+        {apiErrorMessage(error) && (
+          <div className="border-t border-rule px-4 py-2.5">
             <span className="text-meta text-oxide">{apiErrorMessage(error)}</span>
-          )}
-        </div>
+          </div>
+        )}
       </Panel>
 
       <Panel>
@@ -250,52 +189,27 @@ export function CountsPage() {
               <thead>
                 <tr>
                   <Th>{he.counts.item}</Th>
-                  <Th numeric>{he.counts.authorized}</Th>
-                  <Th numeric>{he.counts.issued}</Th>
-                  <Th numeric>{he.counts.counted}</Th>
-                  <Th numeric>{he.counts.gap}</Th>
+                  <Th numeric>{he.counts.inArmory}</Th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => {
-                  const gap = gapFor(row);
-                  return (
-                    <tr key={row.itemId}>
-                      <Td>
-                        <span className="flex items-center gap-2 font-semibold">
-                          <CategoryDot category={row.category} />
-                          {row.itemName}
-                        </span>
-                      </Td>
-                      <Td numeric>{row.authorizedQty}</Td>
-                      <Td numeric className="text-field-dark">
-                        {row.issued}
-                      </Td>
-                      <Td numeric>
-                        <input
-                          type="number"
-                          min={0}
-                          disabled={isClosed}
-                          value={counted[row.itemId] ?? ''}
-                          onChange={(e) => {
-                            setCounted((c) => ({ ...c, [row.itemId]: e.target.value }));
-                            setSaved(false);
-                          }}
-                          className="w-20 rounded-ctl border border-rule-strong bg-card-raised px-2 py-1 text-center text-body disabled:opacity-50"
-                        />
-                      </Td>
-                      <Td numeric>
-                        {gap === null ? (
-                          <span className="text-graphite">{he.counts.notCounted}</span>
-                        ) : gap === 0 ? (
-                          <span className="font-semibold text-field">0</span>
-                        ) : (
-                          <Tag tone="oxide">{gap > 0 ? `חסר ${gap}` : `עודף ${-gap}`}</Tag>
-                        )}
-                      </Td>
-                    </tr>
-                  );
-                })}
+                {rows.map((row) => (
+                  <tr key={row.itemId}>
+                    <Td>
+                      <span className="flex items-center gap-2 font-semibold">
+                        <CategoryDot category={row.category} />
+                        {row.itemName}
+                      </span>
+                    </Td>
+                    <Td numeric>
+                      {row.nashkiyaQty === null ? (
+                        <span className="text-graphite">{he.counts.notCounted}</span>
+                      ) : (
+                        row.nashkiyaQty
+                      )}
+                    </Td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </TableScroll>

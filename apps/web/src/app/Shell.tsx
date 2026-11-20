@@ -63,6 +63,14 @@ function AttendanceIcon() {
     </svg>
   );
 }
+function SummaryIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+      <path d="M4 3h12v14l-3-2-3 2-3-2-3 2V3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M7 7.5h6M7 10.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
 function CountsIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -176,6 +184,12 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
         to: '/attendance',
         label: he.nav.attendance,
         icon: <AttendanceIcon />,
+        roles: ['admin', 'logistics'],
+      },
+      {
+        to: '/summary',
+        label: he.nav.summary,
+        icon: <SummaryIcon />,
         roles: ['admin', 'logistics'],
       },
       {

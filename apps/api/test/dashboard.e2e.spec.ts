@@ -145,29 +145,19 @@ describe('מי נמצא היום', () => {
 });
 
 describe('ספירת נשקיה אחרונה', () => {
-  it('reports progress against the items that are actually counted', async () => {
+  // The gap/progress figures moved to מסכם (DailySummaryLine), which computes
+  // them once a day independently of CountSession — this endpoint now only
+  // reports which sign-off session is most recent, not any count data itself.
+  it('reports the most recent session or null when none exists', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/counts/latest')
       .set('Cookie', jar)
       .expect(200);
 
-    // The denominator is the מסכם list, not the whole catalog: items excluded
-    // from the summary are not part of the evening count either.
-    const inSummary = await prisma.item.count({ where: { isActive: true, inSummary: true } });
-    expect(res.body.totalItems).toBe(inSummary);
-    expect(res.body.countedItems).toBeLessThanOrEqual(res.body.totalItems);
-  });
-
-  it('only reports a mismatch for an item that was counted', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/api/counts/latest')
-      .set('Cookie', jar)
-      .expect(200);
-
-    // An uncounted item cannot disagree with anything, so it must never show
-    // up as a discrepancy — that is unfinished work, not a gap.
-    const mismatches = res.body.mismatches as { itemName: string; gap: number }[];
-    expect(mismatches.length).toBeLessThanOrEqual(res.body.countedItems);
-    for (const m of mismatches) expect(m.gap).not.toBe(0);
+    expect(res.body).toHaveProperty('session');
+    if (res.body.session) {
+      expect(res.body.session).toHaveProperty('id');
+      expect(res.body.session).toHaveProperty('isClosed');
+    }
   });
 });

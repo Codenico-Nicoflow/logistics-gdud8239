@@ -84,6 +84,10 @@ export class SnapshotsService {
    */
   @Cron('0 18 * * *', { timeZone: 'Asia/Jerusalem', name: 'daily-snapshot' })
   async dailySnapshot(): Promise<void> {
+    // Same reasoning as DbBackupsService#dailyBackup: a local dev machine
+    // running this cron would otherwise send its own data to the real
+    // production Slack channel every evening.
+    if (this.config.get<string>('NODE_ENV') !== 'production') return;
     this.logger.log('Running daily snapshot');
     try {
       const { id } = await this.create('daily');
