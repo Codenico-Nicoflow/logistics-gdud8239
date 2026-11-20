@@ -278,7 +278,7 @@ function LastCount({
       ) : !session ? (
         <EmptyState>{he.dashboard.noCount}</EmptyState>
       ) : (
-        <div className="space-y-3 px-4 py-4">
+        <div className="space-y-2 px-4 py-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`text-lead font-bold ${stale ? 'text-oxide' : 'text-field-dark'}`}>
               {he.dashboard.daysAgo(age ?? 0)}
@@ -291,39 +291,8 @@ function LastCount({
               {session.isClosed ? he.dashboard.countClosed : he.dashboard.countOpen}
             </Tag>
           </div>
-
-          <div>
-            <div className="flex items-center justify-between text-meta">
-              <span className="text-ink-soft">
-                {he.dashboard.countedOf(data.countedItems, data.totalItems)}
-              </span>
-              {session.recordedBy && (
-                <span className="text-graphite">{he.dashboard.countedBy(session.recordedBy)}</span>
-              )}
-            </div>
-            <span className="mt-1 block h-2 overflow-hidden rounded-ctl border border-rule bg-card">
-              <span
-                className="block h-full rounded-ctl bg-field transition-all"
-                style={{
-                  width: `${(data.countedItems / Math.max(1, data.totalItems)) * 100}%`,
-                }}
-              />
-            </span>
-          </div>
-
-          {data.mismatches.length === 0 ? (
-            <p className="text-meta text-field-dark">{he.dashboard.allMatch}</p>
-          ) : (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-meta font-semibold text-oxide">
-                {he.dashboard.mismatchCount(data.mismatches.length)}
-              </span>
-              {data.mismatches.slice(0, 6).map((m) => (
-                <Tag key={m.itemName} tone="oxide">
-                  {m.itemName} {m.gap > 0 ? `חסר ${m.gap}` : `עודף ${-m.gap}`}
-                </Tag>
-              ))}
-            </div>
+          {session.recordedBy && (
+            <span className="text-meta text-graphite">{he.dashboard.countedBy(session.recordedBy)}</span>
           )}
         </div>
       )}

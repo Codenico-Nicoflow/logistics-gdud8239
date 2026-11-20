@@ -264,9 +264,16 @@ export type LatestCount = {
     isClosed: boolean;
     recordedBy: string | null;
   } | null;
-  countedItems: number;
-  totalItems: number;
-  mismatches: { itemName: string; gap: number }[];
+};
+
+export type RecentCountSession = {
+  id: string;
+  sessionDate: string;
+  shift: CountShift;
+  isClosed: boolean;
+  responsibleName: string | null;
+  officerName: string | null;
+  recordedBy: { displayName: string } | null;
 };
 
 export type DeletionCheck = {
