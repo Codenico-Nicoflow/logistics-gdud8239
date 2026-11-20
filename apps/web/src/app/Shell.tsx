@@ -63,6 +63,14 @@ function AttendanceIcon() {
     </svg>
   );
 }
+function BackupsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+      <ellipse cx="10" cy="5" rx="6" ry="2.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M4 5v10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5V5M4 10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
 function SummaryIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -207,6 +215,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
       { to: '/intake', label: he.nav.intake, icon: <IntakeIcon />, roles: ['admin'] },
       { to: '/naming', label: he.nav.naming, icon: <NamingIcon />, roles: ['admin'] },
       { to: '/users', label: he.nav.users, icon: <UsersIcon />, roles: ['admin'] },
+      { to: '/backups', label: he.nav.backups, icon: <BackupsIcon />, roles: ['admin'] },
     ],
   },
 ];
