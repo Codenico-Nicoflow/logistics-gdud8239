@@ -225,6 +225,23 @@ describe('טופס 1008', () => {
     ).toBe(0);
   });
 
+  it('refuses a second ניפוק to a soldier who already holds items', async () => {
+    await post({
+      soldierId: soldierA,
+      signatureImage: SIGNATURE,
+      lines: [{ itemId: accessoryId, quantity: 5 }],
+    }).expect(201);
+
+    // Changes go through reissue, not a parallel second form.
+    await post({
+      soldierId: soldierA,
+      signatureImage: SIGNATURE,
+      lines: [{ itemId: accessoryId, quantity: 1 }],
+    }).expect(409);
+
+    expect(await prisma.issueForm.count({ where: { soldierId: soldierA } })).toBe(1);
+  });
+
   it('refuses the same מסד twice on one form', async () => {
     await post({
       soldierId: soldierA,
