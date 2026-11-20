@@ -34,3 +34,5 @@ services:
         sync: false
       - key: SLACK_CHANNEL_ID
         sync: false
+      - key: MESAKEM_SLACK_CHANNEL_ID
+        sync: false

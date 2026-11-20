@@ -127,26 +127,13 @@ export class ExcelExportService {
       { width: 9 },
       { width: 9 },
       { width: 9 },
-      { width: 9 },
-      { width: 9 },
     ];
-    // מק"ט is not tracked by the battalion, so the column the original sheet
-    // carried is no longer written.
-    this.styleHeader(
-      ws.addRow(['צלמ', 'סה"כ מנופק', 'בנשקיה', 'תקול', 'תקין', 'סה"כ', 'מצבה', 'פער']),
-    );
+    // מק"ט/תקול/תקין are not tracked by the battalion, so the columns the
+    // original sheet carried are no longer written.
+    this.styleHeader(ws.addRow(['צלמ', 'סה"כ מנופק', 'בנשקיה', 'סה"כ', 'מצבה', 'פער']));
 
     for (const r of await this.reports.summary()) {
-      ws.addRow([
-        r.itemName,
-        r.issued,
-        r.inArmory,
-        r.faulty,
-        r.serviceable,
-        r.total,
-        r.authorized,
-        r.gap,
-      ]);
+      ws.addRow([r.itemName, r.issued, r.inArmory, r.total, r.authorized, r.gap]);
     }
   }
 
@@ -182,34 +169,35 @@ export class ExcelExportService {
     }
   }
 
-  /** `ספירת נשקיה` with the signer block the original sheet carries. */
+  /**
+   * `ספירת נשקיה` with the signer block the original sheet carries.
+   *
+   * `בנשקייה` is one daily figure from מסכם (`DailySummaryLine`), not
+   * per-shift, so the same number appears whether it's the evening or morning
+   * session being signed — only the signer details genuinely differ by shift.
+   */
   private async addCount(wb: ExcelJS.Workbook): Promise<void> {
     const ws = this.sheet(wb, SHEET.count);
-    ws.columns = [{ width: 22 }, { width: 13 }, { width: 13 }, { width: 13 }, { width: 10 }];
-    this.styleHeader(ws.addRow(['שם פריט', 'ספירת ערב', 'ספירת בוקר', 'סה"כ מנופק', 'מצבה']));
+    ws.columns = [{ width: 22 }, { width: 13 }, { width: 13 }, { width: 10 }];
+    this.styleHeader(ws.addRow(['שם פריט', 'בנשקייה', 'סה"כ מנופק', 'מצבה']));
 
     const latest = await this.prisma.countSession.findMany({
       orderBy: [{ sessionDate: 'desc' }],
       take: 2,
-      include: { lines: true },
     });
     const evening = latest.find((s) => s.shift === 'EVENING');
     const morning = latest.find((s) => s.shift === 'MORNING');
-    const byItem = (session: typeof evening, itemId: string): number | '' =>
-      session?.lines.find((l) => l.itemId === itemId)?.countedQty ?? '';
+    const mostRecent = latest[0];
 
     const items = await this.prisma.item.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
-    const summary = await this.reports.summary();
-    const issuedByName = new Map(summary.map((r) => [r.itemName, r.issued]));
+    const summary = mostRecent
+      ? await this.reports.summary(mostRecent.sessionDate.toISOString().slice(0, 10))
+      : await this.reports.summary();
+    const summaryByItemId = new Map(summary.map((r) => [r.itemId, r]));
 
     for (const item of items) {
-      ws.addRow([
-        item.name,
-        byItem(evening, item.id),
-        byItem(morning, item.id),
-        issuedByName.get(item.name) ?? 0,
-        item.authorizedQty,
-      ]);
+      const row = summaryByItemId.get(item.id);
+      ws.addRow([item.name, row?.inArmory ?? '', row?.issued ?? 0, item.authorizedQty]);
     }
 
     ws.addRow([]);

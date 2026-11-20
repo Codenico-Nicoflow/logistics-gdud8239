@@ -60,7 +60,7 @@ export function App() {
           {can(OLD_ROLES) && <Route path="dashboard" element={<DashboardPage />} />}
           {can(OLD_ROLES) && <Route path="documents" element={<DocumentsPage user={user} />} />}
           {can(OLD_ROLES) && <Route path="attention" element={<AttentionPage />} />}
-          {can(OLD_ROLES) && <Route path="summary" element={<SummaryPage />} />}
+          {can(['admin', 'logistics']) && <Route path="summary" element={<SummaryPage />} />}
           {can(OLD_ROLES) && <Route path="companies" element={<CompaniesPage />} />}
           {can(OLD_ROLES) && <Route path="allocations" element={<AllocationsPage />} />}
           {can(OLD_ROLES) && <Route path="movements" element={<MovementsPage />} />}

@@ -149,6 +149,10 @@ export class DbBackupsService {
    */
   @Cron('5 18 * * *', { timeZone: 'Asia/Jerusalem', name: 'daily-db-backup' })
   async dailyBackup(): Promise<void> {
+    // Local dev machines run this same cron schedule, which would otherwise
+    // dump a developer's local Postgres and push it to the real production
+    // Slack channel every evening — only the real production deploy backs up.
+    if (this.config.get<string>('NODE_ENV') !== 'production') return;
     this.logger.log('Running daily DB backup');
     try {
       const { id } = await this.create('daily');

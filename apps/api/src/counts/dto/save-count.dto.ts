@@ -1,38 +1,5 @@
 import { CountShift } from '@prisma/client';
-import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsDateString,
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-  Min,
-  ValidateNested,
-} from 'class-validator';
-
-export class CountLineDto {
-  @IsUUID('4')
-  itemId!: string;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(0, { message: 'כמות לא יכולה להיות שלילית' })
-  countedQty!: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  faultyQty?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  notes?: string;
-}
+import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class SaveCountDto {
   @IsDateString({}, { message: 'תאריך לא תקין' })
@@ -50,9 +17,4 @@ export class SaveCountDto {
 
   @IsOptional() @IsString() responsibleSignatureImage?: string;
   @IsOptional() @IsString() officerSignatureImage?: string;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CountLineDto)
-  lines!: CountLineDto[];
 }

@@ -6,16 +6,12 @@ export type SummaryRow = {
   itemName: string;
   itemId: string;
   issued: number;
-  /** Counted on the shelf. `null` until someone has actually counted. */
+  /** בנשקייה — entered by hand once a day. `null` until filled in for the date. */
   inArmory: number | null;
-  faulty: number;
-  serviceable: number | null;
   total: number | null;
   authorized: number;
-  /** מצבה − (מנופק + נספר), or `null` when there is no count to compare against. */
+  /** מצבה − (מנופק + בנשקייה), or `null` when there is nothing to compare against. */
   gap: number | null;
-  /** When the figure in `inArmory` was counted. */
-  countedAt: Date | null;
 };
 
 export type MatrixRow = {
@@ -64,57 +60,50 @@ export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * The `מסכם` sheet.
+   * The `מסכם` sheet, for a given date (defaults to today).
    *
    * `issued` is the sum of open signatures, so it cannot drift from the
-   * signature data the way the hand-kept sheet did. `inArmory` is the number
-   * counted on the shelf, which is entered by hand each evening — it is
-   * deliberately NOT derived from `authorized - issued`, because that formula
-   * forces the gap to zero and would hide exactly the discrepancy the count
-   * exists to find. Until an item has been counted it reports `null` rather
-   * than a number nobody verified.
+   * signature data the way the hand-kept sheet did. `inArmory` (`בנשקייה`) is
+   * entered by hand once a day — deliberately NOT derived from
+   * `authorized - issued`, because that formula forces the gap to zero and
+   * would hide exactly the discrepancy מסכם exists to find. Until בנשקייה is
+   * filled in for the date it reports `null` rather than a number nobody
+   * entered.
    *
    * Only items flagged `inSummary` are listed. The catalog also holds priced
-   * gear and zero-stock spares that nobody counts nightly, and including them
+   * gear and zero-stock spares that nobody counts daily, and including them
    * buried the figures that matter.
    */
-  async summary(): Promise<SummaryRow[]> {
-    const items = await this.prisma.item.findMany({
-      where: { isActive: true, inSummary: true },
-      orderBy: { name: 'asc' },
-    });
+  async summary(sessionDate?: string): Promise<SummaryRow[]> {
+    const date = sessionDate ? new Date(sessionDate) : new Date();
 
-    const issuedRows = await this.prisma.signature.groupBy({
-      by: ['itemId'],
-      where: { returnedAt: null },
-      _sum: { quantity: true },
-    });
+    const [items, issuedRows, lines] = await Promise.all([
+      this.prisma.item.findMany({
+        where: { isActive: true, inSummary: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.signature.groupBy({
+        by: ['itemId'],
+        where: { returnedAt: null },
+        _sum: { quantity: true },
+      }),
+      this.prisma.dailySummaryLine.findMany({ where: { sessionDate: date } }),
+    ]);
+
     const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
-
-    const latestSession = await this.prisma.countSession.findFirst({
-      orderBy: [{ sessionDate: 'desc' }, { recordedAt: 'desc' }],
-      include: { lines: true },
-    });
-    const countByItem = new Map(
-      (latestSession?.lines ?? []).map((l) => [l.itemId, { counted: l.countedQty, faulty: l.faultyQty }]),
-    );
+    const nashkiyaByItem = new Map(lines.map((l) => [l.itemId, l.nashkiyaQty]));
 
     return items.map((item) => {
       const issued = issuedByItem.get(item.id) ?? 0;
-      const counted = countByItem.get(item.id);
-      const inArmory = counted?.counted ?? null;
-      const faulty = counted?.faulty ?? 0;
+      const inArmory = nashkiyaByItem.get(item.id) ?? null;
       return {
         itemName: item.name,
         itemId: item.id,
         issued,
         inArmory,
-        faulty,
-        serviceable: inArmory === null ? null : inArmory - faulty,
         total: inArmory === null ? null : issued + inArmory,
         authorized: item.authorizedQty,
         gap: inArmory === null ? null : item.authorizedQty - (issued + inArmory),
-        countedAt: counted ? (latestSession?.sessionDate ?? null) : null,
       };
     });
   }

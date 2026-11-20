@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import {
   ReportsService,
@@ -12,23 +12,28 @@ import {
  * three roles, unchanged since before SHLISHUT/SAMGAD/COMPANY_CMDR existed.
  * Those three new roles each have their own dedicated screen and no business
  * reason to read מסכם/פלוגות/הקצאות.
+ *
+ * `summary` (מסכם) is the exception: it's now an editable daily entry screen,
+ * not a pure report, so it's admin/logistics only — same gate as `counts`.
  */
 @Controller('reports')
-@Roles('admin', 'logistics', 'viewer')
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 
   @Get('summary')
-  summary(): Promise<SummaryRow[]> {
-    return this.reports.summary();
+  @Roles('admin', 'logistics')
+  summary(@Query('date') date?: string): Promise<SummaryRow[]> {
+    return this.reports.summary(date);
   }
 
   @Get('companies')
+  @Roles('admin', 'logistics', 'viewer')
   companies(): Promise<MatrixRow[]> {
     return this.reports.companyMatrix();
   }
 
   @Get('allocations')
+  @Roles('admin', 'logistics', 'viewer')
   allocations(): Promise<AllocationRow[]> {
     return this.reports.allocations();
   }

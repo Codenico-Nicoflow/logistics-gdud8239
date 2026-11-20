@@ -17,6 +17,7 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { IntakeModule } from './intake/intake.module';
 import { MovementsModule } from './movements/movements.module';
 import { CountsModule } from './counts/counts.module';
+import { MesakemModule } from './mesakem/mesakem.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { ExcelModule } from './excel/excel.module';
 import { SnapshotsModule } from './snapshots/snapshots.module';
@@ -89,6 +90,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     IntakeModule,
     MovementsModule,
     CountsModule,
+    MesakemModule,
     AttendanceModule,
     ExcelModule,
     SnapshotsModule,
