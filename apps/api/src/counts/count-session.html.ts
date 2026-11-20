@@ -58,9 +58,16 @@ export function renderCountSession(session: CountSessionForPrint, nonce: string)
           <td class="c qty">${r.nashkiyaQty ?? ''}</td>
         </tr>`,
         )
-        .join('')}</tbody>
+        .join('')}${list.length < half ? '<tr><td class="c narrow"></td><td></td><td class="c qty"></td></tr>' : ''}</tbody>
     </table>`;
   const tables = `<div class="cols">${table(columns[0], 0)}${table(columns[1], half)}</div>`;
+
+  // The item list grows over time; rows stay at their comfortable size while
+  // they fit and only shrink (font with them) once the list would otherwise
+  // spill onto a second page. ~178mm is what's left of A4 after the masthead,
+  // table header, both signer boxes and the footer.
+  const rowMm = Math.min(7.4, Math.max(3.6, 178 / Math.max(half, 1)));
+  const rowFontPt = rowMm >= 6 ? 10.5 : rowMm >= 4.8 ? 9 : 7.5;
 
   return `<!doctype html>
 <html lang="he" dir="rtl">
@@ -73,7 +80,7 @@ export function renderCountSession(session: CountSessionForPrint, nonce: string)
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: Assistant, "Segoe UI", Arial, sans-serif; color: #000; background: #fff; font-size: 10.5pt; line-height: 1.25; }
-  .sheet { width: 210mm; margin: 0 auto; padding: 9mm 10mm; }
+  .sheet { width: 210mm; margin: 0 auto; padding: 10mm 10mm; }
 
   .masthead { display: flex; align-items: flex-start; justify-content: space-between; gap: 8pt; border-bottom: 2px solid #000; padding-bottom: 5pt; }
   .unit-no { font-size: 15pt; font-weight: 700; letter-spacing: .04em; }
@@ -85,7 +92,11 @@ export function renderCountSession(session: CountSessionForPrint, nonce: string)
 
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt; margin: 9pt 0; align-items: start; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #000; padding: 3.4pt 5pt; text-align: right; vertical-align: middle; }
+  /* Row height in mm, not font/padding — mm is tied to the paper, so the
+     sheet lands at ~80% of an A4 page whatever the browser's print scale. */
+  tbody td { height: ${rowMm.toFixed(2)}mm; font-size: ${rowFontPt}pt; }
+  thead th { height: 7mm; }
+  th, td { border: 1px solid #000; padding: 0 5pt; text-align: right; vertical-align: middle; }
   th { background: #e8e8e8; font-size: 9.5pt; font-weight: 700; text-align: center; }
   td.c { text-align: center; }
   .narrow { width: 11%; }
@@ -107,7 +118,7 @@ export function renderCountSession(session: CountSessionForPrint, nonce: string)
 
   @media screen {
     body { background: #e9ece9; padding: 16px; }
-    .sheet { background: #fff; padding: 12mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+    .sheet { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
     .print-bar { max-width: 210mm; margin: 0 auto 12px; }
     .print-bar button { font: inherit; font-weight: 600; cursor: pointer; background: #2f6b53; color: #fff; border: 0; border-radius: 4px; padding: 8px 16px; }
   }
