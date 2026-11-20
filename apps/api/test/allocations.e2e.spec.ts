@@ -80,10 +80,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanup();
-  await prisma?.user.updateMany({
-    where: { username: { in: [ADMIN.username, SAMGAD.username] } },
-    data: { isActive: false },
-  });
+  await prisma?.user.deleteMany({ where: { username: { in: [ADMIN.username, SAMGAD.username] } } });
   await app?.close();
 });
 

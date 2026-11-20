@@ -129,7 +129,16 @@ export function CountsPage() {
   /** Saves the current state first, then closes it — a sign-and-close must
    * lock in whatever is on screen, not whatever was last saved. */
   async function signAndClose(): Promise<void> {
-    if (!responsibleSignature || !officerSignature) {
+    const complete =
+      responsibleName.trim() &&
+      responsiblePn.trim() &&
+      responsibleRank.trim() &&
+      responsibleSignature &&
+      officerName.trim() &&
+      officerPn.trim() &&
+      officerRank.trim() &&
+      officerSignature;
+    if (!complete) {
       toast.error({ title: he.toast.failed, detail: he.counts.needsBothSignatures });
       return;
     }
@@ -369,6 +378,7 @@ function SignerCard({
             value={name}
             onChange={onNameChange}
             disabled={disabled}
+            required={!disabled}
             className="col-span-1"
           />
           <TextField
@@ -376,12 +386,14 @@ function SignerCard({
             value={pn}
             onChange={onPnChange}
             disabled={disabled}
+            required={!disabled}
           />
           <TextField
             label={he.counts.rank}
             value={rank}
             onChange={onRankChange}
             disabled={disabled}
+            required={!disabled}
           />
         </div>
         {disabled ? (
