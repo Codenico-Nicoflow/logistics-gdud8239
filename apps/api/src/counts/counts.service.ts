@@ -282,10 +282,30 @@ export class CountsService {
     };
   }
 
-  /** Closing freezes a count so the evening figure cannot drift afterwards. */
+  /**
+   * Closing freezes a count so the evening figure cannot drift afterwards.
+   * Both signers' full details are required at this point — the fields stay
+   * optional on every earlier `save()` so progress can be kept mid-day before
+   * either party is present to sign, but a closed sheet without a name, מ.א.,
+   * דרגה and drawn signature for both sides is not actually a signed document.
+   */
   async close(id: string): Promise<{ id: string; isClosed: boolean }> {
     const session = await this.prisma.countSession.findUnique({ where: { id } });
     if (!session) throw new NotFoundException('הספירה אינה קיימת');
+
+    const missing =
+      !session.responsibleName?.trim() ||
+      !session.responsiblePn?.trim() ||
+      !session.responsibleRank?.trim() ||
+      !session.responsibleSignatureImage ||
+      !session.officerName?.trim() ||
+      !session.officerPn?.trim() ||
+      !session.officerRank?.trim() ||
+      !session.officerSignatureImage;
+    if (missing) {
+      throw new BadRequestException('יש למלא שם, מ.א., דרגה ולהחתים את שני הצדדים לפני סגירת הספירה');
+    }
+
     const updated = await this.prisma.countSession.update({
       where: { id },
       data: { isClosed: true },
