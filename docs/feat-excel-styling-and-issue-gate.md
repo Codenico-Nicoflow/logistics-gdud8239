@@ -25,3 +25,13 @@ operator continue. The "continue" button is now disabled in that case. Note
 the API itself only refuses *weapons* for a non-מחויל soldier; the UI now
 blocks the whole flow, per the battalion's request. `isEnlisted === null`
 (no active תקופת שרות) is unchanged.
+
+## ניפוק blocked for a soldier who already holds items
+
+A second fresh ניפוק used to create a parallel 1008 next to the existing one.
+Now `IssueFormsService.create` returns 409 if the soldier has any open
+signature, and `ConfirmSoldier` disables "continue" with a note pointing to
+חתימות → ערוך פריטים וחתום מחדש. That reissue flow already writes movements
+only for lines that actually changed (an untouched line writes nothing, a
+dropped line one זיכוי, a מסד swap זיכוי + ניפוק), so editing one item never
+floods דוח תנועות.
