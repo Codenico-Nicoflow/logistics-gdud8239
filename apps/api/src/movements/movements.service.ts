@@ -4,6 +4,19 @@ import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import type { QueryMovementsDto } from './dto/query-movements.dto';
 import type { Paginated } from '../common/pagination.dto';
+import {
+  addBandRow,
+  addBodyRow,
+  addHeaderRow,
+  addKpiRow,
+  addTitleBlock,
+  addTotalsRow,
+  createSheet,
+  finalizeSheet,
+  generatedAtLabel,
+  mono,
+  pill,
+} from '../excel/excel-theme';
 
 const ACTION_HE: Record<string, string> = { ISSUE: 'ניפוק', RETURN: 'זיכוי' };
 const COMPANY_HE: Record<string, string> = {
@@ -120,25 +133,33 @@ export class MovementsService {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'מערכת לוגיסטיקה';
     wb.created = new Date();
-    const ws = wb.addWorksheet('דוח תנועות יומי', {
-      views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }],
-    });
-    ws.columns = [
-      { width: 12 },
-      { width: 10 },
-      { width: 22 },
-      { width: 10 },
-      { width: 20 },
-      { width: 14 },
-      { width: 8 },
-      { width: 18 },
-    ];
-    const header = ws.addRow(['שעה', 'פעולה', 'שם החייל', 'פלוגה', "צל\"מ", 'מסד', 'כמות', 'בוצע ע"י']);
-    header.font = { bold: true };
-    header.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1E8' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
-    });
+
+    const COLS = 8;
+    const ws = createSheet(wb, 'דוח תנועות יומי', [11, 11, 24, 11, 22, 16, 9, 20]);
+
+    const range = [
+      query.from ? `מ-${query.from.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' })}` : null,
+      query.to ? `עד ${query.to.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' })}` : null,
+    ]
+      .filter((s): s is string => s !== null)
+      .join(' ');
+    addTitleBlock(
+      ws,
+      COLS,
+      hideRoutine ? 'דוח צלם' : 'דוח תנועות',
+      [range || 'כל התאריכים', `הופק ${generatedAtLabel()}`].join('   ·   '),
+    );
+
+    const issued = rows.filter((r) => r.action === 'ISSUE');
+    const returned = rows.filter((r) => r.action === 'RETURN');
+    addKpiRow(ws, COLS, [
+      { label: 'תנועות', value: rows.length, tone: 'graphite' },
+      { label: 'ניפוקים', value: issued.length, tone: 'field' },
+      { label: 'זיכויים', value: returned.length, tone: 'sky' },
+      { label: 'חיילים', value: new Set(rows.map((r) => r.soldierName)).size, tone: 'brass' },
+    ]);
+
+    const header = addHeaderRow(ws, ['שעה', 'פעולה', 'שם החייל', 'פלוגה', 'צל"מ', 'מסד', 'כמות', 'בוצע ע"י']);
 
     const byDay = new Map<string, MovementRow[]>();
     for (const row of rows) {
@@ -152,23 +173,23 @@ export class MovementsService {
     }
     const days = [...byDay.keys()].sort((a, b) => (a < b ? 1 : -1));
 
+    let index = 0;
     for (const day of days) {
       const [y, m, d] = day.split('-').map(Number);
-      const dayRow = ws.addRow([
-        new Date(y, m - 1, d).toLocaleDateString('he-IL', {
-          weekday: 'long',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        }),
-      ]);
-      dayRow.font = { bold: true };
-      ws.mergeCells(dayRow.number, 1, dayRow.number, 8);
-      dayRow.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFEFEF' } };
-      });
-
       const dayRows = byDay.get(day) ?? [];
+      const dayIssued = dayRows.filter((r) => r.action === 'ISSUE').length;
+      const dayLabel = new Date(y, m - 1, d).toLocaleDateString('he-IL', {
+        weekday: 'long',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+      addBandRow(
+        ws,
+        COLS,
+        `${dayLabel}   ·   ${dayRows.length} תנועות (${dayIssued} ניפוק, ${dayRows.length - dayIssued} זיכוי)`,
+      );
+
       for (const m of [...dayRows].sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1))) {
         // Excel renders a Date cell's UTC wall-clock value as-is, with no
         // timezone conversion of its own — written as text here (Israel
@@ -179,20 +200,33 @@ export class MovementsService {
           minute: '2-digit',
           timeZone: 'Asia/Jerusalem',
         });
-        ws.addRow([
-          time,
-          ACTION_HE[m.action] ?? m.action,
-          m.soldierName,
-          m.company ? COMPANY_HE[m.company] ?? m.company : '',
-          m.itemName,
-          m.serial ?? '',
-          m.quantity,
-          m.performedBy,
-        ]);
+        const row = addBodyRow(
+          ws,
+          [
+            time,
+            ACTION_HE[m.action] ?? m.action,
+            m.soldierName,
+            m.company ? COMPANY_HE[m.company] ?? m.company : '',
+            m.itemName,
+            m.serial ?? '',
+            m.quantity,
+            m.performedBy,
+          ],
+          index++,
+          [1, 2, 4, 6, 7],
+        );
+        pill(row.getCell(2), m.action === 'ISSUE' ? 'field' : 'sky');
+        if (m.serial) mono(row.getCell(6));
+        row.getCell(3).font = { name: 'Arial', size: 10.5, bold: true };
       }
     }
 
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 8 } };
+    addTotalsRow(
+      ws,
+      ['סה"כ', `${rows.length}`, '', '', '', '', rows.reduce((s, r) => s + r.quantity, 0), ''],
+      [2, 7],
+    );
+    finalizeSheet(ws, header, COLS, 'דוח תנועות · מערכת הלוגיסטיקה של גדוד 8239');
     const data = await wb.xlsx.writeBuffer();
     return Buffer.from(data);
   }

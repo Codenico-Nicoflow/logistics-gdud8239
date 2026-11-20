@@ -74,7 +74,9 @@ export function ConfirmSoldier({
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={onContinue}>{he.issue.continueToItem}</Button>
+              <Button onClick={onContinue} disabled={data.isEnlisted === false}>
+                {he.issue.continueToItem}
+              </Button>
               <Button variant="quiet" onClick={() => setEditing(true)}>
                 {he.issue.editDetails}
               </Button>

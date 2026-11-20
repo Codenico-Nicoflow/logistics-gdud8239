@@ -251,7 +251,7 @@ export const he = {
     overAllocationBody: (company: string) =>
       `פלוגה ${company} כבר ניצלה את כל הכמות שהוקצתה לה לפריט זה בתקופת השרות הנוכחית. להמשיך בכל זאת?`,
     overAllocationAction: 'הוסף בכל זאת',
-    notEnlistedWarning: 'החייל אינו מחויל לתקופת השרות הנוכחית — לא ניתן לנפק לו נשק.',
+    notEnlistedWarning: 'החייל אינו מחויל לתקופת השרות הנוכחית — לא ניתן להמשיך לניפוק. יש לחייל אותו במסך חיילים.',
     notEnlistedTitle: (item: string) => `לא ניתן להוסיף — ${item}`,
     notEnlistedBody: (soldier: string) =>
       `${soldier} אינו מחויל לתקופת השרות הנוכחית. יש לפנות לשלישות כדי לסמן אותו כמחויל לפני ניפוק נשק.`,
@@ -379,6 +379,7 @@ export const he = {
     saving: 'שומר…',
     saved: 'נשמר',
     finishDay: 'סיים יום ושלח',
+    downloadExcel: 'הורד Excel',
     finishing: 'שולח…',
     finishedToday: (time: string) => `נשלח ל-Slack · ${time}`,
     finishFailed: 'השליחה ל-Slack נכשלה',
