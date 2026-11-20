@@ -5,8 +5,8 @@ services:
     region: frankfurt
     plan: starter
     rootDir: .
-    buildCommand: npm install --include=dev && npm run build --workspace=apps/api
-    startCommand: npm run start --workspace=apps/api
+    buildCommand: npm install --include=dev && npm run generate --workspace=apps/api && npm run build --workspace=apps/api
+    startCommand: npm run migrate:deploy --workspace=apps/api && npm run start --workspace=apps/api
     envVars:
       - key: NODE_ENV
         value: production
