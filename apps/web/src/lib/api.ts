@@ -27,6 +27,7 @@ import type {
   MesakemSheet,
   Today,
   LatestCount,
+  RecentCountSession,
   NewSoldier,
   SoldierDetail,
   ServicePeriod,
@@ -420,6 +421,10 @@ export const api = createApi({
       query: () => '/counts/latest',
       providesTags: ['Counts'],
     }),
+    recentCounts: build.query<RecentCountSession[], void>({
+      query: () => '/counts/recent',
+      providesTags: ['Counts'],
+    }),
     teamMembers: build.query<TeamMember[], void>({
       query: () => '/attendance/members',
       providesTags: ['Attendance'],
@@ -683,6 +688,7 @@ export const {
   useDeleteSoldierMutation,
   useTodayQuery,
   useLatestCountQuery,
+  useRecentCountsQuery,
   useTeamMembersQuery,
   useSetAttendanceMutation,
   useCreateTeamMemberMutation,

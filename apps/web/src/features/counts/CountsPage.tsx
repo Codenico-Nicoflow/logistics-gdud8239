@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useCountSheetQuery, useSaveCountMutation, useCloseCountMutation } from '../../lib/api';
+import {
+  useCountSheetQuery,
+  useSaveCountMutation,
+  useCloseCountMutation,
+  useRecentCountsQuery,
+} from '../../lib/api';
 import {
   apiErrorMessage,
   Button,
@@ -255,7 +260,70 @@ export function CountsPage() {
           </div>
         )}
       </Panel>
+
+      <RecentSessions onPick={(d, s) => { setDate(d); setShift(s); }} />
     </div>
+  );
+}
+
+/** Every past sign-off, kept forever in the DB — lets you go back to any day
+ *  and see who counted, who signed, and reprint the sheet. */
+function RecentSessions({ onPick }: { onPick: (date: string, shift: CountShift) => void }) {
+  const { data, isLoading } = useRecentCountsQuery();
+
+  if (isLoading) return null;
+  const rows = data ?? [];
+  if (rows.length === 0) return null;
+
+  return (
+    <Panel title={he.counts.recentTitle}>
+      <TableScroll>
+        <table className="row-hover w-full">
+          <thead>
+            <tr>
+              <Th>{he.counts.date}</Th>
+              <Th>{he.counts.shift}</Th>
+              <Th>{he.counts.responsible}</Th>
+              <Th>{he.counts.officer}</Th>
+              <Th>{he.counts.closedTag}</Th>
+              <Th>{he.counts.print}</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <Td>
+                  <button
+                    className="font-semibold text-field hover:underline"
+                    onClick={() => onPick(row.sessionDate.slice(0, 10), row.shift)}
+                  >
+                    {new Date(row.sessionDate).toLocaleDateString('he-IL')}
+                  </button>
+                </Td>
+                <Td>{row.shift === 'EVENING' ? he.counts.evening : he.counts.morning}</Td>
+                <Td>{row.responsibleName ?? he.summary.notFilled}</Td>
+                <Td>{row.officerName ?? he.summary.notFilled}</Td>
+                <Td>
+                  {row.isClosed ? (
+                    <Tag tone="field">{he.counts.closedTag}</Tag>
+                  ) : (
+                    <span className="text-graphite">{he.summary.notFilled}</span>
+                  )}
+                </Td>
+                <Td>
+                  <button
+                    className="text-field hover:underline"
+                    onClick={() => window.open(`/api/counts/${row.id}/print`, '_blank')}
+                  >
+                    {he.counts.print}
+                  </button>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableScroll>
+    </Panel>
   );
 }
 

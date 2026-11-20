@@ -549,6 +549,7 @@ export const he = {
     print: 'הדפס',
     needsBothSignatures: 'יש למלא שם, מ.א., דרגה ולהחתים את שני הצדדים לפני סגירת הספירה',
     reopenHint: 'ספירה סגורה — לא ניתן לערוך. ניתן להדפיס בלבד.',
+    recentTitle: 'ספירות קודמות',
   },
 
   intake: {
