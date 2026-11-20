@@ -6,6 +6,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CountsService } from './counts.service';
 import { SaveCountDto } from './dto/save-count.dto';
 import { renderCountSession } from './count-session.html';
+import { sendPrintPage } from '../common/print-page';
 import type { AuthUser } from '../auth/auth.types';
 
 @Controller('counts')
@@ -43,9 +44,7 @@ export class CountsController {
   @Roles('admin', 'logistics')
   async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const { session, rows } = await this.counts.forPrint(id);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-store, private');
-    res.send(renderCountSession({ ...session, rows }));
+    sendPrintPage(res, (nonce) => renderCountSession({ ...session, rows }, nonce));
   }
 
   @Post(':id/close')

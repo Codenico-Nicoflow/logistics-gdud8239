@@ -6,6 +6,7 @@ import { IssueFormsService } from './issue-forms.service';
 import { CreateIssueFormDto } from './dto/create-issue-form.dto';
 import { UpdateIssueFormDto } from './dto/update-issue-form.dto';
 import { renderIssueForm } from './issue-form.html';
+import { sendPrintPage } from '../common/print-page';
 import type { AuthUser } from '../auth/auth.types';
 
 @Controller('issue-forms')
@@ -38,10 +39,7 @@ export class IssueFormsController {
   @Get(':id/print')
   async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const form = await this.forms.findOne(id);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    // Holds a soldier's name, מ.א. and signature — never cached by a proxy.
-    res.setHeader('Cache-Control', 'no-store, private');
-    res.send(renderIssueForm(form));
+    sendPrintPage(res, (nonce) => renderIssueForm(form, nonce));
   }
 
   @Post()
