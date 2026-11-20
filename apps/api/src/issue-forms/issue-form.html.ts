@@ -1,4 +1,5 @@
 import type { Company } from '@prisma/client';
+import { printButton } from '../common/print-page';
 
 const COMPANY_HE: Record<Company, string> = {
   A: 'א',
@@ -61,7 +62,7 @@ function formatTime(d: Date): string {
  * Black on white with ruled borders, so it survives a photocopier and no
  * colour carries meaning.
  */
-export function renderIssueForm(form: FormForPrint): string {
+export function renderIssueForm(form: FormForPrint, nonce: string): string {
   const rows = form.lines
     .map(
       (line, i) => `
@@ -97,7 +98,9 @@ export function renderIssueForm(form: FormForPrint): string {
 <meta charset="utf-8">
 <title>שובר השאלה פנימית 1008 — ${esc(form.soldierNameSnapshot)} — ${form.formNo}</title>
 <style>
-  @page { size: A4; margin: 12mm; }
+  /* margin: 0 leaves the browser no room for its own header/footer (URL,
+     date, page number); the sheet's print padding is the real margin. */
+  @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -169,13 +172,14 @@ export function renderIssueForm(form: FormForPrint): string {
       background: #2f6b53; color: #fff; border: 0; border-radius: 4px; padding: 8px 16px;
     }
   }
-  @media print { .print-bar { display: none; } }
+  @media print {
+    .print-bar { display: none; }
+    .sheet { width: 210mm; max-width: none; padding: 12mm; }
+  }
 </style>
 </head>
 <body>
-  <div class="print-bar">
-    <button onclick="window.print()">הדפס / שמור כ‑PDF</button>
-  </div>
+  ${printButton(nonce)}
 
   <div class="sheet">
     <div class="masthead">
