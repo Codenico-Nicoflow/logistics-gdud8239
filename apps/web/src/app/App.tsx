@@ -67,7 +67,7 @@ export function App() {
           {can(['admin', 'logistics']) && (
             <Route path="daily-movements" element={<DailyMovementsPage />} />
           )}
-          {can(OLD_ROLES) && <Route path="counts" element={<CountsPage />} />}
+          {can(['admin', 'logistics']) && <Route path="counts" element={<CountsPage />} />}
           {can([...OLD_ROLES, 'SHLISHUT', 'SAMGAD', 'COMPANY_CMDR']) && (
             <Route path="soldiers" element={<SoldiersPage user={user} />} />
           )}

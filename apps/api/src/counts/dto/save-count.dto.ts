@@ -48,6 +48,9 @@ export class SaveCountDto {
   @IsOptional() @IsString() @MaxLength(20) officerPn?: string;
   @IsOptional() @IsString() @MaxLength(30) officerRank?: string;
 
+  @IsOptional() @IsString() responsibleSignatureImage?: string;
+  @IsOptional() @IsString() officerSignatureImage?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CountLineDto)
