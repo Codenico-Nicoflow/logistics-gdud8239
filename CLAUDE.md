@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Hebrew RTL logistics app for IDF battalion גדוד 8239, replacing manual Excel tracking of armory (נשקיה) weapon/equipment signatures and the reserve-duty (תקופת שרות) call-up workflow. Every signature, movement, and allocation is auditable in a real database instead of hand-maintained spreadsheets.
 
+## Git workflow — hard rule
+
+**Never commit or push directly to `master`.** Every new feature, fix, or change gets its own feature branch (`feat/...`, `fix/...`), opened as a PR into `master`. This applies from here on, no exceptions, regardless of how small the change looks.
+
+Every feature branch also gets a short Markdown doc describing what it does and why — either a new file under `docs/` or an addition to this CLAUDE.md / the root `README.md` if it's small enough to fold in. Document as part of the branch, not as a follow-up.
+
+## Deployment
+
+- **apps/web** → Vercel (free/Hobby tier), deploys from `master` automatically.
+- **apps/api** + Postgres → Render, via the committed `render.yaml` blueprint (not manual dashboard config — changes to build/start/env go through that file so they survive recreation and are reviewable).
+- Render build: `npm install --include=dev` (prod NODE_ENV would otherwise skip devDependencies, including `@nestjs/cli`) → `prisma generate` → `nest build`.
+- Render start: `prisma migrate deploy` runs on every boot before `nest start`, so schema stays in sync with whatever's on `master` automatically.
+- Full DB backups (pg_dump, gzip, Slack upload) are separate from this — see `apps/api/src/db-backups/`.
+
 ## Stack & structure
 
 npm workspaces monorepo (`apps/api`, `apps/web`), no other monorepo tool.
