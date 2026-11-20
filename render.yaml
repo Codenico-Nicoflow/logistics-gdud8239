@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: logistics-api
+    runtime: node
+    region: frankfurt
+    plan: starter
+    rootDir: .
+    buildCommand: npm install && npm run build --workspace=apps/api
+    startCommand: npm run start --workspace=apps/api
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: COOKIE_SECURE
+        value: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 7d
+      - key: SNAPSHOT_DIR
+        value: ./data/snapshots
+      - key: DB_BACKUP_DIR
+        value: ./data/db-backups
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_CHANNEL_ID
+        sync: false
