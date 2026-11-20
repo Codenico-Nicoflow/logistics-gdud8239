@@ -28,6 +28,7 @@ export const CATEGORY_HE: Record<ItemCategory, string> = {
   DRONE: 'רחפן',
   ACCESSORY: 'אבזור',
   GEAR: 'ציוד',
+  AMMO: 'תחמושת',
 };
 
 /** Company column order, as the original sheets lay them out. */
@@ -57,5 +58,4 @@ export const SIGNATURES_HEADER = [
   'מ.א.',
   'קבלה',
   'הערה',
-  'מחלקה',
 ] as const;

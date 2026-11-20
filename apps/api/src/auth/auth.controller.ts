@@ -68,6 +68,11 @@ export class AuthController {
     return { ok: true };
   }
 
+  // Public, like `refresh`: logout must work even when the access token has
+  // already expired or was revoked elsewhere — the point is to clear
+  // whatever cookie is sitting in the browser, not to prove you're still
+  // authenticated.
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(

@@ -42,6 +42,22 @@ export class CreateItemDto {
   @Min(0)
   authorizedQty!: number;
 
+  /** Units physically at ימ״ח, out of authorizedQty. Admin-typed count. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  yamahQty?: number;
+
+  /** Bulk (non-serialized) units currently sent out for repair, out of
+   *  authorizedQty. Admin-typed count — serialized items track this per
+   *  מסד via InstanceStatus.IN_REPAIR instead. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  repairQty?: number;
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

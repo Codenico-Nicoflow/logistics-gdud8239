@@ -53,7 +53,11 @@ beforeAll(async () => {
     data: {
       username: STAFF.username,
       displayName: 'בודק לוח בקרה',
-      role: 'logistics',
+      // Admin, not logistics: this suite sets up its own attendance/count
+      // fixtures via the write routes, which now require admin — the
+      // dashboard figures themselves are what's under test here, not the
+      // role boundary on those routes.
+      role: 'admin',
       passwordHash: await bcrypt.hash(STAFF.password, 12),
     },
   });

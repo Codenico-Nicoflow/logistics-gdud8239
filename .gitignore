@@ -9,7 +9,10 @@ build/
 # phone numbers. `**/` is required: a pattern with a slash in the middle is
 # anchored to the repo root, so plain `data/snapshots/` missed apps/api's.
 **/data/snapshots/
+**/data/db-backups/
 coverage/
+# Raw intake scans — soldiers' names/personal numbers, kept local only
+scanned/
 apps/web/dist/
 apps/api/dist/
 playwright-report/

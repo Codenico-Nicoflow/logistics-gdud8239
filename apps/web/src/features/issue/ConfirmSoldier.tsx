@@ -48,6 +48,12 @@ export function ConfirmSoldier({
               <Detail label={he.issue.phone} value={data.phone} mono />
             </dl>
 
+            {data.isEnlisted === false && (
+              <p className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
+                {he.issue.notEnlistedWarning}
+              </p>
+            )}
+
             <div className="border-t border-rule pt-3">
               <span className="text-meta font-semibold text-ink-soft">
                 {he.issue.currentlyHolds}

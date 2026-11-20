@@ -19,4 +19,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  /** Only a super-admin may set this — enforced in UsersService, not here. */
+  @IsOptional()
+  @IsBoolean()
+  isSuperAdmin?: boolean;
 }

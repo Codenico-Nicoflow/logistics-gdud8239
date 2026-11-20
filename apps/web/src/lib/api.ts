@@ -7,6 +7,8 @@ import type {
   CountShift,
   DeletionCheck,
   ItemCategory,
+  InstanceStatus,
+  DbBackup,
   PublicUser,
   TeamMember,
   Week,
@@ -26,10 +28,20 @@ import type {
   LatestCount,
   NewSoldier,
   SoldierDetail,
-  Kit,
+  ServicePeriod,
+  NewServicePeriod,
+  CompanyAllocationRow,
+  CompanySoldierRef,
+  SoldierAllocationRow,
   IssueForm,
   IssueFormSummary,
   NewIssueForm,
+  NewIntake,
+  IntakeResult,
+  ItemDetail,
+  IssueBundleLine,
+  AvailableInstance,
+  SignatureHolder,
 } from './types';
 
 /**
@@ -73,11 +85,13 @@ export const api = createApi({
     'Reports',
     'Movements',
     'Snapshots',
+    'DbBackups',
     'Attention',
     'Counts',
     'Attendance',
     'Users',
-    'Kits',
+    'ServicePeriods',
+    'Allocations',
     'IssueForms',
   ],
   endpoints: (build) => ({
@@ -93,6 +107,15 @@ export const api = createApi({
     logout: build.mutation<{ ok: true }, void>({
       query: () => ({ url: '/auth/logout', method: 'POST' }),
       invalidatesTags: ['Auth'],
+      // `invalidatesTags` alone only refetches; on a failed refetch RTK Query
+      // keeps the previous successful `me` payload in `data` rather than
+      // clearing it, so `App.tsx`'s `!data?.user` check never saw the logout
+      // until a full page reload rebuilt the store from scratch. Wiping the
+      // whole cache forces every query, `me` included, to start from nothing.
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        await queryFulfilled;
+        dispatch(api.util.resetApiState());
+      },
     }),
 
     // --- soldiers ---
@@ -106,6 +129,7 @@ export const api = createApi({
         withOpenSignatures?: boolean;
         holding?: 'with' | 'without';
         incompleteOnly?: boolean;
+        sort?: 'name' | 'company';
       }
     >({
       query: (params) => ({ url: '/soldiers', params }),
@@ -128,14 +152,36 @@ export const api = createApi({
     checkDuplicateSoldier: build.mutation<SoldierSummary[], NewSoldier>({
       query: (body) => ({ url: '/soldiers/check-duplicates', method: 'POST', body }),
     }),
+    setSoldierEnlisted: build.mutation<{ isEnlisted: boolean }, { id: string; enlisted: boolean }>({
+      query: ({ id, enlisted }) => ({
+        url: `/soldiers/${id}/enlistment`,
+        method: 'PATCH',
+        body: { enlisted },
+      }),
+      invalidatesTags: ['Soldiers'],
+    }),
+    deleteSoldier: build.mutation<void, string>({
+      query: (id) => ({ url: `/soldiers/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Soldiers'],
+    }),
 
     // --- items ---
     items: build.query<Item[], void>({
       query: () => '/items',
       providesTags: ['Items'],
     }),
-    availableInstances: build.query<ItemInstance[], string>({
-      query: (itemId) => `/items/${itemId}/available`,
+    item: build.query<ItemDetail, string>({
+      query: (id) => `/items/${id}`,
+      providesTags: ['Items', 'Signatures'],
+    }),
+    availableInstances: build.query<
+      AvailableInstance[],
+      { itemId: string; soldierId?: string }
+    >({
+      query: ({ itemId, soldierId }) => ({
+        url: `/items/${itemId}/available`,
+        params: soldierId ? { soldierId } : undefined,
+      }),
       providesTags: ['Items', 'Signatures'],
     }),
     needsAttention: build.query<NeedsAttention, void>({
@@ -158,6 +204,20 @@ export const api = createApi({
       }
     >({
       query: (params) => ({ url: '/signatures', params }),
+      providesTags: ['Signatures'],
+    }),
+    signatureHolders: build.query<
+      Paginated<SignatureHolder>,
+      {
+        q?: string;
+        company?: Company;
+        itemId?: string;
+        needsAttentionOnly?: boolean;
+        take?: number;
+        skip?: number;
+      }
+    >({
+      query: (params) => ({ url: '/signatures/holders', params }),
       providesTags: ['Signatures'],
     }),
     issueItem: build.mutation<
@@ -234,6 +294,20 @@ export const api = createApi({
       invalidatesTags: ['Snapshots'],
     }),
 
+    // --- db backups (full pg_dump, separate from the xlsx snapshots above) ---
+    dbBackups: build.query<DbBackup[], void>({
+      query: () => '/db-backups',
+      providesTags: ['DbBackups'],
+    }),
+    createDbBackup: build.mutation<{ id: string }, void>({
+      query: () => ({ url: '/db-backups', method: 'POST' }),
+      invalidatesTags: ['DbBackups'],
+    }),
+    sendDbBackupToSlack: build.mutation<{ sent: boolean; error?: string }, string>({
+      query: (id) => ({ url: `/db-backups/${id}/send-to-slack`, method: 'POST' }),
+      invalidatesTags: ['DbBackups'],
+    }),
+
     // --- counts (ספירת נשקיה) ---
     countSheet: build.query<CountSheet, { date: string; shift: CountShift }>({
       query: (params) => ({ url: '/counts/sheet', params }),
@@ -262,6 +336,8 @@ export const api = createApi({
         isSerialized: boolean;
         inSummary?: boolean;
         authorizedQty: number;
+        yamahQty?: number;
+        repairQty?: number;
         aliases?: string[];
       }
     >({
@@ -286,6 +362,21 @@ export const api = createApi({
         body: { serial },
       }),
       invalidatesTags: ['Items'],
+    }),
+    removeInstance: build.mutation<{ removed: true }, string>({
+      query: (instanceId) => ({ url: `/items/instances/${instanceId}`, method: 'DELETE' }),
+      invalidatesTags: ['Items'],
+    }),
+    setInstanceStatus: build.mutation<
+      ItemInstance,
+      { instanceId: string; status: InstanceStatus; notes?: string }
+    >({
+      query: ({ instanceId, ...body }) => ({
+        url: `/items/instances/${instanceId}/status`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['Items', 'Reports'],
     }),
 
     // --- attendance (ימי יציאה) ---
@@ -327,38 +418,142 @@ export const api = createApi({
     }),
     createUser: build.mutation<
       PublicUser & { generatedPassword?: string },
-      { username: string; displayName: string; role: string; password?: string }
+      { username: string; displayName: string; role: string; companyScope?: Company; password?: string }
     >({
       query: (body) => ({ url: '/users', method: 'POST', body }),
       invalidatesTags: ['Users'],
     }),
-    updateUser: build.mutation<PublicUser, { id: string; displayName?: string; role?: string; isActive?: boolean }>({
+    updateUser: build.mutation<
+      PublicUser,
+      {
+        id: string;
+        displayName?: string;
+        role?: string;
+        companyScope?: Company | null;
+        isActive?: boolean;
+        isSuperAdmin?: boolean;
+      }
+    >({
       query: ({ id, ...body }) => ({ url: `/users/${id}`, method: 'PATCH', body }),
       invalidatesTags: ['Users'],
     }),
     resetPassword: build.mutation<{ password: string }, string>({
       query: (id) => ({ url: `/users/${id}/reset-password`, method: 'POST' }),
     }),
+    deleteUser: build.mutation<void, string>({
+      query: (id) => ({ url: `/users/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Users'],
+    }),
 
-    // --- טופס 1008 ---
-    kits: build.query<Kit[], void>({
-      query: () => '/kits',
-      providesTags: ['Kits'],
+    // --- תקופת שרות: הקצאות ---
+    servicePeriods: build.query<ServicePeriod[], void>({
+      query: () => '/service-periods',
+      providesTags: ['ServicePeriods'],
     }),
-    createKit: build.mutation<Kit, { name: string; notes?: string; lines: { itemId: string; quantity: number }[] }>({
-      query: (body) => ({ url: '/kits', method: 'POST', body }),
-      invalidatesTags: ['Kits'],
+    activeServicePeriod: build.query<ServicePeriod | null, void>({
+      query: () => '/service-periods/active',
+      providesTags: ['ServicePeriods'],
     }),
-    updateKit: build.mutation<
-      Kit,
-      { id: string; name?: string; notes?: string; isActive?: boolean; lines?: { itemId: string; quantity: number }[] }
+    createServicePeriod: build.mutation<ServicePeriod, NewServicePeriod>({
+      query: (body) => ({ url: '/service-periods', method: 'POST', body }),
+      invalidatesTags: ['ServicePeriods'],
+    }),
+    updateServicePeriod: build.mutation<ServicePeriod, { id: string } & Partial<NewServicePeriod & { status: string }>>({
+      query: ({ id, ...body }) => ({ url: `/service-periods/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['ServicePeriods'],
+    }),
+
+    companyAllocations: build.query<CompanyAllocationRow[], string>({
+      query: (servicePeriodId) => `/service-periods/${servicePeriodId}/company-allocations`,
+      providesTags: ['Allocations'],
+    }),
+    setCompanyAllocation: build.mutation<
+      { id: string; quantity: number },
+      { servicePeriodId: string; itemId: string; company: Company; quantity: number }
     >({
-      query: ({ id, ...body }) => ({ url: `/kits/${id}`, method: 'PATCH', body }),
-      invalidatesTags: ['Kits'],
+      query: ({ servicePeriodId, ...body }) => ({
+        url: `/service-periods/${servicePeriodId}/company-allocations`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Allocations'],
     }),
-    deleteKit: build.mutation<{ deleted: true }, string>({
-      query: (id) => ({ url: `/kits/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Kits'],
+    addGridItem: build.mutation<void, { servicePeriodId: string; itemId: string }>({
+      query: ({ servicePeriodId, itemId }) => ({
+        url: `/service-periods/${servicePeriodId}/company-allocations/items`,
+        method: 'POST',
+        body: { itemId },
+      }),
+      invalidatesTags: ['Allocations'],
+    }),
+    removeGridItem: build.mutation<void, { servicePeriodId: string; itemId: string }>({
+      query: ({ servicePeriodId, itemId }) => ({
+        url: `/service-periods/${servicePeriodId}/company-allocations/items/${itemId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Allocations'],
+    }),
+    setOnHandOverride: build.mutation<
+      { onHand: number; onHandOverride: number | null },
+      { servicePeriodId: string; itemId: string; onHand: number | null }
+    >({
+      query: ({ servicePeriodId, ...body }) => ({
+        url: `/service-periods/${servicePeriodId}/on-hand-override`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Allocations'],
+    }),
+
+    // --- soldier allocations (סגן מפקד פלוגה) ---
+    soldierAllocations: build.query<SoldierAllocationRow[], { servicePeriodId: string; company?: Company }>({
+      query: ({ servicePeriodId, company }) => ({
+        url: `/service-periods/${servicePeriodId}/soldier-allocations`,
+        params: company ? { company } : undefined,
+      }),
+      providesTags: ['Allocations'],
+    }),
+    companySoldiers: build.query<CompanySoldierRef[], { servicePeriodId: string; company?: Company }>({
+      query: ({ servicePeriodId, company }) => ({
+        url: `/service-periods/${servicePeriodId}/soldier-allocations/soldiers`,
+        params: company ? { company } : undefined,
+      }),
+      providesTags: ['Soldiers'],
+    }),
+    setSoldierAllocation: build.mutation<
+      { id: string; quantity: number },
+      { servicePeriodId: string; itemId: string; soldierId: string; quantity: number }
+    >({
+      query: ({ servicePeriodId, ...body }) => ({
+        url: `/service-periods/${servicePeriodId}/soldier-allocations`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Allocations'],
+    }),
+
+    // A personal weapon or נגב going into the basket pulls in its standard
+    // accessories plus anything the soldier's own חלוקה לפי חייל says he's
+    // getting this period (מטולון, מכפל, שחמ, etc). Every soldier allocation
+    // mutation invalidates `Allocations`, so this refetches whenever a
+    // סגן מפקד פלוגה changes what the soldier is eligible for.
+    issueBundle: build.query<IssueBundleLine[], { itemName: string; soldierId: string; alwaysOnly?: boolean }>({
+      query: ({ itemName, soldierId, alwaysOnly }) => ({
+        url: '/issue-bundle',
+        params: { itemName, soldierId, ...(alwaysOnly ? { alwaysOnly: 'true' } : {}) },
+      }),
+      providesTags: ['Allocations'],
+    }),
+    itemPairings: build.query<IssueBundleLine[], string>({
+      query: (itemName) => ({ url: '/item-pairings', params: { itemName } }),
+      providesTags: ['Allocations'],
+    }),
+
+    // Everything this soldier is entitled to this period — drives the
+    // pre-populated pick-list at the top of the ניפוק basket step.
+    soldierEntitlement: build.query<IssueBundleLine[], string>({
+      query: (soldierId) => `/soldiers/${soldierId}/entitlement`,
+      providesTags: ['Allocations'],
     }),
 
     issueForms: build.query<Paginated<IssueFormSummary>, { soldierId?: string; take?: number; skip?: number }>({
@@ -373,6 +568,24 @@ export const api = createApi({
     createIssueForm: build.mutation<IssueForm, NewIssueForm>({
       query: (body) => ({ url: '/issue-forms', method: 'POST', body }),
       invalidatesTags: ['IssueForms', 'Signatures', 'Reports', 'Movements', 'Soldiers', 'Items'],
+    }),
+    /** Header-only edit (מס קבלה / הערות) — never the lines, soldier, or
+     *  signature, since those are what was actually signed. */
+    updateIssueForm: build.mutation<IssueForm, { id: string; receiptNo?: string; notes?: string }>({
+      query: ({ id, ...body }) => ({ url: `/issue-forms/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['IssueForms'],
+    }),
+    /** A real change to a signed form's items/serials/quantities — returns
+     *  whatever the new lines no longer cover and signs a brand new 1008. */
+    reissueIssueForm: build.mutation<IssueForm, { id: string } & NewIssueForm>({
+      query: ({ id, ...body }) => ({ url: `/issue-forms/${id}/reissue`, method: 'POST', body }),
+      invalidatesTags: ['IssueForms', 'Signatures', 'Reports', 'Movements', 'Soldiers', 'Items'],
+    }),
+
+    // --- קליטת ציוד ---
+    submitIntake: build.mutation<IntakeResult, NewIntake>({
+      query: (body) => ({ url: '/intake', method: 'POST', body }),
+      invalidatesTags: ['Items', 'Reports'],
     }),
 
     // --- excel ---
@@ -400,9 +613,11 @@ export const {
   useLogoutMutation,
   useSoldiersQuery,
   useItemsQuery,
+  useItemQuery,
   useAvailableInstancesQuery,
   useNeedsAttentionQuery,
   useSignaturesQuery,
+  useSignatureHoldersQuery,
   useIssueItemMutation,
   useReturnItemMutation,
   useBackfillSerialMutation,
@@ -413,6 +628,9 @@ export const {
   useSnapshotsQuery,
   useCreateSnapshotMutation,
   useSendSnapshotToSlackMutation,
+  useDbBackupsQuery,
+  useCreateDbBackupMutation,
+  useSendDbBackupToSlackMutation,
   usePreviewImportMutation,
   useCommitImportMutation,
   useCountSheetQuery,
@@ -422,11 +640,15 @@ export const {
   useLazyDeletionCheckQuery,
   useDeleteItemMutation,
   useAddInstanceMutation,
+  useRemoveInstanceMutation,
+  useSetInstanceStatusMutation,
   useWeekQuery,
   useSoldierQuery,
   useUpdateSoldierMutation,
   useCreateSoldierMutation,
   useCheckDuplicateSoldierMutation,
+  useSetSoldierEnlistedMutation,
+  useDeleteSoldierMutation,
   useTodayQuery,
   useLatestCountQuery,
   useTeamMembersQuery,
@@ -436,11 +658,27 @@ export const {
   useCreateUserMutation,
   useUpdateUserMutation,
   useResetPasswordMutation,
-  useKitsQuery,
-  useCreateKitMutation,
-  useUpdateKitMutation,
-  useDeleteKitMutation,
+  useDeleteUserMutation,
+  useServicePeriodsQuery,
+  useActiveServicePeriodQuery,
+  useCreateServicePeriodMutation,
+  useUpdateServicePeriodMutation,
+  useCompanyAllocationsQuery,
+  useSetCompanyAllocationMutation,
+  useAddGridItemMutation,
+  useRemoveGridItemMutation,
+  useSetOnHandOverrideMutation,
+  useSoldierAllocationsQuery,
+  useCompanySoldiersQuery,
+  useSetSoldierAllocationMutation,
+  useIssueBundleQuery,
+  useLazyIssueBundleQuery,
+  useLazyItemPairingsQuery,
+  useSoldierEntitlementQuery,
   useIssueFormsQuery,
   useIssueFormQuery,
   useCreateIssueFormMutation,
+  useUpdateIssueFormMutation,
+  useReissueIssueFormMutation,
+  useSubmitIntakeMutation,
 } = api;

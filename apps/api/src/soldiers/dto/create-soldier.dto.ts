@@ -37,11 +37,6 @@ export class CreateSoldierDto {
   @IsOptional()
   @IsString()
   @MaxLength(40)
-  platoon?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
   receiptNo?: string;
 
   @IsOptional()

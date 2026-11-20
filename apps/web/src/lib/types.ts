@@ -1,12 +1,13 @@
 /** Mirrors the API contract. The API speaks enum keys; `he.ts` holds the labels. */
 
-export type Role = 'admin' | 'logistics' | 'viewer';
+export type Role = 'admin' | 'logistics' | 'viewer' | 'SHLISHUT' | 'SAMGAD' | 'COMPANY_CMDR';
 export type Company = 'A' | 'B' | 'C' | 'SUPPORT' | 'HQ';
-export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR';
-export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED';
+export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR' | 'AMMO';
+export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED' | 'IN_REPAIR';
 /** דוח תנועות holds weapon movements only: an item given out, or taken back. */
 export type MovementAction = 'ISSUE' | 'RETURN';
 export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
+export type DbBackupKind = 'daily' | 'manual';
 export type IssueKind =
   | 'MISSING_SERIAL'
   | 'DUPLICATE_SERIAL'
@@ -34,9 +35,10 @@ export type SoldierSummary = {
   personalNumber: string | null;
   phone: string | null;
   company: Company;
-  platoon: string | null;
   isActive: boolean;
   openSignatureCount: number;
+  /** מחויל לתקופת השרות הפעילה. `null` when there is no active service period. */
+  isEnlisted: boolean | null;
 };
 
 /** A soldier with what they currently hold, for the confirmation step. */
@@ -47,7 +49,6 @@ export type SoldierDetail = {
   personalNumber: string | null;
   phone: string | null;
   company: Company;
-  platoon: string | null;
   isActive: boolean;
   signatures: {
     id: string;
@@ -55,6 +56,8 @@ export type SoldierDetail = {
     item: { id: string; name: string };
     itemInstance: { id: string; serial: string } | null;
   }[];
+  /** מחויל לתקופת השרות הפעילה. `null` when there is no active service period at all. */
+  isEnlisted: boolean | null;
 };
 
 /** The fields accepted when creating a soldier; only these four are required. */
@@ -64,7 +67,6 @@ export type NewSoldier = {
   company: Company;
   personalNumber?: string;
   phone?: string;
-  platoon?: string;
 };
 
 export type Item = {
@@ -77,6 +79,12 @@ export type Item = {
   /** Whether the item appears in מסכם and in ספירת נשקיה. */
   inSummary: boolean;
   authorizedQty: number;
+  /** Units physically at ימ״ח, out of authorizedQty. בפועל is derived as the difference. */
+  yamahQty: number;
+  /** Bulk units currently sent out for repair, out of authorizedQty — same
+   *  idea as yamahQty. Serialized items track this per מסד instead, via
+   *  InstanceStatus.IN_REPAIR. */
+  repairQty: number;
   unitPrice: string | null;
   isActive: boolean;
   /** The quantity a 1008 starts at for this item — 5 for מחסנית, 1 for most. */
@@ -93,6 +101,20 @@ export type ItemInstance = {
   notes: string | null;
 };
 
+/** `GET /items/:id/available`'s own shape — flags the soldier's last-held
+ *  serial for this item, if `soldierId` was passed and it's still free. */
+export type AvailableInstance = ItemInstance & { isPreviouslyHeld: boolean };
+
+/** One מסד as the catalog drill-down shows it: who holds it, if anyone. */
+export type ItemInstanceWithHolder = ItemInstance & {
+  signatures: { id: string; soldier: SoldierSummary }[];
+};
+
+/** `GET /items/:id` — the catalog row plus every מסד registered under it. */
+export type ItemDetail = Item & {
+  instances: ItemInstanceWithHolder[];
+};
+
 export type Signature = {
   id: string;
   soldierId: string;
@@ -107,6 +129,27 @@ export type Signature = {
   soldier: SoldierSummary;
   item: Item;
   itemInstance: ItemInstance | null;
+};
+
+/** One line of what a soldier currently holds, as `holders` nests it — same
+ *  shape as `Signature` minus the (redundant, since this is already inside
+ *  his own row) `soldier` field. */
+export type HolderSignature = Omit<Signature, 'soldier' | 'soldierId'>;
+
+/** `GET /signatures/holders` — one row per soldier who holds anything right
+ *  now, his open items nested, plus every 1008 he's ever signed (for
+ *  opening/printing the actual signed form, not just the line-item list). */
+export type SignatureHolder = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  personalNumber: string | null;
+  phone: string | null;
+  company: Company;
+  itemCount: number;
+  needsAttention: boolean;
+  signatures: HolderSignature[];
+  forms: { id: string; formNo: number; signedAt: string }[];
 };
 
 export type SummaryRow = {
@@ -176,6 +219,8 @@ export type Week = {
   dates: string[];
   rows: WeekRow[];
   presentPerDay: number[];
+  /** Of each day's present count, how many are specifically חזרה. */
+  returningPerDay: number[];
 };
 
 export type TodayMember = {
@@ -224,6 +269,7 @@ export type PublicUser = {
   companyScope: Company | null;
   isActive: boolean;
   createdAt: string;
+  isSuperAdmin: boolean;
 };
 
 export type MatrixRow = {
@@ -253,6 +299,10 @@ export type MovementRow = {
   receiptNo: string | null;
   performedBy: string;
   notes: string | null;
+  /** A bulk ACCESSORY item with no מסד (מחסניות, מק פורק, רצועה…) — never a
+   *  serialized item, regardless of category. Drives the "הצג הכל / דוח
+   *  צלם" toggle in the daily report. */
+  routine: boolean;
 };
 
 export type ImportIssue = {
@@ -282,6 +332,18 @@ export type Snapshot = {
   createdBy: { displayName: string } | null;
 };
 
+/** A raw pg_dump of the whole database — disaster-recovery copy, separate
+ *  from Snapshot (the re-importable xlsx business export). */
+export type DbBackup = {
+  id: string;
+  createdAt: string;
+  kind: DbBackupKind;
+  sizeBytes: number;
+  slackSentAt: string | null;
+  slackError: string | null;
+  createdBy: { displayName: string } | null;
+};
+
 export type ImportPreview = {
   totalRows: number;
   soldiers: number;
@@ -293,36 +355,55 @@ export type ImportPreview = {
   perCompany: { company: string; count: number }[];
 };
 
-// --- טופס 1008: kits and signed handover forms ---
+// --- תקופת שרות: battalion/company allocations, and signed handover forms ---
 
-/**
- * A kit is a named standard handover — `ערכת M-4` is the rifle plus the
- * magazines, sling and cleaning kit that always go out with it. Picking one
- * fills the basket; every line stays editable, so the kit is a starting point
- * rather than a rule.
- */
-export type Kit = {
+export type ServicePeriodStatus = 'PLANNING' | 'ACTIVE' | 'CLOSED';
+
+export type ServicePeriod = {
   id: string;
   name: string;
-  notes: string | null;
-  isActive: boolean;
-  sortOrder: number;
-  lines: KitLine[];
+  startsAt: string;
+  endsAt: string;
+  status: ServicePeriodStatus;
 };
 
-export type KitLine = {
-  id: string;
-  kitId: string;
+/**
+ * One row of the samgad's grid — an item split across the five companies,
+ * capped against בפועל (onHand), not מצבה.
+ */
+export type CompanyAllocationRow = {
   itemId: string;
-  quantity: number;
-  sortOrder: number;
-  item: {
-    id: string;
-    name: string;
-    category: ItemCategory;
-    isSerialized: boolean;
-    unitOfMeasure: string;
-  };
+  item: { id: string; name: string; category: ItemCategory; unitOfMeasure: string };
+  /** What the samgad plans against — the admin's override if one is set, else realOnHand. */
+  onHand: number;
+  /** authorizedQty − yamahQty, always the catalog's true figure, regardless of any override. */
+  realOnHand: number;
+  /** The admin's period-only cap on this item, or `null` if none is set. Never above realOnHand. */
+  onHandOverride: number | null;
+  quantities: Record<Company, number>;
+  /** What that company has actually been handed — open signatures, not the plan. */
+  issued: Record<Company, number>;
+  /** quantities[c] − issued[c] — how much of its own planned share the company has left to hand out. */
+  remaining: Record<Company, number>;
+  total: number;
+};
+
+export type NewServicePeriod = { name: string; startsAt: string; endsAt: string };
+
+/** A basic soldier reference, for the סגן מפקד פלוגה's own-company roster. */
+export type CompanySoldierRef = { id: string; firstName: string; lastName: string };
+
+/** One auto-added accessory line from `/issue-bundle`, for a weapon just added to a 1008 basket. */
+export type IssueBundleLine = { item: Item; quantity: number };
+
+/** One item row of a company commander's per-soldier planning breakdown. */
+export type SoldierAllocationRow = {
+  itemId: string;
+  item: { id: string; name: string; category: ItemCategory; unitOfMeasure: string; isSerialized: boolean };
+  /** The company's own planned quantity for this item, from CompanyAllocation — the ceiling here. */
+  companyQuantity: number;
+  bySoldier: Record<string, number>;
+  total: number;
 };
 
 /** One line as it was handed over. Snapshots, so the form stays true later. */
@@ -370,4 +451,26 @@ export type NewIssueForm = {
   signatureImage: string;
   receiptNo?: string;
   notes?: string;
+};
+
+// --- קליטת ציוד ---
+
+/** One row of the intake review grid, already resolved to a real catalog item. */
+export type IntakeRow = {
+  itemId: string;
+  kind: 'serial' | 'bulk';
+  serial?: string;
+  quantity?: number;
+  /** e.g. "שייך לחטיבה" when the item didn't come from ימ״ח — kept on the מסד itself. */
+  notes?: string;
+};
+
+export type NewIntake = {
+  rows: IntakeRow[];
+};
+
+export type IntakeResult = {
+  serialsCreated: number;
+  serialsSkipped: number;
+  bulkItemsUpdated: number;
 };

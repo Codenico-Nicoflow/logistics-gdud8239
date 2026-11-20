@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InstanceStatus, Item, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { syncAuthorizedQty } from './sync-authorized-qty';
 import type { CreateItemDto } from './dto/create-item.dto';
 import type { UpdateItemDto } from './dto/update-item.dto';
 import type { CreateInstanceDto } from './dto/create-instance.dto';
@@ -63,6 +64,8 @@ export class ItemsService {
         isSerialized: dto.isSerialized,
         ...(dto.inSummary !== undefined ? { inSummary: dto.inSummary } : {}),
         authorizedQty: dto.authorizedQty,
+        yamahQty: dto.yamahQty ?? 0,
+        repairQty: dto.repairQty ?? 0,
         unitPrice: dto.unitPrice ?? null,
       },
     });
@@ -93,6 +96,11 @@ export class ItemsService {
       );
     }
 
+    // מצבה for a serialized item is derived from its מסדים, never typed in —
+    // a stray authorizedQty in the body (old client, direct API call) is
+    // ignored rather than allowed to desync the two again.
+    const willBeSerialized = dto.isSerialized ?? item.isSerialized;
+
     return this.prisma.item.update({
       where: { id },
       data: {
@@ -101,7 +109,11 @@ export class ItemsService {
         ...(dto.category !== undefined ? { category: dto.category } : {}),
         ...(dto.isSerialized !== undefined ? { isSerialized: dto.isSerialized } : {}),
         ...(dto.inSummary !== undefined ? { inSummary: dto.inSummary } : {}),
-        ...(dto.authorizedQty !== undefined ? { authorizedQty: dto.authorizedQty } : {}),
+        ...(dto.authorizedQty !== undefined && !willBeSerialized
+          ? { authorizedQty: dto.authorizedQty }
+          : {}),
+        ...(dto.yamahQty !== undefined ? { yamahQty: dto.yamahQty } : {}),
+        ...(dto.repairQty !== undefined ? { repairQty: dto.repairQty } : {}),
         ...(dto.unitPrice !== undefined ? { unitPrice: dto.unitPrice } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
@@ -122,8 +134,12 @@ export class ItemsService {
     });
     if (clash) throw new ConflictException(`מסד "${serial}" כבר קיים עבור ${item.name}`);
 
-    return this.prisma.itemInstance.create({
-      data: { itemId, serial, status: dto.status ?? 'OK', notes: dto.notes ?? null },
+    return this.prisma.$transaction(async (tx) => {
+      const instance = await tx.itemInstance.create({
+        data: { itemId, serial, status: dto.status ?? 'OK', notes: dto.notes ?? null },
+      });
+      await syncAuthorizedQty(tx, itemId);
+      return instance;
     });
   }
 
@@ -152,9 +168,46 @@ export class ItemsService {
     });
   }
 
-  /** Serials of this item that nobody currently holds — the pick list for ניפוק. */
-  async availableInstances(itemId: string) {
-    return this.prisma.itemInstance.findMany({
+  /**
+   * Deletes a מסד outright — this corrects a data-entry mistake (wrong
+   * serial, duplicate), not a real-world event, so there is nothing here
+   * worth keeping for history the way a signature or movement is. A held
+   * instance can never be deleted: the return flow is the only way a
+   * signature closes.
+   */
+  async removeInstance(instanceId: string) {
+    const instance = await this.prisma.itemInstance.findUnique({
+      where: { id: instanceId },
+      include: { signatures: { where: { returnedAt: null }, include: { soldier: true } } },
+    });
+    if (!instance) throw new NotFoundException('המסד אינו קיים');
+
+    if (instance.signatures.length > 0) {
+      const holder = instance.signatures[0]?.soldier;
+      throw new ConflictException(
+        `לא ניתן להסיר — המסד חתום על ${holder?.firstName ?? ''} ${holder?.lastName ?? ''}. יש לבצע זיכוי לפני הסרת המסד.`,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.itemInstance.delete({ where: { id: instanceId } });
+      await syncAuthorizedQty(tx, instance.itemId);
+      return { removed: true };
+    });
+  }
+
+  /**
+   * Serials of this item that nobody currently holds — the pick list for
+   * ניפוק. When `soldierId` is given, this soldier's own previously-held
+   * serial for this exact item (if he ever had one and it's still free) is
+   * flagged `isPreviouslyHeld` and sorted first — so re-issuing M-4 to a
+   * soldier who already had one in a past תקופת שרות defaults back to the
+   * same physical weapon rather than a random one, unless the operator
+   * deliberately picks something else (the weapon was swapped, faulty, etc).
+   * Derived live from his own return history — nothing persisted for this.
+   */
+  async availableInstances(itemId: string, soldierId?: string) {
+    const instances = await this.prisma.itemInstance.findMany({
       where: {
         itemId,
         status: 'OK',
@@ -162,6 +215,20 @@ export class ItemsService {
       },
       orderBy: { serial: 'asc' },
     });
+
+    if (!soldierId || instances.length === 0) {
+      return instances.map((i) => ({ ...i, isPreviouslyHeld: false }));
+    }
+
+    const lastReturned = await this.prisma.signature.findFirst({
+      where: { soldierId, itemId, itemInstanceId: { not: null }, returnedAt: { not: null } },
+      orderBy: { returnedAt: 'desc' },
+      select: { itemInstanceId: true },
+    });
+
+    return instances
+      .map((i) => ({ ...i, isPreviouslyHeld: i.id === lastReturned?.itemInstanceId }))
+      .sort((a, b) => Number(b.isPreviouslyHeld) - Number(a.isPreviouslyHeld));
   }
 
   /**

@@ -24,8 +24,10 @@ export class ItemsController {
     return this.items.findAll(includeInactive === 'true');
   }
 
-  /** Rows imported with a data problem, for the "דרוש טיפול" tab. */
+  /** Rows imported with a data problem, for the "דרוש טיפול" tab — original
+   *  admin/logistics/viewer screens only, not the reserve-duty roles. */
   @Get('needs-attention')
+  @Roles('admin', 'logistics', 'viewer')
   needsAttention() {
     return this.items.needsAttention();
   }
@@ -36,8 +38,8 @@ export class ItemsController {
   }
 
   @Get(':id/available')
-  available(@Param('id') id: string) {
-    return this.items.availableInstances(id);
+  available(@Param('id') id: string, @Query('soldierId') soldierId?: string) {
+    return this.items.availableInstances(id, soldierId);
   }
 
   @Post()
@@ -78,5 +80,11 @@ export class ItemsController {
     @Body() body: { status: InstanceStatus; notes?: string },
   ) {
     return this.items.setInstanceStatus(instanceId, body.status, body.notes);
+  }
+
+  @Delete('instances/:instanceId')
+  @Roles('admin')
+  removeInstance(@Param('instanceId') instanceId: string) {
+    return this.items.removeInstance(instanceId);
   }
 }

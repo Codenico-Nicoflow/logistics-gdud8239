@@ -124,7 +124,7 @@ export function CountsPage() {
                 <button
                   key={s}
                   onClick={() => setShift(s)}
-                  className={`px-4 py-2 text-body font-semibold transition-colors ${
+                  className={`h-11 px-4 text-body font-semibold transition-colors ${
                     shift === s ? 'bg-field text-white' : 'bg-card-raised text-ink-soft hover:bg-card'
                   }`}
                 >

@@ -21,8 +21,8 @@ const HEADER_FILL: ExcelJS.Fill = {
 /**
  * Writes the workbook that replaces the hand-maintained file.
  *
- * The `צלמ` sheet keeps the original ten columns in the original order, so the
- * export is a drop-in replacement and can be re-imported to restore the data.
+ * The `צלמ` sheet keeps the signature columns in their original order (minus
+ * מחלקה, retired app-wide), so the export can be re-imported to restore the data.
  * The derived sheets are computed rather than copied, so they cannot disagree
  * with the signatures the way the hand-kept versions did.
  */
@@ -87,7 +87,6 @@ export class ExcelExportService {
       { width: 12 },
       { width: 10 },
       { width: 24 },
-      { width: 10 },
     ];
     this.styleHeader(ws.addRow([...SIGNATURES_HEADER]));
 
@@ -113,11 +112,10 @@ export class ExcelExportService {
           s.soldier.personalNumber ?? '',
           s.receiptNo ?? '',
           s.needsAttention ? `דרוש טיפול: ${s.notes ?? 'חסר מידע'}` : (s.notes ?? ''),
-          s.soldier.platoon ?? '',
         ]);
       }
     }
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } };
+    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 9 } };
   }
 
   private async addSummary(wb: ExcelJS.Workbook): Promise<void> {

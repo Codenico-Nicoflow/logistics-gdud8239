@@ -22,7 +22,7 @@ export class CreateUserDto {
   /** Optional: when omitted the API generates one and returns it once. */
   @IsOptional()
   @IsString()
-  @MinLength(10, { message: 'הסיסמה חייבת להכיל לפחות 10 תווים' })
+  @MinLength(6, { message: 'הסיסמה חייבת להכיל לפחות 6 תווים' })
   @MaxLength(200)
   password?: string;
 }

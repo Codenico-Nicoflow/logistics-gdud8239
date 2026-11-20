@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { UsersService, type PublicUser } from './users.service';
@@ -17,8 +17,11 @@ export class UsersController {
   }
 
   @Post()
-  create(@Body() dto: CreateUserDto): Promise<PublicUser & { generatedPassword?: string }> {
-    return this.users.create(dto);
+  create(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<PublicUser & { generatedPassword?: string }> {
+    return this.users.create(dto, actor.id);
   }
 
   @Patch(':id')
@@ -31,7 +34,16 @@ export class UsersController {
   }
 
   @Post(':id/reset-password')
-  resetPassword(@Param('id') id: string): Promise<{ password: string }> {
-    return this.users.resetPassword(id);
+  resetPassword(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<{ password: string }> {
+    return this.users.resetPassword(id, actor.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@Param('id') id: string, @CurrentUser() actor: AuthUser): Promise<void> {
+    return this.users.remove(id, actor.id);
   }
 }

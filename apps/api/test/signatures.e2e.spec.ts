@@ -31,6 +31,12 @@ let itemBulkId: string;
 let soldierAId: string;
 let soldierBId: string;
 
+/** Real ACTIVE periods already in this dev DB when the suite started —
+ *  closed for the duration of the run (so the מחויל gate's `findFirst`
+ *  deterministically finds this suite's own period) and reopened once in
+ *  `afterAll`, never left CLOSED behind the suite. */
+let reopenPeriodIds: string[] = [];
+
 function jarFrom(res: request.Response): string {
   const raw = res.headers['set-cookie'] as unknown as string[];
   return raw.map((c) => c.split(';')[0]).join('; ');
@@ -69,6 +75,7 @@ async function cleanup(): Promise<void> {
   await prisma.itemInstance.deleteMany({ where: { itemId: { in: itemIds } } });
   await prisma.soldier.deleteMany({ where: { id: { in: soldierIds } } });
   await prisma.item.deleteMany({ where: { id: { in: itemIds } } });
+  await prisma.servicePeriod.deleteMany({ where: { name: 'E2E תקופה' } });
 }
 
 beforeAll(async () => {
@@ -106,6 +113,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanup();
+  if (reopenPeriodIds.length) {
+    await prisma.servicePeriod.updateMany({
+      where: { id: { in: reopenPeriodIds } },
+      data: { status: 'ACTIVE' },
+    });
+  }
   await prisma?.user.deleteMany({
     where: { username: { in: [STAFF.username, VIEWER.username] } },
   });
@@ -140,6 +153,37 @@ beforeEach(async () => {
   });
   soldierAId = a.id;
   soldierBId = b.id;
+
+  // A weapon can only be issued to a soldier שלישות has marked מחויל for the
+  // active תקופת שרות — both test soldiers need that to exercise the
+  // WEAPON-category flows below. `findFirst({ status: 'ACTIVE' })` has no
+  // guaranteed order, so a real ACTIVE period already in this dev DB (this
+  // suite runs against it, not a throwaway one) could get picked instead of
+  // this test's own. Closed out here and restored in `afterAll` — real
+  // periods this suite didn't create are never left CLOSED behind it.
+  const otherActive = await prisma.servicePeriod.findMany({
+    where: { status: 'ACTIVE' },
+    select: { id: true },
+  });
+  reopenPeriodIds.push(...otherActive.map((p) => p.id));
+  await prisma.servicePeriod.updateMany({
+    where: { id: { in: otherActive.map((p) => p.id) } },
+    data: { status: 'CLOSED' },
+  });
+  const period = await prisma.servicePeriod.create({
+    data: {
+      name: 'E2E תקופה',
+      startsAt: new Date(),
+      endsAt: new Date(Date.now() + 86400000),
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.soldierEnlistment.createMany({
+    data: [
+      { soldierId: soldierAId, servicePeriodId: period.id },
+      { soldierId: soldierBId, servicePeriodId: period.id },
+    ],
+  });
 });
 
 describe('ניפוק — serialized items', () => {

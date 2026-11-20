@@ -12,6 +12,21 @@ enum Role {
   admin
   logistics
   viewer
+  /// חיילים CRUD only — adds/removes soldiers from the roster.
+  SHLISHUT     @map("שלישות")
+  /// Sets the battalion-wide cap per item before a תקופת שרות.
+  SAMGAD       @map("סמג\"ד")
+  /// סגן מפקד פלוגה — assigns his own company's soldiers against the
+  /// company's allocation, once סמג"ד has set it. Scoped by `companyScope`,
+  /// same as `logistics` today. DB enum value kept as "מ\"פ" for stability;
+  /// the Hebrew label shown in the app is "סגן מפקד פלוגה" (apps/web/src/i18n/he.ts).
+  COMPANY_CMDR @map("מ\"פ")
+}
+
+enum PermissionLevel {
+  NONE  @map("אין")
+  READ  @map("צפייה")
+  WRITE @map("עריכה")
 }
 
 enum Company {
@@ -32,12 +47,17 @@ enum ItemCategory {
   /// its own. The category exists to group them in the catalog and the form.
   ACCESSORY @map("אבזור")
   GEAR      @map("ציוד")
+  AMMO      @map("תחמושת")
 }
 
 enum InstanceStatus {
-  OK       @map("תקין")
-  FAULTY   @map("תקול")
-  DISABLED @map("מושבת")
+  OK        @map("תקין")
+  FAULTY    @map("תקול")
+  DISABLED  @map("מושבת")
+  /// Sent out for repair, not just marked broken in place — the physical
+  /// item has left the armory, so it must drop out of בפועל the same way a
+  /// held signature does, until it's marked OK again on return.
+  IN_REPAIR @map("בתיקון")
 }
 
 enum MovementAction {
@@ -80,6 +100,16 @@ enum SnapshotKind {
   manual
 }
 
+/// Separate from SnapshotKind: a Snapshot is the human-readable xlsx export
+/// of the signature/catalog data, re-importable through the excel module. A
+/// DbBackup is a raw `pg_dump` of the entire database — every table, not
+/// just the ones the xlsx exporter knows about — kept purely for disaster
+/// recovery, never read back into the app directly.
+enum DbBackupKind {
+  daily
+  manual
+}
+
 // ---------- auth ----------
 
 model User {
@@ -91,6 +121,13 @@ model User {
   companyScope Company? @map("company_scope")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
+  /// A single top-level admin above the regular `admin` role — can edit or
+  /// deactivate any user including other admins. A regular admin cannot
+  /// touch a super-admin's account or grant this flag to anyone; only
+  /// a super-admin can. Role stays `admin` either way, so every existing
+  /// `admin`-scoped guard and permission check keeps working unchanged —
+  /// this only widens what a super-admin may additionally do in users.service.
+  isSuperAdmin Boolean  @default(false) @map("is_super_admin")
 
   refreshTokens      RefreshToken[]
   importLogs         ImportLog[]
@@ -99,7 +136,9 @@ model User {
   movements          Movement[]
   countSessions      CountSession[]
   snapshots          Snapshot[]
+  dbBackups          DbBackup[]
   issueForms         IssueForm[]
+  issueFormAmendments IssueFormAmendment[]
 
   @@map("users")
 }
@@ -133,20 +172,41 @@ model Soldier {
   personalNumber String?  @unique @map("personal_number")
   phone          String?
   company        Company
-  platoon        String?
   receiptNo      String?  @map("receipt_no")
   notes          String?
+  /// מסופח — attached from another unit rather than organic to the battalion.
+  isAttached     Boolean  @default(false) @map("is_attached")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  signatures Signature[]
-  movements  Movement[]
-  issueForms IssueForm[]
+  signatures   Signature[]
+  movements    Movement[]
+  issueForms   IssueForm[]
+  enlistments  SoldierEnlistment[]
+  allocations  SoldierAllocation[]
 
   @@index([lastName, firstName])
   @@index([company])
   @@map("soldiers")
+}
+
+/// מחויל — שלישות marks a soldier enlisted for a specific תקופת שרות. Resets
+/// every stint: being enlisted last taasuka says nothing about this one. A
+/// weapon (serialized item) cannot be issued to a soldier who isn't enlisted
+/// in the currently active service period — enforced in
+/// `SignaturesService.issue`.
+model SoldierEnlistment {
+  id              String   @id @default(uuid())
+  soldierId       String   @map("soldier_id")
+  servicePeriodId String   @map("service_period_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  soldier       Soldier       @relation(fields: [soldierId], references: [id], onDelete: Cascade)
+  servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
+
+  @@unique([soldierId, servicePeriodId])
+  @@map("soldier_enlistments")
 }
 
 model TeamMember {
@@ -177,6 +237,15 @@ model Item {
   /// spares); listing them all would make the evening count unusable.
   inSummary      Boolean      @default(true) @map("in_summary")
   authorizedQty  Int          @default(0) @map("authorized_qty")
+  /// Count of units physically sitting in ימ״ח, out of authorizedQty. A plain
+  /// admin-typed number, not tied to specific מסדים — too hard to keep which
+  /// serial is where in sync, so only the total is tracked. בפועל (on-hand)
+  /// is derived in the UI as authorizedQty - yamahQty - repairQty, never stored.
+  yamahQty       Int          @default(0) @map("yamah_qty")
+  /// Same idea as yamahQty but for bulk (non-serialized) items sent out for
+  /// repair — a plain admin-typed count, since there's no individual מסד to
+  /// flag IN_REPAIR the way a serialized item's ItemInstance can be.
+  repairQty      Int          @default(0) @map("repair_qty")
   /// Pre-filled on the issue form — five מחסניות, one רצועה. The operator can
   /// change it, including to zero, which drops the line from the form.
   defaultQty     Int          @default(1) @map("default_qty")
@@ -193,7 +262,9 @@ model Item {
   countLines  CountLine[]
   movements   Movement[]
   formLines   IssueFormLine[]
-  kitLines    KitLine[]
+  companyAllocations CompanyAllocation[]
+  onHandOverrides    ServicePeriodItemOverride[]
+  soldierAllocations SoldierAllocation[]
 
   @@map("items")
 }
@@ -246,44 +317,6 @@ model Signature {
   @@map("signatures")
 }
 
-/// A standard handover: `ערכת M-4` is the rifle, five magazines, a sling and
-/// a cleaning kit.
-///
-/// Choosing a kit fills the form's lines with their usual quantities, which
-/// the operator then edits — a soldier who declines a magazine gets a form
-/// that says so. The kit is a starting point, never a constraint: nothing
-/// stops a line being removed or another item added alongside it.
-model Kit {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  notes     String?
-  isActive  Boolean  @default(true) @map("is_active")
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  lines KitLine[]
-
-  @@map("kits")
-}
-
-model KitLine {
-  id     String @id @default(uuid())
-  kitId  String @map("kit_id")
-  itemId String @map("item_id")
-  /// What this kit normally includes, which may differ from the item's own
-  /// default — a sniper kit might carry three magazines where a rifle carries
-  /// five.
-  quantity Int  @default(1)
-  sortOrder Int @default(0) @map("sort_order")
-
-  kit  Kit  @relation(fields: [kitId], references: [id], onDelete: Cascade)
-  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
-
-  @@unique([kitId, itemId])
-  @@index([kitId])
-  @@map("kit_lines")
-}
-
 /// `טופס 1008` — one signing event covering everything a soldier received at
 /// once: a weapon with its מסד alongside the magazines, sling and cleaning kit
 /// that go with it.
@@ -324,6 +357,7 @@ model IssueForm {
   soldier Soldier         @relation(fields: [soldierId], references: [id], onDelete: Restrict)
   issuedBy User           @relation(fields: [issuedByUserId], references: [id])
   lines   IssueFormLine[]
+  amendments IssueFormAmendment[]
 
   @@index([soldierId])
   @@index([signedAt])
@@ -354,6 +388,30 @@ model IssueFormLine {
 
   @@index([issueFormId])
   @@map("issue_form_lines")
+}
+
+/// A clerical correction to a signed 1008's header — מס קבלה / הערות only,
+/// never the lines, soldier, issuer, or either signature image: those are
+/// what was actually signed, and `issue_forms` itself stays append-only
+/// (DB trigger, see IssueForm) because of it. An edit here is a new row, not
+/// an UPDATE, for the same reason — the form's true history (who corrected
+/// what, and when) stays intact rather than being overwritten. The
+/// *effective* value shown anywhere (the screen, the printed form) is the
+/// latest amendment for that form, falling back to `IssueForm`'s own
+/// original field when none exists yet.
+model IssueFormAmendment {
+  id          String   @id @default(uuid())
+  issueFormId String   @map("issue_form_id")
+  receiptNo   String?  @map("receipt_no")
+  notes       String?
+  amendedByUserId String @map("amended_by_user_id")
+  amendedAt   DateTime @default(now()) @map("amended_at")
+
+  issueForm  IssueForm @relation(fields: [issueFormId], references: [id], onDelete: Cascade)
+  amendedBy  User      @relation(fields: [amendedByUserId], references: [id])
+
+  @@index([issueFormId, amendedAt])
+  @@map("issue_form_amendments")
 }
 
 // Append-only audit log. No update/delete route exists for this table.
@@ -399,6 +457,90 @@ model Allocation {
 
   @@unique([itemId, company])
   @@map("allocations")
+}
+
+// ---------- תקופת שרות (reserve-duty call-ups) ----------
+
+enum ServicePeriodStatus {
+  PLANNING @map("תכנון")
+  ACTIVE   @map("פעילה")
+  CLOSED   @map("סגורה")
+}
+
+/// One stretch of reserve duty — e.g. "מרץ 2027". Allocations are scoped to a
+/// period so last cycle's assignments never bleed into the next one.
+model ServicePeriod {
+  id        String              @id @default(uuid())
+  name      String
+  startsAt  DateTime            @map("starts_at") @db.Date
+  endsAt    DateTime            @map("ends_at") @db.Date
+  status    ServicePeriodStatus @default(PLANNING)
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  companyAllocations CompanyAllocation[]
+  enlistments        SoldierEnlistment[]
+  onHandOverrides    ServicePeriodItemOverride[]
+  soldierAllocations SoldierAllocation[]
+
+  @@map("service_periods")
+}
+
+/// The samgad's per-company split for a תקופת שרות — "פלוגה א מקבלת 82 M-4".
+/// Capped against the item's בפועל (authorizedQty − yamahQty): the sum across
+/// all five companies for one item can never exceed what is physically on
+/// hand, enforced in `AllocationsService.setCompanyAllocation`.
+model CompanyAllocation {
+  id              String  @id @default(uuid())
+  servicePeriodId String  @map("service_period_id")
+  itemId          String  @map("item_id")
+  company         Company
+  quantity        Int     @default(0)
+
+  servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
+  item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([servicePeriodId, itemId, company])
+  @@map("company_allocations")
+}
+
+/// Admin-only, per-period override of an item's בפועל for allocation purposes —
+/// e.g. the catalog says 29 on hand but the admin wants the samgad planning
+/// against only 25 this time (some are reserved, held back, whatever), without
+/// changing the real authorizedQty/yamahQty the rest of the app relies on.
+/// Never exceeds the item's real בפועל — enforced in
+/// `AllocationsService.setOnHandOverride`. Absent means "use the real בפועל".
+model ServicePeriodItemOverride {
+  id              String  @id @default(uuid())
+  servicePeriodId String  @map("service_period_id")
+  itemId          String  @map("item_id")
+  onHand          Int     @map("on_hand")
+
+  servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
+  item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([servicePeriodId, itemId])
+  @@map("service_period_item_overrides")
+}
+
+/// A company commander's (סגן מפקד פלוגה) planning breakdown of his company's
+/// share — "מאג מ-4 למטולון, מכפל, מפרו" — never exceeding what the samgad
+/// gave that company for the item (`CompanyAllocation.quantity`), enforced in
+/// `AllocationsService.setSoldierAllocation`. Planning only: it does not
+/// constrain what an actual 1008 can issue, unlike the בפועל cap on
+/// `CompanyAllocation` itself — see CLAUDE.md.
+model SoldierAllocation {
+  id              String  @id @default(uuid())
+  servicePeriodId String  @map("service_period_id")
+  itemId          String  @map("item_id")
+  soldierId       String  @map("soldier_id")
+  quantity        Int     @default(0)
+
+  servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
+  item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  soldier       Soldier       @relation(fields: [soldierId], references: [id], onDelete: Cascade)
+
+  @@unique([servicePeriodId, itemId, soldierId])
+  @@map("soldier_allocations_v2")
 }
 
 model CountSession {
@@ -508,4 +650,40 @@ model Snapshot {
 
   @@index([createdAt])
   @@map("snapshots")
+}
+
+model DbBackup {
+  id              String       @id @default(uuid())
+  createdAt       DateTime     @default(now()) @map("created_at")
+  kind            DbBackupKind
+  filePath        String       @map("file_path")
+  sizeBytes       Int          @map("size_bytes")
+  slackSentAt     DateTime?    @map("slack_sent_at")
+  slackError      String?      @map("slack_error")
+  createdByUserId String?      @map("created_by_user_id")
+
+  createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("db_backups")
+}
+
+// ---------- permissions ----------
+
+/// What each role can do, per screen — editable from the admin הרשאות screen
+/// rather than fixed in code, so e.g. giving סמג"ד read access to חתימות
+/// tomorrow is a toggle, not a deploy.
+///
+/// `admin` is not represented here: it always has WRITE on everything,
+/// hardcoded, so the matrix can never lock every account out of the app.
+model RolePermission {
+  id    String           @id @default(uuid())
+  role  Role
+  /// A screen/feature key, e.g. "soldiers", "allocations.battalion",
+  /// "signatures", "issue", "catalog".
+  key   String
+  level PermissionLevel  @default(NONE)
+
+  @@unique([role, key])
+  @@map("role_permissions")
 }

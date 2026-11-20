@@ -11,13 +11,18 @@ import type { AuthUser } from '../auth/auth.types';
 export class SignaturesController {
   constructor(private readonly signatures: SignaturesService) {}
 
+  // Not SHLISHUT/SAMGAD/COMPANY_CMDR: this screen (and its דרוש טיפול filter)
+  // belongs to the original admin/logistics/viewer access model, unchanged
+  // since before the reserve-duty roles existed.
   @Get()
+  @Roles('admin', 'logistics', 'viewer')
   findAll(@Query() query: QuerySignaturesDto) {
     return this.signatures.findAll(query);
   }
 
   /** חתימות as the screen shows it: one row per soldier, items nested. */
   @Get('holders')
+  @Roles('admin', 'logistics', 'viewer')
   holders(@Query() query: QuerySignaturesDto) {
     return this.signatures.holders(query);
   }

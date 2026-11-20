@@ -44,6 +44,8 @@
   --cat-accessory-wash: #f4e8e8;
   --cat-gear: #8a6a16;
   --cat-gear-wash: #f8f0d9;
+  --cat-ammo: #8a3a1e;
+  --cat-ammo-wash: #f5e4dd;
 }
 
 * {
@@ -121,6 +123,24 @@ body {
   }
 }
 
+/* The super-admin's sidebar name/role get an inside-joke "royal" treatment —
+   a sliding gold gradient on the name and a pulsing glow on the role line. */
+@keyframes shimmer {
+  to {
+    background-position: -200% center;
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -130,14 +150,63 @@ body {
   }
 }
 
-.scroll-slim::-webkit-scrollbar {
-  height: 10px;
-  width: 10px;
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
 }
-.scroll-slim::-webkit-scrollbar-thumb {
-  background: var(--rule-strong);
-  border-radius: 10px;
+.scroll-slim::-webkit-scrollbar {
+  height: 11px;
+  width: 11px;
 }
 .scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background-color: var(--rule-strong);
+  border-radius: 999px;
+  /* The transparent border + background-clip inset the thumb away from the
+   *  track edges, so it reads as a floating pill rather than a bar flush
+   *  with the container — the classic macOS-style overlay scrollbar look. */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.15s ease;
+}
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background-color: var(--field);
+}
+.scroll-slim::-webkit-scrollbar-thumb:active {
+  background-color: var(--field-dark);
+}
+.scroll-slim::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Same pill shape, lighter thumb — for scroll areas on a dark background
+ *  (the sidebar), where `--rule-strong` would barely be visible. */
+.scroll-slim-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.scroll-slim-dark::-webkit-scrollbar {
+  height: 11px;
+  width: 11px;
+}
+.scroll-slim-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-slim-dark::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.15s ease;
+}
+.scroll-slim-dark::-webkit-scrollbar-thumb:hover {
+  background-color: var(--brass-bright);
+}
+.scroll-slim-dark::-webkit-scrollbar-thumb:active {
+  background-color: var(--brass);
+}
+.scroll-slim-dark::-webkit-scrollbar-corner {
   background: transparent;
 }

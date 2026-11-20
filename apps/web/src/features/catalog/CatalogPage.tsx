@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 import {
   useCreateItemMutation,
   useDeleteItemMutation,
+  useItemQuery,
   useItemsQuery,
   useLazyDeletionCheckQuery,
+  useRemoveInstanceMutation,
+  useSetInstanceStatusMutation,
+  useSubmitIntakeMutation,
   useSummaryQuery,
   useUpdateItemMutation,
 } from '../../lib/api';
@@ -11,8 +15,10 @@ import {
   apiErrorMessage,
   Button,
   CategoryTag,
+  Modal,
   Panel,
   Select,
+  Serial,
   Spinner,
   TableScroll,
   Tag,
@@ -22,9 +28,9 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import type { DeletionCheck, Item, ItemCategory } from '../../lib/types';
+import type { DeletionCheck, Item, ItemCategory, ItemInstanceWithHolder } from '../../lib/types';
 
-const CATEGORIES: ItemCategory[] = ['WEAPON', 'OPTICS', 'DRONE', 'GEAR'];
+const CATEGORIES: ItemCategory[] = ['WEAPON', 'OPTICS', 'DRONE', 'GEAR', 'AMMO'];
 
 export function CatalogPage() {
   const { data: items, isLoading } = useItemsQuery();
@@ -32,6 +38,7 @@ export function CatalogPage() {
   const [editing, setEditing] = useState<Item | null>(null);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Item | null>(null);
+  const [viewingInstances, setViewingInstances] = useState<Item | null>(null);
 
   const issuedByName = new Map((summary ?? []).map((r) => [r.itemName, r.issued]));
 
@@ -56,6 +63,9 @@ export function CatalogPage() {
                 <Th>{he.catalog.category}</Th>
                 <Th numeric>{he.catalog.serialized}</Th>
                 <Th numeric>{he.catalog.authorized}</Th>
+                <Th numeric>{he.catalog.yamahQty}</Th>
+                <Th numeric>{he.catalog.repairQty}</Th>
+                <Th numeric>{he.catalog.onHand}</Th>
                 <Th numeric>{he.catalog.issued}</Th>
                 <Th numeric>{he.catalog.inSummary}</Th>
                 <Th />
@@ -82,7 +92,19 @@ export function CatalogPage() {
                       <span className="text-graphite">{he.common.no}</span>
                     )}
                   </Td>
-                  <Td numeric>{item.authorizedQty}</Td>
+                  <Td numeric>
+                    <button
+                      onClick={() => setViewingInstances(item)}
+                      className="font-semibold text-field-dark hover:underline"
+                    >
+                      {item.authorizedQty}
+                    </button>
+                  </Td>
+                  <Td numeric>{item.yamahQty}</Td>
+                  <Td numeric>{item.repairQty}</Td>
+                  <Td numeric className="font-semibold">
+                    {item.authorizedQty - item.yamahQty - item.repairQty}
+                  </Td>
                   <Td numeric className="text-field-dark">
                     {issuedByName.get(item.name) ?? 0}
                   </Td>
@@ -91,6 +113,9 @@ export function CatalogPage() {
                   </Td>
                   <Td>
                     <div className="flex gap-1">
+                      <Button variant="quiet" size="sm" onClick={() => setViewingInstances(item)}>
+                        {he.catalog.instances}
+                      </Button>
                       <Button variant="quiet" size="sm" onClick={() => setEditing(item)}>
                         {he.catalog.edit}
                       </Button>
@@ -107,9 +132,268 @@ export function CatalogPage() {
       </Panel>
 
       {adding && <ItemDialog onClose={() => setAdding(false)} />}
-      {editing && <ItemDialog item={editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <ItemDialog
+          item={editing}
+          onClose={() => setEditing(null)}
+          onManageInstances={() => {
+            setViewingInstances(editing);
+            setEditing(null);
+          }}
+        />
+      )}
       {removing && <RemoveDialog item={removing} onClose={() => setRemoving(null)} />}
+      {viewingInstances && (
+        <InstancesDialog item={viewingInstances} onClose={() => setViewingInstances(null)} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Every מסד registered under one item, with who currently holds it. This is
+ * the only place that lists them individually — the catalog row above only
+ * ever shows a count, which is easy to confirm but gives no way to check a
+ * specific serial was actually recorded.
+ */
+function InstancesDialog({ item, onClose }: { item: Item; onClose: () => void }) {
+  const { data, isLoading } = useItemQuery(item.id);
+
+  return (
+    <Modal onClose={onClose} className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-rule bg-card px-4 py-3">
+          <h2 className="text-lead font-semibold">{he.catalog.instancesTitle(item.name)}</h2>
+          <Button variant="quiet" size="sm" onClick={onClose}>
+            {he.common.close}
+          </Button>
+        </header>
+        <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
+          {isLoading ? (
+            <Spinner />
+          ) : !data || data.instances.length === 0 ? (
+            <p className="px-4 py-6 text-center text-graphite">{he.catalog.noInstances}</p>
+          ) : (
+            <TableScroll>
+              <table className="row-hover w-full">
+                <thead>
+                  <tr>
+                    <Th>{he.signatures.serial}</Th>
+                    <Th>{he.catalog.instanceStatus}</Th>
+                    <Th>{he.catalog.instanceHolder}</Th>
+                    <Th>{he.intake.notes}</Th>
+                    <Th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.instances.map((inst) => {
+                    const holder = inst.signatures[0]?.soldier;
+                    return (
+                      <tr key={inst.id}>
+                        <Td>
+                          <Serial value={inst.serial} />
+                        </Td>
+                        <Td>
+                          <InstanceStatusSelect instance={inst} held={!!holder} />
+                        </Td>
+                        <Td>
+                          {holder ? (
+                            `${holder.firstName} ${holder.lastName}`
+                          ) : (
+                            <span className="text-graphite">{he.catalog.instanceInArmory}</span>
+                          )}
+                        </Td>
+                        <Td className="text-meta text-graphite">{inst.notes ?? ''}</Td>
+                        <Td numeric>
+                          <RemoveInstanceButton
+                            instanceId={inst.id}
+                            serial={inst.serial}
+                            held={!!holder}
+                          />
+                        </Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableScroll>
+          )}
+        </div>
+        <AddInstanceForm item={item} />
+    </Modal>
+  );
+}
+
+/**
+ * Changes one מסד's status in place — OK, FAULTY, DISABLED, or IN_REPAIR
+ * (sent out to be fixed, so it should stop counting toward בפועל the same
+ * way a held signature already does). Disabled while the מסד is signed out:
+ * the backend rejects that too, but disabling the control here means the
+ * operator sees why immediately instead of via a toast after picking it.
+ */
+function InstanceStatusSelect({
+  instance,
+  held,
+}: {
+  instance: ItemInstanceWithHolder;
+  held: boolean;
+}) {
+  const [setStatus, { isLoading }] = useSetInstanceStatusMutation();
+  const toast = useToast();
+
+  async function change(status: string): Promise<void> {
+    if (!status || status === instance.status) return;
+    const result = await setStatus({ instanceId: instance.id, status: status as typeof instance.status });
+    if (result.data) {
+      toast.success({
+        title: he.catalog.statusChanged(instance.serial, he.instanceStatus[result.data.status]),
+      });
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
+  }
+
+  if (held) {
+    return <Tag tone="oxide">{he.instanceStatus[instance.status]}</Tag>;
+  }
+
+  return (
+    <Select
+      value={instance.status}
+      onChange={(v) => v && change(v)}
+      disabled={isLoading}
+      options={(['OK', 'FAULTY', 'IN_REPAIR', 'DISABLED'] as const).map((s) => ({
+        value: s,
+        label: he.instanceStatus[s],
+      }))}
+    />
+  );
+}
+
+/**
+ * Adds stock by hand — a soldier handed back something off-book, or a מסד
+ * missed the intake sheet. The serial is always optional here, even for an
+ * item the catalog marks as דורש מסד: when it's left blank this just adds
+ * to the count, same as קליטת ימ"ח's bulk rows.
+ */
+function AddInstanceForm({ item }: { item: Item }) {
+  const [serial, setSerial] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [submit, { isLoading, error }] = useSubmitIntakeMutation();
+  const toast = useToast();
+
+  async function add(): Promise<void> {
+    const trimmed = serial.trim();
+    const result = await submit({
+      rows: trimmed
+        ? [{ itemId: item.id, kind: 'serial', serial: trimmed }]
+        : [{ itemId: item.id, kind: 'bulk', quantity: Number(quantity) || 1 }],
+    });
+    if (result.data) {
+      toast.success({
+        title: he.catalog.instanceAdded,
+        detail: trimmed ? trimmed : he.catalog.quantityAdded(Number(quantity) || 1),
+      });
+      setSerial('');
+      setQuantity('1');
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
+  }
+
+  return (
+    <div className="shrink-0 border-t border-rule bg-card px-4 py-3">
+      <p className="mb-2 text-meta font-semibold text-ink-soft">{he.catalog.addInstance}</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block">
+          <span className="mb-1 block text-micro text-graphite">{he.catalog.optionalSerial}</span>
+          <input
+            value={serial}
+            onChange={(e) => setSerial(e.target.value)}
+            placeholder={he.catalog.optionalSerialPlaceholder}
+            className="serial h-9 w-40 rounded-ctl border-2 border-brass bg-brass-wash px-2.5 text-meta"
+          />
+        </label>
+        {!serial.trim() && (
+          <label className="block">
+            <span className="mb-1 block text-micro text-graphite">{he.catalog.quantity}</span>
+            <input
+              type="number"
+              min={1}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="serial h-9 w-20 rounded-ctl border border-rule-strong bg-card-raised px-2.5 text-center text-meta"
+            />
+          </label>
+        )}
+        <Button size="sm" onClick={() => void add()} disabled={isLoading}>
+          {he.catalog.addInstance}
+        </Button>
+      </div>
+      {apiErrorMessage(error) && (
+        <p className="mt-1.5 text-micro text-oxide">{apiErrorMessage(error)}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A held מסד can never be removed here — the return flow is the only way a
+ * signature closes, so the button is disabled with an explanation instead of
+ * firing a request that the backend would reject anyway.
+ */
+function RemoveInstanceButton({
+  instanceId,
+  serial,
+  held,
+}: {
+  instanceId: string;
+  serial: string;
+  held: boolean;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [remove, { isLoading, error }] = useRemoveInstanceMutation();
+  const toast = useToast();
+
+  async function handleRemove(): Promise<void> {
+    const result = await remove(instanceId);
+    if (result.data) {
+      setConfirming(false);
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
+  }
+
+  if (held) {
+    return <span className="text-meta text-graphite">{he.catalog.cannotRemoveInstance}</span>;
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setConfirming(true)}
+        className="text-meta font-semibold text-oxide hover:underline"
+      >
+        {he.catalog.removeInstance}
+      </button>
+      {confirming && (
+        <Dialog title={he.catalog.removeInstanceTitle(serial)} onClose={() => setConfirming(false)}>
+          <p className="text-ink-soft">{he.catalog.removeInstanceConfirm}</p>
+          {apiErrorMessage(error) && (
+            <p className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
+              {apiErrorMessage(error)}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button variant="danger" onClick={() => void handleRemove()} disabled={isLoading}>
+              {he.catalog.removeInstance}
+            </Button>
+            <Button variant="quiet" onClick={() => setConfirming(false)}>
+              {he.common.cancel}
+            </Button>
+          </div>
+        </Dialog>
+      )}
+    </>
   );
 }
 
@@ -123,31 +407,31 @@ function Dialog({
   onClose: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-md rounded-panel border border-rule bg-card-raised shadow-lift"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose}>
         <header className="rounded-t-panel border-b border-rule bg-card px-4 py-3">
           <h2 className="text-lead font-semibold">{title}</h2>
         </header>
         <div className="space-y-3 px-4 py-4">{children}</div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 
-function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
+function ItemDialog({
+  item,
+  onClose,
+  onManageInstances,
+}: {
+  item?: Item;
+  onClose: () => void;
+  onManageInstances?: () => void;
+}) {
   const [name, setName] = useState(item?.name ?? '');
   const [category, setCategory] = useState<ItemCategory>(item?.category ?? 'WEAPON');
   const [isSerialized, setIsSerialized] = useState(item?.isSerialized ?? true);
   const [inSummary, setInSummary] = useState(item?.inSummary ?? true);
   const [authorizedQty, setAuthorizedQty] = useState(String(item?.authorizedQty ?? 0));
+  const [yamahQty, setYamahQty] = useState(String(item?.yamahQty ?? 0));
+  const [repairQty, setRepairQty] = useState(String(item?.repairQty ?? 0));
   const [aliases, setAliases] = useState((item?.aliases ?? []).join(', '));
 
   const [create, createState] = useCreateItemMutation();
@@ -156,13 +440,21 @@ function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
   const isSaving = createState.isLoading || updateState.isLoading;
   const message = apiErrorMessage(createState.error ?? updateState.error);
 
+  // מצבה is never typed for a serialized item — it is the מסד count. Editing
+  // an existing one while it's serialized sends the existing value through
+  // untouched (the backend ignores it anyway); unchecking the box re-enables
+  // the field, seeded with whatever it last showed.
+  const matsevaIsDerived = isSerialized && !!item;
+
   async function submit(): Promise<void> {
     const payload = {
       name: name.trim(),
       category,
       isSerialized,
       inSummary,
-      authorizedQty: Number(authorizedQty) || 0,
+      authorizedQty: matsevaIsDerived ? item.authorizedQty : Number(authorizedQty) || 0,
+      yamahQty: Number(yamahQty) || 0,
+      repairQty: Number(repairQty) || 0,
       aliases: aliases
         .split(',')
         .map((a) => a.trim())
@@ -206,10 +498,41 @@ function ItemDialog({ item, onClose }: { item?: Item; onClose: () => void }) {
         checked={inSummary}
         onChange={setInSummary}
       />
+      {matsevaIsDerived ? (
+        <div className="rounded-ctl border border-rule bg-card px-3 py-2">
+          <span className="block text-meta text-graphite">{he.catalog.authorized}</span>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="font-semibold">{he.catalog.authorizedDerived(item.authorizedQty)}</span>
+            {onManageInstances && (
+              <button
+                onClick={onManageInstances}
+                className="text-meta font-semibold text-field-dark hover:underline"
+              >
+                {he.catalog.manageInstances}
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <TextField
+          label={he.catalog.authorized}
+          value={authorizedQty}
+          onChange={setAuthorizedQty}
+          type="number"
+          required
+        />
+      )}
       <TextField
-        label={he.catalog.authorized}
-        value={authorizedQty}
-        onChange={setAuthorizedQty}
+        label={he.catalog.yamahQty}
+        value={yamahQty}
+        onChange={setYamahQty}
+        type="number"
+        required
+      />
+      <TextField
+        label={he.catalog.repairQty}
+        value={repairQty}
+        onChange={setRepairQty}
         type="number"
         required
       />
