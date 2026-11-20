@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
@@ -20,6 +20,7 @@ export type PublicUser = {
   companyScope: string | null;
   isActive: boolean;
   createdAt: Date;
+  isSuperAdmin: boolean;
 };
 
 const PUBLIC_FIELDS = {
@@ -30,6 +31,7 @@ const PUBLIC_FIELDS = {
   companyScope: true,
   isActive: true,
   createdAt: true,
+  isSuperAdmin: true,
 } as const;
 
 @Injectable()
@@ -47,9 +49,20 @@ export class UsersService {
   }
 
   /** Returns the generated password exactly once when the caller did not supply one. */
-  async create(dto: CreateUserDto): Promise<PublicUser & { generatedPassword?: string }> {
+  async create(
+    dto: CreateUserDto,
+    actingUserId: string,
+  ): Promise<PublicUser & { generatedPassword?: string }> {
     const existing = await this.prisma.user.findUnique({ where: { username: dto.username } });
     if (existing) throw new ConflictException('שם המשתמש כבר קיים');
+
+    // שונם specifically cannot create a new admin account — any other role
+    // is fine, just not that one. Message is deliberately a jab, not a plain
+    // explanation — an inside joke, not a real security notice.
+    const actor = await this.prisma.user.findUnique({ where: { id: actingUserId } });
+    if (actor?.username === 'shunem' && dto.role === 'admin') {
+      throw new BadRequestException('סתם אפס כמוך לא מקים מנהלים, תוריד ציפיות ותבחר תפקיד אחר');
+    }
 
     const generated = dto.password ? undefined : AuthService.generatePassword();
     const password = dto.password ?? generated;
@@ -73,11 +86,45 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('המשתמש אינו קיים');
 
+    const actor = await this.prisma.user.findUnique({ where: { id: actingUserId } });
+    // A regular admin cannot touch a super-admin's account at all — not even
+    // their own display name — only a super-admin may edit another
+    // super-admin. Checked before anything else below, including the
+    // self-edit guards, since "it's my own account" isn't an exception here:
+    // a non-super-admin editing a super-admin never happens, full stop.
+    if (user.isSuperAdmin && !actor?.isSuperAdmin) {
+      throw new BadRequestException('אין הרשאה לערוך חשבון סופר-מנהל');
+    }
+    // Only a super-admin can grant or revoke the flag itself.
+    if (dto.isSuperAdmin !== undefined && !actor?.isSuperAdmin) {
+      throw new BadRequestException('רק סופר-מנהל יכול להעניק הרשאת סופר-מנהל');
+    }
+    // A regular admin cannot rename another admin account (their own name is
+    // still theirs to change) — only a super-admin may rename any admin.
+    if (
+      user.role === 'admin' &&
+      id !== actingUserId &&
+      dto.displayName !== undefined &&
+      !actor?.isSuperAdmin
+    ) {
+      throw new BadRequestException('רק סופר-מנהל יכול לשנות את שם התצוגה של מנהל אחר');
+    }
+    // שונם is a special case of the above, not an exception to it: he can't
+    // rename even himself, super-admin privilege notwithstanding — only
+    // someone else (a super-admin) can change his display name. Message is
+    // deliberately a jab, same spirit as the admin-creation block above.
+    if (user.username === 'shunem' && id === actingUserId && dto.displayName !== undefined) {
+      throw new BadRequestException('לא, אתה לא שווה אפילו לשנות את השם שלך בעצמך');
+    }
+
     // An admin must not be able to lock themselves out, nor remove the last admin.
     if (id === actingUserId) {
       if (dto.isActive === false) throw new BadRequestException('לא ניתן להשבית את החשבון שלך');
       if (dto.role && dto.role !== 'admin') {
         throw new BadRequestException('לא ניתן לשנות את התפקיד של החשבון שלך');
+      }
+      if (dto.isSuperAdmin === false) {
+        throw new BadRequestException('לא ניתן להסיר הרשאת סופר-מנהל מעצמך');
       }
     }
     if (user.role === 'admin' && (dto.role && dto.role !== 'admin' || dto.isActive === false)) {
@@ -96,6 +143,7 @@ export class UsersService {
         ...(dto.role !== undefined ? { role: dto.role } : {}),
         ...(dto.companyScope !== undefined ? { companyScope: dto.companyScope } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.isSuperAdmin !== undefined ? { isSuperAdmin: dto.isSuperAdmin } : {}),
       },
       select: PUBLIC_FIELDS,
     });
@@ -108,9 +156,16 @@ export class UsersService {
   }
 
   /** Admin password reset. Returns the new password once and ends every session. */
-  async resetPassword(id: string): Promise<{ password: string }> {
+  async resetPassword(id: string, actingUserId: string): Promise<{ password: string }> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('המשתמש אינו קיים');
+
+    if (user.isSuperAdmin) {
+      const actor = await this.prisma.user.findUnique({ where: { id: actingUserId } });
+      if (!actor?.isSuperAdmin) {
+        throw new BadRequestException('אין הרשאה לאפס סיסמה לחשבון סופר-מנהל');
+      }
+    }
 
     const password = AuthService.generatePassword();
     await this.prisma.user.update({
@@ -119,5 +174,46 @@ export class UsersService {
     });
     await this.auth.revokeAllForUser(id);
     return { password };
+  }
+
+  /**
+   * A real delete, not another isActive flag — for an account that was never
+   * real to begin with (test account, created by mistake). Anyone who has
+   * actually signed, issued, or recorded something is protected at the DB
+   * level by the default `Restrict` on those tables' user FKs, so this fails
+   * with a clear message instead of silently erasing audit trail —
+   * deactivating is the right tool for a real account no longer in use.
+   */
+  async remove(id: string, actingUserId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('המשתמש אינו קיים');
+
+    if (id === actingUserId) throw new BadRequestException('לא ניתן למחוק את החשבון שלך');
+
+    if (user.isSuperAdmin) {
+      const actor = await this.prisma.user.findUnique({ where: { id: actingUserId } });
+      if (!actor?.isSuperAdmin) throw new BadRequestException('אין הרשאה למחוק חשבון סופר-מנהל');
+    }
+
+    if (user.role === 'admin') {
+      const otherActiveAdmins = await this.prisma.user.count({
+        where: { role: 'admin', isActive: true, id: { not: id } },
+      });
+      if (otherActiveAdmins === 0) {
+        throw new BadRequestException('חייב להישאר לפחות מנהל אחד פעיל');
+      }
+    }
+
+    try {
+      await this.prisma.user.delete({ where: { id } });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+        throw new ConflictException(
+          `לא ניתן למחוק את ${user.displayName} — קיימת היסטוריה (חתימות/תנועות/פעולות). ניתן להשבית את החשבון במקום.`,
+        );
+      }
+      throw err;
+    }
+    await this.auth.revokeAllForUser(id);
   }
 }

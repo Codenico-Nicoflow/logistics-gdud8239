@@ -1,9 +1,15 @@
-import { useState } from 'react';
-import { useSoldiersQuery, useUpdateSoldierMutation } from '../../lib/api';
+import { useState, type ReactNode } from 'react';
+import {
+  useDeleteSoldierMutation,
+  useSetSoldierEnlistedMutation,
+  useSoldiersQuery,
+  useUpdateSoldierMutation,
+} from '../../lib/api';
 import {
   apiErrorMessage,
   Button,
   EmptyState,
+  Modal,
   Panel,
   SearchField,
   Select,
@@ -17,7 +23,7 @@ import {
 import { AddSoldierDialog } from './AddSoldierDialog';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import { COMPANIES, type Company, type SoldierSummary } from '../../lib/types';
+import { COMPANIES, type AuthUser, type Company, type SoldierSummary } from '../../lib/types';
 
 const PAGE_SIZE = 50;
 
@@ -29,20 +35,35 @@ const PAGE_SIZE = 50;
  * the reason this needs to be browsable: the Excel arrived with soldiers
  * lacking a מ.א. or a phone, and they are invisible until someone goes looking.
  */
-export function SoldiersPage() {
+export function SoldiersPage({ user }: { user: AuthUser }) {
   const [q, setQ] = useState('');
   const [company, setCompany] = useState<Company | ''>('');
   const [holding, setHolding] = useState<'' | 'with' | 'without'>('');
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [sort, setSort] = useState<'name' | 'company'>('name');
   const [take, setTake] = useState(PAGE_SIZE);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<SoldierSummary | null>(null);
+  const [confirmingEnlist, setConfirmingEnlist] = useState<SoldierSummary | null>(null);
+  const [deleting, setDeleting] = useState<SoldierSummary | null>(null);
+  const [setEnlisted, { isLoading: isTogglingEnlisted }] = useSetSoldierEnlistedMutation();
+  const [deleteSoldier, { isLoading: isDeleting }] = useDeleteSoldierMutation();
+  const toast = useToast();
+
+  // Server is the real gate (`soldiers` WRITE); this only decides which
+  // controls render. SAMGAD/COMPANY_CMDR can see the roster — their job is
+  // picking soldiers' companies for allocation planning — but never touch a
+  // soldier record itself: no add/edit, no enlistment toggle, no delete.
+  const canEditSoldier = user.role === 'admin' || user.role === 'logistics' || user.role === 'SHLISHUT';
+  const canEditEnlistment = user.role === 'admin' || user.role === 'SHLISHUT';
+  const canDelete = user.role === 'admin' || user.role === 'SHLISHUT';
 
   const { data, isLoading, isFetching } = useSoldiersQuery({
     ...(q ? { q } : {}),
     ...(company ? { company } : {}),
     ...(holding ? { holding } : {}),
     ...(incompleteOnly ? { incompleteOnly: true } : {}),
+    sort,
     take,
   });
 
@@ -55,7 +76,7 @@ export function SoldiersPage() {
           <h1 className="text-display font-bold">{he.soldiers.title}</h1>
           <p className="mt-1 text-ink-soft">{he.soldiers.subtitle}</p>
         </div>
-        <Button onClick={() => setAdding(true)}>{he.soldiers.add}</Button>
+        {canEditSoldier && <Button onClick={() => setAdding(true)}>{he.soldiers.add}</Button>}
       </div>
 
       <Panel>
@@ -64,7 +85,7 @@ export function SoldiersPage() {
             value={q}
             onSearch={setQ}
             placeholder={he.soldiers.search}
-            className="lg:col-span-2"
+            className="sm:col-span-2 lg:col-span-2"
           />
           <Select
             value={company}
@@ -117,11 +138,15 @@ export function SoldiersPage() {
               <table className="row-hover w-full">
                 <thead>
                   <tr>
-                    <Th>{he.soldiers.name}</Th>
+                    <SortableTh active={sort === 'name'} onClick={() => setSort('name')}>
+                      {he.soldiers.name}
+                    </SortableTh>
                     <Th>{he.soldiers.personalNumber}</Th>
                     <Th>{he.soldiers.phone}</Th>
-                    <Th>{he.soldiers.company}</Th>
-                    <Th>{he.soldiers.platoon}</Th>
+                    <SortableTh active={sort === 'company'} onClick={() => setSort('company')}>
+                      {he.soldiers.company}
+                    </SortableTh>
+                    <Th>{he.soldiers.enlisted}</Th>
                     <Th numeric>{he.soldiers.holding}</Th>
                     <Th />
                   </tr>
@@ -140,8 +165,12 @@ export function SoldiersPage() {
                       <Missing value={s.personalNumber} mono />
                       <Missing value={s.phone} mono />
                       <Td>{he.companies[s.company]}</Td>
-                      <Td className="text-meta text-graphite">
-                        {s.platoon ?? he.soldiers.nothing}
+                      <Td>
+                        <EnlistedCell
+                          soldier={s}
+                          canEdit={canEditEnlistment}
+                          onRequestToggle={() => setConfirmingEnlist(s)}
+                        />
                       </Td>
                       <Td numeric>
                         {s.openSignatureCount > 0 ? (
@@ -153,9 +182,24 @@ export function SoldiersPage() {
                         )}
                       </Td>
                       <Td>
-                        <Button variant="quiet" size="sm" onClick={() => setEditing(s)}>
-                          {he.soldiers.edit}
-                        </Button>
+                        <span className="flex items-center gap-3">
+                          {canEditSoldier && (
+                            <button
+                              onClick={() => setEditing(s)}
+                              className="text-meta font-semibold text-field-dark hover:underline"
+                            >
+                              {he.soldiers.edit}
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => setDeleting(s)}
+                              className="text-meta font-semibold text-oxide hover:underline"
+                            >
+                              {he.soldiers.delete}
+                            </button>
+                          )}
+                        </span>
                       </Td>
                     </tr>
                   ))}
@@ -182,7 +226,73 @@ export function SoldiersPage() {
         <AddSoldierDialog onClose={() => setAdding(false)} onCreated={() => setAdding(false)} />
       )}
       {editing && <EditSoldierDialog soldier={editing} onClose={() => setEditing(null)} />}
+      {confirmingEnlist && (
+        <ConfirmEnlistDialog
+          soldier={confirmingEnlist}
+          isLoading={isTogglingEnlisted}
+          onCancel={() => setConfirmingEnlist(null)}
+          onConfirm={async () => {
+            const next = !confirmingEnlist.isEnlisted;
+            const result = await setEnlisted({ id: confirmingEnlist.id, enlisted: next });
+            if ('data' in result) {
+              toast.success({
+                title: next ? he.soldiers.enlistedToastOn : he.soldiers.enlistedToastOff,
+                detail: `${confirmingEnlist.firstName} ${confirmingEnlist.lastName}`,
+              });
+            } else if ('error' in result) {
+              toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+            }
+            setConfirmingEnlist(null);
+          }}
+        />
+      )}
+      {deleting && (
+        <ConfirmDeleteDialog
+          soldier={deleting}
+          isLoading={isDeleting}
+          onCancel={() => setDeleting(null)}
+          onConfirm={async () => {
+            const result = await deleteSoldier(deleting.id);
+            if ('data' in result) {
+              toast.success({
+                title: he.soldiers.deletedToast,
+                detail: `${deleting.firstName} ${deleting.lastName}`,
+              });
+            } else if ('error' in result) {
+              toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+            }
+            setDeleting(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/** A column header that sorts the roster when clicked, with an arrow marking the active one. */
+function SortableTh({
+  children,
+  active,
+  onClick,
+}: {
+  children: ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <th className="whitespace-nowrap border-b-2 border-rule-strong bg-card px-3 py-2.5 text-start text-meta font-semibold text-ink-soft">
+      <button onClick={onClick} className="inline-flex items-center gap-1 hover:text-field-dark">
+        {children}
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 transition-opacity ${active ? 'opacity-100 text-field-dark' : 'opacity-30'}`}
+        >
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </th>
   );
 }
 
@@ -203,6 +313,152 @@ function Missing({ value, mono = false }: { value: string | null; mono?: boolean
   return <Td className={mono ? 'serial' : undefined}>{value}</Td>;
 }
 
+/**
+ * מחויל status for the currently active תקופת שרות. `null` means there is no
+ * active period at all, in which case the question doesn't apply yet.
+ *
+ * Styled as a switch rather than a bordered button: the dot and its position
+ * read as on/off at a glance, which a label-only button didn't give you —
+ * and clicking it only opens the confirmation, never flips state directly.
+ */
+function EnlistedCell({
+  soldier,
+  canEdit,
+  onRequestToggle,
+}: {
+  soldier: SoldierSummary;
+  canEdit: boolean;
+  onRequestToggle: () => void;
+}) {
+  if (soldier.isEnlisted === null) {
+    return <span className="text-meta text-graphite">{he.soldiers.noActivePeriod}</span>;
+  }
+
+  const on = soldier.isEnlisted;
+
+  if (!canEdit) {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 text-meta font-semibold ${
+          on ? 'text-field-dark' : 'text-graphite'
+        }`}
+      >
+        <span className={`h-2 w-2 rounded-full ${on ? 'bg-field' : 'bg-rule-strong'}`} />
+        {on ? he.soldiers.enlistedYes : he.soldiers.enlistedNo}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={onRequestToggle}
+      className={`group inline-flex h-9 items-center gap-2 rounded-full border px-1 pe-3 text-meta font-semibold transition-colors ${
+        on
+          ? 'border-field bg-field-wash text-field-dark hover:bg-field/15'
+          : 'border-rule-strong bg-card text-ink-soft hover:border-ink-soft'
+      }`}
+    >
+      <span
+        className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+          on ? 'bg-field text-white' : 'bg-card-raised text-graphite'
+        }`}
+      >
+        <span className={`h-2 w-2 rounded-full ${on ? 'bg-white' : 'bg-graphite'}`} />
+      </span>
+      {on ? he.soldiers.enlistedYes : he.soldiers.enlistedNo}
+    </button>
+  );
+}
+
+function ConfirmEnlistDialog({
+  soldier,
+  isLoading,
+  onConfirm,
+  onCancel,
+}: {
+  soldier: SoldierSummary;
+  isLoading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const next = !soldier.isEnlisted;
+  const name = `${soldier.firstName} ${soldier.lastName}`;
+
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+        <div className="space-y-3 px-5 py-5">
+          <div className="flex items-center gap-3">
+            <span
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                next ? 'bg-field-wash text-field-dark' : 'bg-oxide-wash text-oxide'
+              }`}
+            >
+              <span className={`h-2.5 w-2.5 rounded-full ${next ? 'bg-field' : 'bg-oxide'}`} />
+            </span>
+            <h2 className="text-lead font-semibold">
+              {next ? he.soldiers.confirmEnlistTitle(name) : he.soldiers.confirmUnenlistTitle(name)}
+            </h2>
+          </div>
+          <p className="text-meta text-ink-soft">
+            {next ? he.soldiers.confirmEnlistBody : he.soldiers.confirmUnenlistBody}
+          </p>
+          <div className="flex gap-2 pt-1">
+            <Button onClick={onConfirm} disabled={isLoading}>
+              {next ? he.soldiers.confirmEnlistAction : he.soldiers.confirmUnenlistAction}
+            </Button>
+            <Button variant="quiet" onClick={onCancel} disabled={isLoading}>
+              {he.common.cancel}
+            </Button>
+          </div>
+        </div>
+    </Modal>
+  );
+}
+
+/**
+ * Deleting is a real DB delete, not another isActive flag — the server
+ * refuses it with a 409 if the soldier has any signature/movement history,
+ * so this dialog can't accidentally erase audit trail; it can only remove a
+ * record that was never real to begin with.
+ */
+function ConfirmDeleteDialog({
+  soldier,
+  isLoading,
+  onConfirm,
+  onCancel,
+}: {
+  soldier: SoldierSummary;
+  isLoading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const name = `${soldier.firstName} ${soldier.lastName}`;
+
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+        <div className="space-y-3 px-5 py-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-oxide-wash text-oxide">
+              <span className="h-2.5 w-2.5 rounded-full bg-oxide" />
+            </span>
+            <h2 className="text-lead font-semibold">{he.soldiers.confirmDeleteTitle(name)}</h2>
+          </div>
+          <p className="text-meta text-ink-soft">{he.soldiers.confirmDeleteBody}</p>
+          <div className="flex gap-2 pt-1">
+            <Button variant="danger" onClick={onConfirm} disabled={isLoading}>
+              {he.soldiers.confirmDeleteAction}
+            </Button>
+            <Button variant="quiet" onClick={onCancel} disabled={isLoading}>
+              {he.common.cancel}
+            </Button>
+          </div>
+        </div>
+    </Modal>
+  );
+}
+
 function EditSoldierDialog({
   soldier,
   onClose,
@@ -214,7 +470,6 @@ function EditSoldierDialog({
   const [lastName, setLastName] = useState(soldier.lastName);
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
   const [phone, setPhone] = useState(soldier.phone ?? '');
-  const [platoon, setPlatoon] = useState(soldier.platoon ?? '');
   const [company, setCompany] = useState<Company>(soldier.company);
   const [update, { isLoading, error }] = useUpdateSoldierMutation();
   const toast = useToast();
@@ -227,7 +482,6 @@ function EditSoldierDialog({
       company,
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
-      ...(platoon.trim() ? { platoon: platoon.trim() } : {}),
     });
     if ('data' in result && result.data) {
       toast.success({
@@ -243,16 +497,7 @@ function EditSoldierDialog({
   const message = apiErrorMessage(error);
 
   return (
-    <div
-      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-md rounded-panel border border-rule bg-card-raised shadow-lift"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose}>
         <header className="rounded-t-panel border-b border-rule bg-card px-4 py-3">
           <h2 className="text-lead font-semibold">
             {he.soldiers.editTitle(`${soldier.firstName} ${soldier.lastName}`)}
@@ -283,7 +528,6 @@ function EditSoldierDialog({
             />
             <TextField label={he.soldiers.phone} value={phone} onChange={setPhone} />
           </div>
-          <TextField label={he.soldiers.platoon} value={platoon} onChange={setPlatoon} />
 
           {message && (
             <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
@@ -299,7 +543,6 @@ function EditSoldierDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

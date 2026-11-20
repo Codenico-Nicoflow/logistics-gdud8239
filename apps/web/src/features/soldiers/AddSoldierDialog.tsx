@@ -3,7 +3,7 @@ import {
   useCheckDuplicateSoldierMutation,
   useCreateSoldierMutation,
 } from '../../lib/api';
-import { apiErrorMessage, Button, Select, TextField } from '../../components/ui';
+import { apiErrorMessage, Button, Modal, Select, TextField } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { COMPANIES, type Company, type NewSoldier, type SoldierSummary } from '../../lib/types';
@@ -85,16 +85,7 @@ export function AddSoldierDialog({
   const message = apiErrorMessage(error);
 
   return (
-    <div
-      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-md rounded-panel border border-rule bg-card-raised shadow-lift"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose}>
         <header className="rounded-t-panel border-b border-rule bg-card px-4 py-3">
           <h2 className="text-lead font-semibold">{he.issue.addSoldierTitle}</h2>
         </header>
@@ -175,7 +166,6 @@ export function AddSoldierDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

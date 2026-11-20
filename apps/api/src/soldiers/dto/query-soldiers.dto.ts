@@ -39,4 +39,9 @@ export class QuerySoldiersDto extends PaginationDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   incompleteOnly?: boolean;
+
+  /** `name` (default) sorts by last/first name; `company` groups by פלוגה first. */
+  @IsOptional()
+  @IsIn(['name', 'company'], { message: 'מיון לא חוקי' })
+  sort?: 'name' | 'company';
 }

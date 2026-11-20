@@ -21,7 +21,6 @@ type RawRow = {
   personalNumber: string | null;
   receiptNo: string | null;
   notes: string | null;
-  platoon: string | null;
 };
 
 type PendingIssue = {
@@ -113,7 +112,6 @@ export class ExcelImportService {
         personalNumber: cellText(row.getCell(7)) || null,
         receiptNo: cellText(row.getCell(8)) || null,
         notes: cellText(row.getCell(9)) || null,
-        platoon: cellText(row.getCell(10)) || null,
       });
     });
 
@@ -409,7 +407,6 @@ export class ExcelImportService {
                 personalNumber: r.personalNumber,
                 phone: r.phone,
                 company,
-                platoon: r.platoon,
                 receiptNo: r.receiptNo,
               },
             });
@@ -427,7 +424,6 @@ export class ExcelImportService {
                 personalNumber: r.personalNumber,
                 phone: r.phone,
                 company,
-                platoon: r.platoon,
                 receiptNo: r.receiptNo,
                 isActive: true,
               },

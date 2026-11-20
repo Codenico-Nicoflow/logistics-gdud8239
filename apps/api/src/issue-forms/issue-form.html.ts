@@ -19,7 +19,6 @@ export type FormForPrint = {
   signedAt: Date;
   issuedByNameSnapshot: string;
   issuerPersonalNumber: string | null;
-  issuerSignatureImage: string | null;
   notes: string | null;
   lines: {
     itemNameSnapshot: string;
@@ -221,13 +220,6 @@ export function renderIssueForm(form: FormForPrint): string {
           <div class="field"><span>שם</span><span>${esc(form.issuedByNameSnapshot)}</span></div>
           <div class="field"><span>מס' אישי</span><span class="mono">${esc(form.issuerPersonalNumber) || ''}</span></div>
           <div class="field"><span>תאריך</span><span class="mono">${formatDate(form.signedAt)}</span></div>
-        </div>
-        <div class="sign-slot">
-          ${
-            form.issuerSignatureImage
-              ? `<img src="${esc(form.issuerSignatureImage)}" alt="חתימת המשאיל">`
-              : '<span class="cap">חתימה</span>'
-          }
         </div>
       </section>
 

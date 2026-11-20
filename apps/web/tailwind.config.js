@@ -34,6 +34,8 @@ export default {
           'accessory-wash': 'var(--cat-accessory-wash)',
           gear: 'var(--cat-gear)',
           'gear-wash': 'var(--cat-gear-wash)',
+          ammo: 'var(--cat-ammo)',
+          'ammo-wash': 'var(--cat-ammo-wash)',
         },
       },
       fontSize: {
@@ -42,7 +44,10 @@ export default {
         body: ['15px', { lineHeight: '22px' }],
         lead: ['17px', { lineHeight: '24px' }],
         head: ['21px', { lineHeight: '28px' }],
-        display: ['30px', { lineHeight: '36px', letterSpacing: '-0.01em' }],
+        // Mobile-first: text-display is used for every page's <h1>, so it
+        // shrinks below sm by default instead of forcing every page to add
+        // its own responsive classes. See CLAUDE.md's mobile principle.
+        display: ['24px', { lineHeight: '30px', letterSpacing: '-0.01em' }],
         figure: ['36px', { lineHeight: '40px', letterSpacing: '-0.02em' }],
       },
       borderRadius: {
@@ -52,6 +57,9 @@ export default {
       boxShadow: {
         panel: '0 1px 2px rgba(22, 33, 29, 0.06), 0 1px 3px rgba(22, 33, 29, 0.04)',
         lift: '0 12px 32px rgba(22, 33, 29, 0.16)',
+        // A faint inward shadow so form controls read as a recessed well
+        // rather than a flat box with a line around it.
+        'inset-field': 'inset 0 1px 2px rgba(22, 33, 29, 0.05)',
       },
     },
   },

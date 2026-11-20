@@ -1,6 +1,50 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { he } from '../i18n/he';
 import type { ItemCategory } from '../lib/types';
+
+/**
+ * A modal backdrop + panel. Closes on a genuine click of the backdrop, but
+ * not when the mousedown that started the click began inside the panel —
+ * e.g. selecting text in an input by dragging the mouse past the panel's
+ * edge before releasing. A plain `onClick={onClose}` on the backdrop fires
+ * in exactly that case (the click's target is wherever the mouse came up),
+ * closing the dialog out from under whoever was mid-selection. Tracking
+ * where the *mousedown* happened, not just the click, fixes it.
+ */
+export function Modal({
+  onClose,
+  role = 'dialog',
+  className = 'w-full max-w-md',
+  children,
+}: {
+  onClose: () => void;
+  role?: 'dialog' | 'alertdialog';
+  className?: string;
+  children: ReactNode;
+}) {
+  const downOnBackdrop = useRef(false);
+
+  return (
+    <div
+      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+      onMouseDown={(e) => {
+        downOnBackdrop.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && downOnBackdrop.current) onClose();
+      }}
+    >
+      <div
+        role={role}
+        aria-modal="true"
+        className={`${className} rounded-panel border border-rule bg-card-raised shadow-lift`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /** A titled panel. One radius for panels, another for controls, by design. */
 export function Panel({
@@ -19,7 +63,7 @@ export function Panel({
       className={`rounded-panel border border-rule bg-card-raised shadow-panel ${className}`}
     >
       {title && (
-        <header className="flex items-center justify-between gap-3 rounded-t-panel border-b border-rule bg-card px-4 py-3">
+        <header className="flex items-center justify-between gap-3 rounded-t-panel border-b border-rule bg-[linear-gradient(180deg,var(--card)_0%,var(--card-raised)_100%)] px-4 py-3">
           <h2 className="text-lead font-semibold text-ink">{title}</h2>
           {action}
         </header>
@@ -76,6 +120,7 @@ export function CategoryTag({ category }: { category: ItemCategory }) {
     DRONE: 'bg-cat-drone-wash text-cat-drone border-cat-drone/25',
     ACCESSORY: 'bg-cat-accessory-wash text-cat-accessory border-cat-accessory/25',
     GEAR: 'bg-cat-gear-wash text-cat-gear border-cat-gear/25',
+    AMMO: 'bg-cat-ammo-wash text-cat-ammo border-cat-ammo/25',
   };
   return (
     <span
@@ -98,6 +143,7 @@ export function CategoryDot({ category }: { category: ItemCategory }) {
     DRONE: 'bg-cat-drone',
     ACCESSORY: 'bg-cat-accessory',
     GEAR: 'bg-cat-gear',
+    AMMO: 'bg-cat-ammo',
   };
   return (
     <span
@@ -127,19 +173,25 @@ export function Button({
 }) {
   const variants = {
     primary:
-      'bg-field text-white shadow-panel hover:bg-field-dark disabled:bg-graphite disabled:shadow-none',
+      'bg-field text-white shadow-panel hover:bg-field-dark hover:shadow-lift active:bg-field-dark disabled:bg-graphite disabled:shadow-none disabled:hover:shadow-none',
     quiet:
-      'border border-rule-strong bg-card-raised text-ink hover:border-field hover:text-field-dark disabled:text-graphite',
-    danger: 'bg-oxide text-white shadow-panel hover:brightness-90 disabled:bg-graphite',
+      'border border-rule-strong bg-card-raised text-ink hover:border-field hover:bg-field-wash hover:text-field-dark hover:shadow-panel active:bg-field-wash disabled:text-graphite disabled:hover:border-rule-strong disabled:hover:bg-card-raised disabled:hover:shadow-none',
+    danger:
+      'bg-oxide text-white shadow-panel hover:brightness-110 hover:shadow-lift active:brightness-95 disabled:bg-graphite disabled:shadow-none disabled:hover:shadow-none',
   };
-  const sizes = { sm: 'px-2.5 py-1 text-meta', md: 'px-3.5 py-2 text-body' };
+  // Matches TextField/Select's own height (h-11 / h-10) exactly, so a button
+  // next to an input never looks squat — padding alone drifted out of sync
+  // with the inputs' border + line-height and made `sm` buttons visibly short.
+  // `md` is 44px, the accessible minimum touch target; `sm` is for dense rows
+  // (table action cells) where every control on the row is already compact.
+  const sizes = { sm: 'h-10 px-3 text-meta', md: 'h-11 px-4 text-body' };
 
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-ctl font-semibold transition-colors disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-ctl font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[0.97] active:duration-75 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:active:scale-100 ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
     </button>
@@ -154,6 +206,7 @@ export function TextField({
   type = 'text',
   autoFocus,
   required,
+  disabled,
   hint,
   error,
   className = '',
@@ -166,6 +219,7 @@ export function TextField({
   type?: string;
   autoFocus?: boolean;
   required?: boolean;
+  disabled?: boolean;
   hint?: string;
   error?: string;
   className?: string;
@@ -187,7 +241,8 @@ export function TextField({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className={`w-full rounded-ctl border bg-card-raised px-3 py-2 text-body placeholder:text-graphite ${
+        disabled={disabled}
+        className={`h-11 w-full rounded-ctl border bg-card-raised px-3 text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:cursor-not-allowed disabled:bg-card disabled:text-graphite ${
           error ? 'border-oxide' : 'border-rule-strong'
         } ${inputClassName}`}
       />
@@ -245,7 +300,7 @@ export function SearchField({
         }}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full rounded-ctl border border-rule-strong bg-card-raised px-3 py-2 text-body placeholder:text-graphite"
+        className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40"
       />
       <Button variant="quiet" onClick={commit}>
         {he.common.search}
@@ -271,27 +326,40 @@ export function Select<T extends string>({
   onChange,
   options,
   className = '',
+  disabled = false,
 }: {
   label?: string;
   value: T | '';
   onChange: (value: T | '') => void;
   options: { value: T | ''; label: string }[];
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className={`block ${className}`}>
       {label && <span className="mb-1 block text-meta font-semibold text-ink-soft">{label}</span>}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T | '')}
-        className="w-full rounded-ctl border border-rule-strong bg-card-raised px-3 py-2 text-body"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value as T | '')}
+          disabled={disabled}
+          className="h-11 w-full appearance-none rounded-ctl border border-rule-strong bg-card-raised px-3 pe-9 text-body shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:opacity-50"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 end-3 m-auto h-4 w-4 text-ink-soft"
+        >
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
     </label>
   );
 }
@@ -376,14 +444,17 @@ export function Th({
 export function Td({
   children,
   numeric,
+  colSpan,
   className = '',
 }: {
   children?: ReactNode;
   numeric?: boolean;
+  colSpan?: number;
   className?: string;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={`border-b border-rule px-3 py-2 ${numeric ? 'text-center' : 'text-start'} ${className}`}
     >
       {children}

@@ -5,18 +5,21 @@
  */
 export const he = {
   app: {
-    name: 'מערכת לוגיסטיקה',
+    name: 'לוגיסטיקה גדודית',
     battalion: 'גדוד 8239',
   },
 
   nav: {
     dashboard: 'לוח בקרה',
-    signatures: 'חתימות',
+    documents: 'חתימות',
+    dailyMovements: 'דוח תנועות יומי',
     issue: 'ניפוק',
     attention: 'דרוש טיפול',
     summary: 'מסכם',
     companies: 'פלוגות',
     allocations: 'הקצאות',
+    servicePeriods: 'הקצאה לתקופת שרות',
+    companyAllocation: 'חלוקה לפי חייל',
     counts: 'ספירת נשקיה',
     movements: 'דוח תנועות',
     attendance: 'ימי יציאה',
@@ -24,6 +27,8 @@ export const he = {
     soldiers: 'חיילים',
     users: 'משתמשים',
     backups: 'גיבויים',
+    intake: 'קליטת ציוד',
+    naming: 'מיפוי שמות',
   },
 
   auth: {
@@ -41,6 +46,9 @@ export const he = {
     admin: 'מנהל',
     logistics: 'לוגיסטיקה',
     viewer: 'צופה',
+    SHLISHUT: 'שלישות',
+    SAMGAD: 'סמג"ד',
+    COMPANY_CMDR: 'סגן מפקד פלוגה',
   },
 
   companies: {
@@ -57,12 +65,14 @@ export const he = {
     DRONE: 'רחפן',
     ACCESSORY: 'אבזור',
     GEAR: 'ציוד',
+    AMMO: 'תחמושת',
   },
 
   instanceStatus: {
     OK: 'תקין',
     FAULTY: 'תקול',
     DISABLED: 'מושבת',
+    IN_REPAIR: 'בתיקון',
   },
 
   actions: {
@@ -114,7 +124,7 @@ export const he = {
   },
 
   signatures: {
-    title: 'חתימות',
+    title: 'זיכוי ציוד',
     search: 'חיפוש לפי שם, מ.א. או מסד',
     soldier: 'חייל',
     company: 'פלוגה',
@@ -129,7 +139,24 @@ export const he = {
     returned: 'זוכה',
     allCompanies: 'כל הפלוגות',
     allItems: 'כל הפריטים',
+    signedForms: 'טפסים חתומים:',
     count: (shown: number, total: number) => `מוצגות ${shown} מתוך ${total}`,
+    soldierCount: (n: number) => `${n} חיילים מחזיקים ציוד`,
+  },
+
+  documents: {
+    title: 'חתימות',
+    pickSoldier: 'בחר חייל מהרשימה כדי לראות את פרטיו',
+    noForms: 'החייל לא חתם על אף טופס 1008',
+    none: 'אין חיילים המחזיקים ציוד',
+    itemCount: 'פריטים',
+    tabItems: 'פריטים מוחזקים',
+    tabForm: 'טופס חתום',
+    returnAllAction: 'זכה הכל',
+    returnAllTitle: 'זיכוי כל הפריטים',
+    returnAllBody: (soldier: string, count: number) =>
+      `כל ${count} הפריטים של ${soldier} יסומנו כמוחזרים. הפעולה אינה דורשת חתימה נוספת — החייל כבר החזיר בפועל. להמשיך?`,
+    returnAllDone: 'כל הפריטים זוכו',
   },
 
   toast: {
@@ -150,6 +177,7 @@ export const he = {
     serialBackfilled: 'המסד הושלם',
     userCreated: 'המשתמש נוסף',
     userUpdated: 'המשתמש עודכן',
+    formUpdated: 'הטופס עודכן',
     snapshotCreated: 'הגיבוי נוצר',
     imported: 'הייבוא הושלם',
     summaryChanged: 'המסכם עודכן',
@@ -168,7 +196,6 @@ export const he = {
     personalNumber: 'מספר אישי',
     phone: 'טלפון',
     company: 'פלוגה',
-    platoon: 'מחלקה',
     holding: 'מחזיק',
     none: 'לא נמצאו חיילים',
     missing: 'חסר',
@@ -183,6 +210,23 @@ export const he = {
     editTitle: (name: string) => `עריכת ${name}`,
     missingDetails: 'חסרים פרטים',
     incompleteFilter: 'רק חיילים עם פרטים חסרים',
+    delete: 'מחיקה',
+    deletedToast: 'החייל נמחק',
+    confirmDeleteTitle: (name: string) => `למחוק את ${name}?`,
+    confirmDeleteBody: 'הפעולה סופית ואינה ניתנת לביטול. חייל עם היסטוריה (חתימות/תנועות) לא ניתן למחיקה — יש להשבית אותו במקום.',
+    confirmDeleteAction: 'מחק',
+    enlisted: 'מחויל',
+    enlistedYes: 'מחויל',
+    enlistedNo: 'לא מחויל',
+    noActivePeriod: 'אין תקופת שרות פעילה',
+    confirmEnlistTitle: (name: string) => `לחייל את ${name}?`,
+    confirmEnlistBody: 'לאחר האישור ניתן יהיה לנפק לו נשק בתקופת השרות הנוכחית.',
+    confirmEnlistAction: 'חייל',
+    confirmUnenlistTitle: (name: string) => `לבטל חיול ל${name}?`,
+    confirmUnenlistBody: 'לאחר האישור לא ניתן יהיה לנפק לו נשק בתקופת השרות הנוכחית.',
+    confirmUnenlistAction: 'בטל חיול',
+    enlistedToastOn: 'החייל חויל',
+    enlistedToastOff: 'חיול החייל בוטל',
   },
 
   issue: {
@@ -200,8 +244,17 @@ export const he = {
     availableSerials: 'מסדים פנויים',
     noAvailable: 'אין מסדים פנויים ברשימה — ניתן להקליד מסד חדש',
     newSerial: 'מסד חדש — ייווצר בעת הניפוק',
+    previouslyHeldHint: 'המסד שהיה ברשותו לאחרונה בפריט זה',
     serialOptionalLabel: 'מסד (לא חובה)',
     serialOptionalHint: 'פריט זה אינו דורש מסד. אם יוזן מסד, תיחתם יחידה אחת.',
+    overAllocationTitle: (item: string) => `חריגה מהקצאה — ${item}`,
+    overAllocationBody: (company: string) =>
+      `פלוגה ${company} כבר ניצלה את כל הכמות שהוקצתה לה לפריט זה בתקופת השרות הנוכחית. להמשיך בכל זאת?`,
+    overAllocationAction: 'הוסף בכל זאת',
+    notEnlistedWarning: 'החייל אינו מחויל לתקופת השרות הנוכחית — לא ניתן לנפק לו נשק.',
+    notEnlistedTitle: (item: string) => `לא ניתן להוסיף — ${item}`,
+    notEnlistedBody: (soldier: string) =>
+      `${soldier} אינו מחויל לתקופת השרות הנוכחית. יש לפנות לשלישות כדי לסמן אותו כמחויל לפני ניפוק נשק.`,
     quantityLabel: 'כמות',
     receiptLabel: 'מספר קבלה',
     notesLabel: 'הערה',
@@ -221,7 +274,6 @@ export const he = {
     personalNumber: 'מספר אישי',
     phone: 'טלפון',
     company: 'פלוגה',
-    platoon: 'מחלקה',
     missing: 'חסר',
     editDetails: 'עדכן פרטים',
     saveDetails: 'שמור',
@@ -234,7 +286,6 @@ export const he = {
     firstName: 'שם פרטי',
     lastName: 'שם משפחה',
     personalNumberHint: 'חובה — 5 עד 9 ספרות',
-    addSoldier: 'הוסף חייל חדש',
     addSoldierTitle: 'חייל חדש',
     createAndContinue: 'צור והמשך',
     duplicateWarning: 'קיים כבר חייל בשם זהה בפלוגה זו:',
@@ -250,9 +301,8 @@ export const he = {
     stepSign: 'חתימת החייל',
 
     // Choosing what goes out.
-    kits: 'ערכות',
-    kitHint: 'בחר ערכה כדי למלא את הפריטים, ואז ערוך כרצונך',
-    noKits: 'לא הוגדרו ערכות',
+    entitlementTitle: 'מגיע לחייל לפי הקצאה',
+    entitlementHint: 'לפי החלוקה שסגן מפקד הפלוגה קבע לו — סמן מה בפועל יוצא איתו בטופס הזה.',
     addItem: 'הוסף פריט',
     searchItem: 'חפש פריט להוספה',
     basket: 'פריטים לחתימה',
@@ -261,6 +311,8 @@ export const he = {
     alreadyInBasket: 'הפריט כבר ברשימה',
     quantityZeroHint: 'כמות 0 מסירה את הפריט מהטופס',
     serialNeeded: 'חובה מסד',
+    addSerial: '+ הוסף מסד',
+    removeSerial: 'הסר מסד',
     lineNotes: 'הערה',
     unit: 'י"ח',
 
@@ -282,6 +334,9 @@ export const he = {
     // After.
     created: (n: number) => `טופס 1008 מספר ${n} נחתם`,
     openForm: 'הצג והדפס את הטופס',
+    reissueAction: 'ערוך פריטים וחתום מחדש',
+    reissueTitle: (formNo: number) => `עריכת טופס 1008 מספר ${formNo} — חתימה מחדש`,
+    reissued: 'נחתם טופס חדש',
     newForm: 'ניפוק נוסף',
     linesCount: (n: number) => `${n} פריטים`,
   },
@@ -338,6 +393,57 @@ export const he = {
     totalTarget: 'סה"כ',
   },
 
+  // תקופות שרות — pre-assigning soldiers before a reserve-duty call-up.
+  servicePeriods: {
+    title: 'תקופות שרות',
+    newPeriod: 'תקופת שרות חדשה',
+    editPeriod: 'עריכת תקופת שרות',
+    name: 'שם',
+    startsAt: 'תחילה',
+    endsAt: 'סיום',
+    endBeforeStart: 'תאריך הסיום לא יכול להיות לפני תאריך ההתחלה',
+    status: 'סטטוס',
+    statusLabels: {
+      PLANNING: 'בתכנון',
+      ACTIVE: 'פעילה',
+      CLOSED: 'סגורה',
+    } as Record<'PLANNING' | 'ACTIVE' | 'CLOSED', string>,
+    noPeriods: 'לא הוגדרה תקופת שרות',
+    create: 'צור תקופה',
+
+    // The samgad's grid — each item split across the five companies, capped
+    // against בפועל (what's actually on hand), not מצבה.
+    companyGrid: 'חלוקה לפלוגות',
+    companyGridHint: 'כמות לכל פלוגה, מתוך הכמות בפועל (לא מצבה)',
+    onHand: 'בפועל',
+    total: 'סה״כ',
+    capExceeded: (onHand: number) => `אין מספיק בפועל (${onHand})`,
+    addItem: 'הוסף פריט',
+    removeItem: 'הסר',
+    issuedOfPlanned: (n: number) => `נופקו: ${n}`,
+    remainingOfPlanned: (n: number) => `נותר: ${n}`,
+    onHandOverrideHint: (real: number) => `מתוך ${real} בפועל במלאי`,
+
+    // סגן מפקד פלוגה's own screen — breaking the company's quantity down
+    // per soldier, planning only, capped against what the samגד gave the company.
+    soldierGrid: 'חלוקה לפי חייל',
+    soldierGridHint: 'כמות לכל חייל בפלוגה שלך, מתוך הכמות שהוקצתה לפלוגה — תכנון בלבד, לא מגביל ניפוק בפועל',
+    companyQuantity: 'הוקצה לפלוגה',
+    capExceededCompany: (companyQuantity: number) => `אין מספיק לפלוגה (${companyQuantity})`,
+    capExceededCannotSave: (companyQuantity: number) =>
+      `החלוקה חורגת מהכמות שהוקצתה לפלוגה (${companyQuantity}) — לא ניתן לשמור`,
+    noCompanyItems: 'הסמג"ד עדיין לא הקצה פריטים לפלוגה שלך בתקופה זו',
+    noCompanySoldiers: 'אין חיילים פעילים בפלוגה שלך',
+    chooseCompany: 'פלוגה',
+    chooseCompanyHint: 'בחר פלוגה כדי לראות את החלוקה שלה',
+    chooseItem: 'בחר פריט',
+    totalOfCompany: (total: number, companyQuantity: number) => `${total} מתוך ${companyQuantity}`,
+    searchSoldier: 'חפש חייל לפי שם',
+    soldierCount: (n: number) => `${n} חיילים`,
+    soldierCountFiltered: (shown: number, total: number) => `${shown} מתוך ${total} חיילים`,
+    noSoldierMatch: 'לא נמצא חייל מתאים',
+  },
+
   movements: {
     title: 'דוח תנועות',
     subtitle: 'כל פעולה נרשמת אוטומטית ואינה ניתנת לשינוי',
@@ -354,6 +460,14 @@ export const he = {
     allActions: 'כל הפעולות',
     from: 'מתאריך',
     to: 'עד תאריך',
+  },
+
+  dailyMovements: {
+    title: 'דוח תנועות יומי',
+    subtitle: 'כל פעולה — ניפוק, זיכוי, עריכת טופס — מקובצת לפי היום שבו בוצעה',
+    eventCount: (n: number) => `${n} אירועים`,
+    hideRoutine: 'הצג רק פריטי צל"מ',
+    export: 'ייצוא לאקסל',
   },
 
   backups: {
@@ -391,6 +505,13 @@ export const he = {
     importedDetail: (signatures: number, soldiers: number) =>
       `${signatures} חתימות · ${soldiers} חיילים`,
     imported: (n: number) => `יובאו ${n} חתימות`,
+    dbBackupTitle: 'גיבוי מסד נתונים מלא',
+    dbBackupSubtitle:
+      'גיבוי מלא של כל המערכת — חיילים, הקצאות, חתימות, דוחות, הכל — נשמר מדי יום ב-18:05 ונשלח לסלאק',
+    dbBackupKinds: {
+      daily: 'יומי',
+      manual: 'ידני',
+    },
   },
 
   counts: {
@@ -421,6 +542,47 @@ export const he = {
     savedWithGaps: (n: number, gaps: number) => `${n} פריטים נספרו · ${gaps} בפער`,
   },
 
+  intake: {
+    title: 'קליטת ציוד',
+    subtitle: 'מה שהגיע בפועל — מסדים בודדים או תוספת לכמות, לפני שמשהו מוקצה או מנופק',
+    rows: 'שורות לקליטה',
+    notes: 'הערה',
+    notesPlaceholder: 'לדוגמה: שייך לחטיבה',
+    itemSearch: 'פריט',
+    itemSearchPlaceholder: 'חפש פריט בקטלוג',
+    noMatch: 'לא נמצאה התאמה בקטלוג',
+    change: 'שנה',
+    kind: 'סוג רישום',
+    kindHint: '"מסד בודד" — פריט עם מספר צ\' משלו, נרשם אחד-אחד. "תוספת לכמות" — מוסיף למצבה בלי מסד, לציוד שלא עוקבים אחריו לפי מספר.',
+    kindSerial: 'מסד בודד',
+    kindBulk: 'תוספת לכמות',
+    value: 'ערך',
+    serialPlaceholder: 'מסד',
+    quantityPlaceholder: 'כמות',
+    addRow: 'הוסף שורה',
+    resolvedCount: (resolved: number, total: number) => `${resolved} מתוך ${total} שורות תואמות לקטלוג`,
+    unresolvedCount: (n: number) => `${n} שורות ללא התאמה`,
+    submit: 'קלוט',
+    submitting: 'קולט…',
+    submitted: 'הקליטה הושלמה',
+    submittedDetail: (serials: number, bulk: number) =>
+      `${serials} מסדים נוספו, ${bulk} פריטים עודכנו בכמות`,
+  },
+
+  naming: {
+    title: 'מיפוי שמות',
+    subtitle:
+      'מה שם פריט על גבי שובר שסרקנו מתורגם אליו בקטלוג שלנו. למעיין בלבד — לא משפיע על שום מסך אחר.',
+    searchPlaceholder: 'חפש פריט או שם מהשובר',
+    catalogName: 'השם שלנו',
+    aliases: 'השם בשובר / בימ"ח',
+    noAliases: 'לא נרשם שם חלופי',
+    addAlias: 'הוסף שם מהשובר',
+    aliasPlaceholder: 'השם כפי שמופיע בשובר',
+    removeAlias: 'הסר שם',
+    save: 'שמור',
+  },
+
   catalog: {
     title: 'קטלוג פריטים',
     subtitle: 'הוספה, עריכה ומחיקה של סוגי פריטים',
@@ -432,11 +594,32 @@ export const he = {
     inSummaryHint: 'פריטים המופיעים במסכם הם אלו שנספרים בספירת הנשקיה.',
     nowInSummary: (name: string) => `${name} יופיע במסכם ובספירת הנשקיה`,
     nowOutOfSummary: (name: string) => `${name} לא יופיע במסכם ובספירת הנשקיה`,
-    authorized: 'מצבה',
+    authorized: 'סה״כ מלאי',
+    authorizedDerived: (n: number) => `${n} (מחושב לפי מסדים)`,
+    yamahQty: 'מאופסן בימ״ח',
+    repairQty: 'בתיקון',
+    onHand: 'בפועל',
+    changeStatus: 'שנה מצב',
+    statusChanged: (serial: string, status: string) => `${serial} סומן כ${status}`,
+    manageInstances: 'נהל מסדים ←',
+    removeInstance: 'הסר',
+    removeInstanceTitle: (serial: string) => `הסרת מסד ${serial}`,
+    removeInstanceConfirm: 'הפעולה תמחק את המסד לצמיתות והמצבה תתעדכן בהתאם. לא ניתן לבטל.',
+    cannotRemoveInstance: 'חתום — לא ניתן להסיר',
     aliases: 'שמות נוספים',
     aliasesHint: 'שמות חלופיים שהיבוא מאקסל יזהה, מופרדים בפסיק',
     issued: 'מנופק',
     instances: 'מסדים',
+    instancesTitle: (name: string) => `מסדים — ${name}`,
+    noInstances: 'לא נרשמו מסדים לפריט זה',
+    instanceStatus: 'מצב',
+    instanceHolder: 'מוחזק אצל',
+    instanceInArmory: 'בנשקיה',
+    optionalSerial: 'מסד (רשות)',
+    optionalSerialPlaceholder: 'השאר ריק אם אין מסד',
+    quantity: 'כמות',
+    instanceAdded: 'הפריט נוסף',
+    quantityAdded: (n: number) => `הכמות עודכנה (+${n})`,
     add: 'הוסף פריט',
     addTitle: 'פריט חדש',
     edit: 'עריכה',
@@ -470,6 +653,7 @@ export const he = {
     female: 'נקבה',
     saved: 'נשמר',
     clear: 'נקה',
+    viewOnly: 'תצוגה בלבד',
     statuses: {
       PRESENT: 'נוכח',
       LEAVING: 'יציאה',
@@ -495,9 +679,15 @@ export const he = {
   users: {
     title: 'משתמשים',
     subtitle: 'החשבונות שנרשמים בדוח התנועות',
+    superAdminTag: 'סופר-מנהל עליון',
+    shunemTag: 'סתם אפס',
+    superAdminProtected: 'מוגן — רק סופר מנהל עם זין גדול יכול לערוך את זה',
     username: 'שם משתמש',
     displayName: 'שם מלא',
     displayNameHint: 'השם שיופיע בדוח התנועות',
+    displayNameLocked: 'רק סופר-מנהל יכול לשנות שם תצוגה של מנהל אחר',
+    shunemCantRename: 'לא, אתה לא שווה אפילו לשנות את השם שלך בעצמך',
+    shunemCantCreateAdmin: 'סתם אפס כמוך לא מקים מנהלים, תוריד ציפיות ותבחר תפקיד אחר',
     role: 'תפקיד',
     active: 'פעיל',
     inactive: 'מושבת',
@@ -509,6 +699,17 @@ export const he = {
     resetPassword: 'איפוס סיסמה',
     deactivate: 'השבת',
     activate: 'הפעל',
+    companyScope: 'פלוגה (היקף הרשאה)',
+    password: 'סיסמה',
+    passwordHint: 'אם לא תוזן, תיווצר סיסמה אוטומטית ותוצג פעם אחת',
+    passwordTooShort: 'הסיסמה חייבת להכיל לפחות 6 תווים',
+    edit: 'עריכה',
+    editTitle: (name: string) => `עריכת ${name}`,
+    delete: 'מחיקה',
+    deletedToast: 'המשתמש נמחק',
+    confirmDeleteTitle: (name: string) => `למחוק את ${name}?`,
+    confirmDeleteBody: 'הפעולה סופית ואינה ניתנת לביטול. משתמש עם היסטוריה (חתימות/תנועות/פעולות) לא ניתן למחיקה — יש להשבית אותו במקום.',
+    confirmDeleteAction: 'מחק',
   },
 
   common: {
@@ -529,5 +730,6 @@ export const he = {
     noResults: 'לא נמצאו תוצאות',
     required: 'שדה חובה',
     loadMore: 'טען עוד',
+    edit: 'עריכה',
   },
 } as const;

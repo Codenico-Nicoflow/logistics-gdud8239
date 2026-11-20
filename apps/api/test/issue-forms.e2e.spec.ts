@@ -32,14 +32,22 @@ let accessoryId: string;
 let soldierA: string;
 let soldierB: string;
 
+/** See the identical comment in signatures.e2e.spec.ts: real ACTIVE periods
+ *  already in this dev DB are closed for the run and reopened in `afterAll`. */
+let reopenPeriodIds: string[] = [];
+
 async function cleanup(): Promise<void> {
   const soldiers = await prisma.soldier.findMany({
     where: { lastName: LAST },
     select: { id: true },
   });
   const ids = soldiers.map((s) => s.id);
+  // `contains`, not `in`: one test renames the accessory mid-run (to
+  // `${ACCESSORY} שונה ${Date.now()}`, to prove a snapshot survives a later
+  // rename) and an exact-name match would never find that row again,
+  // leaking it into the real catalog on every run.
   const items = await prisma.item.findMany({
-    where: { name: { in: [WEAPON, ACCESSORY] } },
+    where: { OR: [{ name: { contains: WEAPON } }, { name: { contains: ACCESSORY } }] },
     select: { id: true },
   });
   const itemIds = items.map((i) => i.id);
@@ -60,6 +68,7 @@ async function cleanup(): Promise<void> {
   await prisma.itemInstance.deleteMany({ where: { itemId: { in: itemIds } } });
   await prisma.soldier.deleteMany({ where: { id: { in: ids } } });
   await prisma.item.deleteMany({ where: { id: { in: itemIds } } });
+  await prisma.servicePeriod.deleteMany({ where: { name: 'E2E טופס תקופה' } });
 }
 
 beforeAll(async () => {
@@ -88,7 +97,13 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanup();
-  await prisma?.user.updateMany({ where: { username: STAFF.username }, data: { isActive: false } });
+  if (reopenPeriodIds.length) {
+    await prisma.servicePeriod.updateMany({
+      where: { id: { in: reopenPeriodIds } },
+      data: { status: 'ACTIVE' },
+    });
+  }
+  await prisma?.user.deleteMany({ where: { username: STAFF.username } });
   await app?.close();
 });
 
@@ -118,6 +133,35 @@ beforeEach(async () => {
   });
   soldierA = a.id;
   soldierB = b.id;
+
+  // A weapon line only goes through for a soldier שלישות has marked מחויל
+  // for the active תקופת שרות — both test soldiers here sign for WEAPON.
+  // `findFirst({ status: 'ACTIVE' })` has no guaranteed order, so a real
+  // ACTIVE period already in this dev DB could get picked instead of this
+  // test's own — closed here, reopened in `afterAll`.
+  const otherActive = await prisma.servicePeriod.findMany({
+    where: { status: 'ACTIVE' },
+    select: { id: true },
+  });
+  reopenPeriodIds.push(...otherActive.map((p) => p.id));
+  await prisma.servicePeriod.updateMany({
+    where: { id: { in: otherActive.map((p) => p.id) } },
+    data: { status: 'CLOSED' },
+  });
+  const period = await prisma.servicePeriod.create({
+    data: {
+      name: 'E2E טופס תקופה',
+      startsAt: new Date(),
+      endsAt: new Date(Date.now() + 86400000),
+      status: 'ACTIVE',
+    },
+  });
+  await prisma.soldierEnlistment.createMany({
+    data: [
+      { soldierId: soldierA, servicePeriodId: period.id },
+      { soldierId: soldierB, servicePeriodId: period.id },
+    ],
+  });
 });
 
 function post(body: object) {

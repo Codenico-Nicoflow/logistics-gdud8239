@@ -4,6 +4,7 @@ import {
   apiErrorMessage,
   Button,
   EmptyState,
+  Modal,
   Panel,
   Serial,
   Spinner,
@@ -169,16 +170,7 @@ function BackfillDialog({
   const apiMessage = apiErrorMessage(error);
 
   return (
-    <div
-      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/30 p-4 sm:items-center"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-md rounded-panel border border-rule bg-card-raised shadow-lift"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal onClose={onClose}>
         <header className="border-b border-rule px-4 py-3">
           <h2 className="text-lead font-semibold">
             {he.attention.fixSerialTitle(signature.item.name)}
@@ -219,7 +211,6 @@ function BackfillDialog({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

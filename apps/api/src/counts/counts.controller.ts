@@ -10,17 +10,22 @@ import type { AuthUser } from '../auth/auth.types';
 export class CountsController {
   constructor(private readonly counts: CountsService) {}
 
+  // Not SHLISHUT/SAMGAD/COMPANY_CMDR: ספירת נשקיה is part of the original
+  // admin/logistics/viewer screen set, unrelated to either new role's job.
   @Get('latest')
+  @Roles('admin', 'logistics', 'viewer')
   latest() {
     return this.counts.latest();
   }
 
   @Get('recent')
+  @Roles('admin', 'logistics', 'viewer')
   recent() {
     return this.counts.recent();
   }
 
   @Get('sheet')
+  @Roles('admin', 'logistics', 'viewer')
   sheet(@Query('date') date: string, @Query('shift') shift: CountShift) {
     return this.counts.sheet(date, shift);
   }

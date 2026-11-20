@@ -38,8 +38,14 @@ export type Week = {
   /** Sunday through Saturday, ISO dates. */
   dates: string[];
   rows: WeekRow[];
-  /** Present count per day, computed rather than typed in. */
+  /** Count of PRESENT specifically, not RETURNING — נוכח and חזרה are kept
+   *  visually and numerically distinct in this row; RETURNING is the
+   *  separate "+N" addendum (`returningPerDay`), never folded into this
+   *  base number even though both mean "on base today". */
   presentPerDay: number[];
+  /** Of that day's roster, how many are specifically חזרה — shown as the
+   *  "+3 חזרה" addendum next to the נוכח count, not inside it. */
+  returningPerDay: number[];
 };
 
 /** Statuses that mean the person is on base that day. */
@@ -102,14 +108,13 @@ export class AttendanceService {
     }));
 
     const presentPerDay = dates.map(
-      (_, i) =>
-        rows.filter((r) => {
-          const status = r.cells[i]?.status;
-          return status !== undefined && status !== null && PRESENT_STATUSES.includes(status);
-        }).length,
+      (_, i) => rows.filter((r) => r.cells[i]?.status === 'PRESENT').length,
+    );
+    const returningPerDay = dates.map(
+      (_, i) => rows.filter((r) => r.cells[i]?.status === 'RETURNING').length,
     );
 
-    return { dates, rows, presentPerDay };
+    return { dates, rows, presentPerDay, returningPerDay };
   }
 
   /**

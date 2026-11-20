@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react';
 import {
   useCommitImportMutation,
+  useCreateDbBackupMutation,
   useCreateSnapshotMutation,
+  useDbBackupsQuery,
   usePreviewImportMutation,
+  useSendDbBackupToSlackMutation,
   useSendSnapshotToSlackMutation,
   useSnapshotsQuery,
 } from '../../lib/api';
@@ -109,6 +112,103 @@ export function BackupsPage() {
                     <Td>
                       <a
                         href={`/api/snapshots/${s.id}/download`}
+                        className="text-meta font-semibold text-field hover:underline"
+                      >
+                        {he.backups.download}
+                      </a>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+        )}
+      </Panel>
+
+      <DbBackupPanel />
+    </div>
+  );
+}
+
+/**
+ * The full-database disaster-recovery backup — a raw pg_dump, not the
+ * business-data xlsx above. Deliberately its own panel/table rather than a
+ * tab or a merged list: the two serve different purposes (one is
+ * re-importable business data, the other is opaque plumbing for "the home
+ * server died"), and conflating them in one table would blur that.
+ */
+function DbBackupPanel() {
+  const { data, isLoading } = useDbBackupsQuery();
+  const [createBackup, createState] = useCreateDbBackupMutation();
+  const [sendSlack] = useSendDbBackupToSlackMutation();
+  const toast = useToast();
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-lead font-bold">{he.backups.dbBackupTitle}</h2>
+        <p className="mt-1 text-meta text-ink-soft">{he.backups.dbBackupSubtitle}</p>
+      </div>
+
+      <Button
+        variant="quiet"
+        onClick={() =>
+          void createBackup().then((r) =>
+            'data' in r && r.data
+              ? toast.success({ title: he.toast.snapshotCreated })
+              : toast.error({
+                  title: he.toast.failed,
+                  detail: apiErrorMessage('error' in r ? r.error : undefined) ?? undefined,
+                }),
+          )
+        }
+        disabled={createState.isLoading}
+      >
+        {createState.isLoading ? he.backups.creating : he.backups.createNow}
+      </Button>
+
+      <Panel title={he.backups.dbBackupTitle}>
+        {isLoading ? (
+          <Spinner />
+        ) : (data?.length ?? 0) === 0 ? (
+          <EmptyState>{he.common.noResults}</EmptyState>
+        ) : (
+          <TableScroll>
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <Th>{he.backups.created}</Th>
+                  <Th>{he.backups.kind}</Th>
+                  <Th numeric>{he.backups.size}</Th>
+                  <Th>{he.backups.slack}</Th>
+                  <Th />
+                </tr>
+              </thead>
+              <tbody>
+                {data?.map((b) => (
+                  <tr key={b.id}>
+                    <Td className="whitespace-nowrap">{formatDateTime(b.createdAt)}</Td>
+                    <Td>
+                      <Tag tone="neutral">{he.backups.dbBackupKinds[b.kind]}</Tag>
+                    </Td>
+                    <Td numeric className="text-meta text-graphite">
+                      {formatBytes(b.sizeBytes)}
+                    </Td>
+                    <Td>
+                      {b.slackSentAt ? (
+                        <Tag tone="field">{he.backups.sent}</Tag>
+                      ) : (
+                        <button
+                          onClick={() => void sendSlack(b.id)}
+                          className="text-meta font-semibold text-field hover:underline"
+                        >
+                          {he.backups.sendSlack}
+                        </button>
+                      )}
+                    </Td>
+                    <Td>
+                      <a
+                        href={`/api/db-backups/${b.id}/download`}
                         className="text-meta font-semibold text-field hover:underline"
                       >
                         {he.backups.download}

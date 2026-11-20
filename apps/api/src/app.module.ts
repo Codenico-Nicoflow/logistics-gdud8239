@@ -12,14 +12,18 @@ import { SoldiersModule } from './soldiers/soldiers.module';
 import { ItemsModule } from './items/items.module';
 import { SignaturesModule } from './signatures/signatures.module';
 import { IssueFormsModule } from './issue-forms/issue-forms.module';
-import { KitsModule } from './kits/kits.module';
+import { AllocationsModule } from './allocations/allocations.module';
+import { PermissionsModule } from './permissions/permissions.module';
+import { IntakeModule } from './intake/intake.module';
 import { MovementsModule } from './movements/movements.module';
 import { CountsModule } from './counts/counts.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { ExcelModule } from './excel/excel.module';
 import { SnapshotsModule } from './snapshots/snapshots.module';
+import { DbBackupsModule } from './db-backups/db-backups.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { PermissionsGuard } from './auth/guards/permissions.guard';
 
 @Module({
   imports: [
@@ -79,12 +83,15 @@ import { RolesGuard } from './auth/guards/roles.guard';
     ItemsModule,
     SignaturesModule,
     IssueFormsModule,
-    KitsModule,
+    AllocationsModule,
+    PermissionsModule,
+    IntakeModule,
     MovementsModule,
     CountsModule,
     AttendanceModule,
     ExcelModule,
     SnapshotsModule,
+    DbBackupsModule,
   ],
   providers: [
     // Order matters: rate limit, then authenticate, then authorise.
@@ -93,6 +100,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}

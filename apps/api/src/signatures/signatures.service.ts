@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { Company, Prisma, type Signature } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { syncAuthorizedQty } from '../items/sync-authorized-qty';
+import { findOperationalServicePeriod } from '../common/active-service-period';
 import type { AuthUser } from '../auth/auth.types';
 import type { IssueDto } from './dto/issue.dto';
 import type { ReturnDto } from './dto/return.dto';
@@ -190,6 +192,25 @@ export class SignaturesService {
       throw new BadRequestException('אין לך הרשאה לחתום על חיילים מפלוגה זו');
     }
 
+    // A weapon can only go to a soldier שלישות has marked מחויל for a
+    // תעסוקה that is both ACTIVE and actually running today — status from a
+    // previous taasuka doesn't carry over, and a planned-ahead-of-time one
+    // doesn't count until it's actually started.
+    if (item.category === 'WEAPON') {
+      const activePeriod = await findOperationalServicePeriod(this.prisma);
+      if (!activePeriod) {
+        throw new BadRequestException('אין תעסוקה מבצעית פעילה כעת — לא ניתן לנפק נשק');
+      }
+      const enlistment = await this.prisma.soldierEnlistment.findUnique({
+        where: { soldierId_servicePeriodId: { soldierId: soldier.id, servicePeriodId: activePeriod.id } },
+      });
+      if (!enlistment) {
+        throw new BadRequestException(
+          `${soldier.firstName} ${soldier.lastName} אינו מחויל לתקופת השרות הנוכחית — לא ניתן לנפק נשק`,
+        );
+      }
+    }
+
     // An item flagged `isSerialized` MUST have a serial. An item not flagged
     // may still be given one — staff do track מסד on items the catalog calls
     // bulk, and refusing it only pushed the number into a free-text note. So
@@ -233,6 +254,7 @@ export class SignaturesService {
         })),
         signatures: [],
       };
+      await syncAuthorizedQty(this.prisma, item.id);
     }
     if (instance.status !== 'OK') {
       throw new BadRequestException(`מסד "${serial}" מסומן כ"${instance.status}" ולא ניתן לניפוק`);

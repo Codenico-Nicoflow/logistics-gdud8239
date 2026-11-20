@@ -94,8 +94,9 @@ export function IssuePage() {
         />
       )}
 
-      {step === 'basket' && (
+      {step === 'basket' && soldier && (
         <BasketStep
+          soldier={soldier}
           lines={lines}
           onChange={setLines}
           onBack={() => setStep('confirm')}

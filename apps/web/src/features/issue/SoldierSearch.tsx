@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useSoldiersQuery } from '../../lib/api';
-import { Button, Panel, SearchField, Spinner, Tag } from '../../components/ui';
-import { AddSoldierDialog } from '../soldiers/AddSoldierDialog';
+import { Panel, SearchField, Spinner, Tag } from '../../components/ui';
 import { he } from '../../i18n/he';
 import type { SoldierSummary } from '../../lib/types';
 
 /**
  * Step 1 — finding the soldier.
+ *
+ * Only an existing soldier can be issued to from here — ניפוק is not where a
+ * new soldier gets created. A missing name means he needs to be added on
+ * חיילים first, by whoever is allowed to (שלישות/לוגיסטיקה), not inline here.
  *
  * A search result shows every field that distinguishes two people with the
  * same name, because that is the choice being made here. A field nobody has
@@ -15,7 +18,6 @@ import type { SoldierSummary } from '../../lib/types';
  */
 export function SoldierSearch({ onPick }: { onPick: (soldier: SoldierSummary) => void }) {
   const [query, setQuery] = useState('');
-  const [adding, setAdding] = useState(false);
   const soldiers = useSoldiersQuery({ q: query, take: 8 }, { skip: query.length < 2 });
 
   return (
@@ -61,11 +63,6 @@ export function SoldierSearch({ onPick }: { onPick: (soldier: SoldierSummary) =>
                           <span className="text-oxide">{he.issue.missing}</span>
                         )}
                       </span>
-                      {s.platoon && (
-                        <span>
-                          {he.issue.platoon}: {s.platoon}
-                        </span>
-                      )}
                     </span>
                   </span>
                   {s.openSignatureCount > 0 && (
@@ -76,26 +73,7 @@ export function SoldierSearch({ onPick }: { onPick: (soldier: SoldierSummary) =>
             ))}
           </ul>
         )}
-
-        {/* Offered whether or not the search found anyone: a soldier who has
-            never signed for anything is not in the system yet, and ניפוק is
-            where that is discovered. */}
-        <div className="mt-4 border-t border-rule pt-3">
-          <Button variant="quiet" size="sm" onClick={() => setAdding(true)}>
-            {he.issue.addSoldier}
-          </Button>
-        </div>
       </div>
-
-      {adding && (
-        <AddSoldierDialog
-          onClose={() => setAdding(false)}
-          onCreated={(created) => {
-            setAdding(false);
-            onPick(created);
-          }}
-        />
-      )}
     </Panel>
   );
 }
