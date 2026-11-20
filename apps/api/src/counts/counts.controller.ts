@@ -1,31 +1,33 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { CountShift } from '@prisma/client';
+import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CountsService } from './counts.service';
 import { SaveCountDto } from './dto/save-count.dto';
+import { renderCountSession } from './count-session.html';
 import type { AuthUser } from '../auth/auth.types';
 
 @Controller('counts')
 export class CountsController {
   constructor(private readonly counts: CountsService) {}
 
-  // Not SHLISHUT/SAMGAD/COMPANY_CMDR: ספירת נשקיה is part of the original
-  // admin/logistics/viewer screen set, unrelated to either new role's job.
+  // ספירת נשקיה is restricted to admin/logistics only — this is the signed
+  // daily count sheet, not a report viewers should be reading.
   @Get('latest')
-  @Roles('admin', 'logistics', 'viewer')
+  @Roles('admin', 'logistics')
   latest() {
     return this.counts.latest();
   }
 
   @Get('recent')
-  @Roles('admin', 'logistics', 'viewer')
+  @Roles('admin', 'logistics')
   recent() {
     return this.counts.recent();
   }
 
   @Get('sheet')
-  @Roles('admin', 'logistics', 'viewer')
+  @Roles('admin', 'logistics')
   sheet(@Query('date') date: string, @Query('shift') shift: CountShift) {
     return this.counts.sheet(date, shift);
   }
@@ -34,6 +36,16 @@ export class CountsController {
   @Roles('admin', 'logistics')
   save(@Body() dto: SaveCountDto, @CurrentUser() actor: AuthUser) {
     return this.counts.save(dto, actor);
+  }
+
+  /** Printable sheet — same reasoning as the 1008's print route: HTML, not a PDF binary, so the browser handles Hebrew layout and the print dialog produces the PDF. */
+  @Get(':id/print')
+  @Roles('admin', 'logistics')
+  async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    const { session, rows } = await this.counts.forPrint(id);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, private');
+    res.send(renderCountSession({ ...session, rows }));
   }
 
   @Post(':id/close')

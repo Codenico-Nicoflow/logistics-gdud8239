@@ -80,9 +80,11 @@ export class CountsService {
         responsibleName: session?.responsibleName ?? null,
         responsiblePn: session?.responsiblePn ?? null,
         responsibleRank: session?.responsibleRank ?? null,
+        responsibleSignatureImage: session?.responsibleSignatureImage ?? null,
         officerName: session?.officerName ?? null,
         officerPn: session?.officerPn ?? null,
         officerRank: session?.officerRank ?? null,
+        officerSignatureImage: session?.officerSignatureImage ?? null,
       },
     };
   }
@@ -112,6 +114,8 @@ export class CountsService {
           officerName: dto.officerName ?? null,
           officerPn: dto.officerPn ?? null,
           officerRank: dto.officerRank ?? null,
+          responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
+          officerSignatureImage: dto.officerSignatureImage ?? null,
           recordedByUserId: actor.id,
           recordedAt: new Date(),
         },
@@ -124,6 +128,8 @@ export class CountsService {
           officerName: dto.officerName ?? null,
           officerPn: dto.officerPn ?? null,
           officerRank: dto.officerRank ?? null,
+          responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
+          officerSignatureImage: dto.officerSignatureImage ?? null,
           recordedByUserId: actor.id,
         },
       });
@@ -206,6 +212,73 @@ export class CountsService {
       countedItems,
       totalItems: items.length,
       mismatches: mismatches.sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap)),
+    };
+  }
+
+  /** A closed session's sheet, for printing — same rows as `sheet()`, pinned to what was actually signed rather than recomputed live. */
+  async forPrint(id: string): Promise<{
+    session: {
+      sessionDate: Date;
+      shift: CountShift;
+      responsibleName: string | null;
+      responsiblePn: string | null;
+      responsibleRank: string | null;
+      responsibleSignatureImage: string | null;
+      officerName: string | null;
+      officerPn: string | null;
+      officerRank: string | null;
+      officerSignatureImage: string | null;
+    };
+    rows: CountSheetRow[];
+  }> {
+    const session = await this.prisma.countSession.findUniqueOrThrow({
+      where: { id },
+      include: { lines: true },
+    });
+
+    const [items, issuedRows] = await Promise.all([
+      this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: { name: 'asc' } }),
+      this.prisma.signature.groupBy({
+        by: ['itemId'],
+        where: { returnedAt: null },
+        _sum: { quantity: true },
+      }),
+    ]);
+
+    const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
+    const lineByItem = new Map(session.lines.map((l) => [l.itemId, l]));
+
+    const rows: CountSheetRow[] = items.map((item) => {
+      const issued = issuedByItem.get(item.id) ?? 0;
+      const line = lineByItem.get(item.id);
+      const countedQty = line?.countedQty ?? null;
+      return {
+        itemId: item.id,
+        itemName: item.name,
+        category: item.category,
+        authorizedQty: item.authorizedQty,
+        issued,
+        countedQty,
+        faultyQty: line?.faultyQty ?? 0,
+        gap: countedQty === null ? null : item.authorizedQty - (issued + countedQty),
+        notes: line?.notes ?? null,
+      };
+    });
+
+    return {
+      session: {
+        sessionDate: session.sessionDate,
+        shift: session.shift,
+        responsibleName: session.responsibleName,
+        responsiblePn: session.responsiblePn,
+        responsibleRank: session.responsibleRank,
+        responsibleSignatureImage: session.responsibleSignatureImage,
+        officerName: session.officerName,
+        officerPn: session.officerPn,
+        officerRank: session.officerRank,
+        officerSignatureImage: session.officerSignatureImage,
+      },
+      rows,
     };
   }
 

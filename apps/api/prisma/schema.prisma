@@ -553,6 +553,11 @@ model CountSession {
   officerName      String?    @map("officer_name")
   officerPn        String?    @map("officer_pn")
   officerRank      String?    @map("officer_rank")
+  /// Drawn on the device, same as a 1008's. Nullable because the paper flow
+  /// allows printing before the second signer is physically present — they
+  /// sign the printed sheet by hand instead.
+  responsibleSignatureImage String? @map("responsible_signature_image")
+  officerSignatureImage     String? @map("officer_signature_image")
   recordedAt       DateTime   @default(now()) @map("recorded_at")
   recordedByUserId String     @map("recorded_by_user_id")
   isClosed         Boolean    @default(false) @map("is_closed")
