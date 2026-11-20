@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useCountSheetQuery, useSaveCountMutation } from '../../lib/api';
+import { useCountSheetQuery, useSaveCountMutation, useCloseCountMutation } from '../../lib/api';
 import {
   apiErrorMessage,
   Button,
@@ -12,6 +12,7 @@ import {
   Th,
   TextField,
 } from '../../components/ui';
+import { SignaturePad } from '../../components/SignaturePad';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { CountShift } from '../../lib/types';
@@ -33,9 +34,21 @@ export function CountsPage() {
   const [counted, setCounted] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
 
+  const [responsibleName, setResponsibleName] = useState('');
+  const [responsiblePn, setResponsiblePn] = useState('');
+  const [responsibleRank, setResponsibleRank] = useState('');
+  const [responsibleSignature, setResponsibleSignature] = useState<string | null>(null);
+  const [officerName, setOfficerName] = useState('');
+  const [officerPn, setOfficerPn] = useState('');
+  const [officerRank, setOfficerRank] = useState('');
+  const [officerSignature, setOfficerSignature] = useState<string | null>(null);
+
   const { data, isLoading, isFetching } = useCountSheetQuery({ date, shift });
   const [save, { isLoading: isSaving, error }] = useSaveCountMutation();
+  const [close, { isLoading: isClosing, error: closeError }] = useCloseCountMutation();
   const toast = useToast();
+
+  const isClosed = data?.session?.isClosed ?? false;
 
   // Reload the entered values whenever the sheet changes, so switching date or
   // shift shows what was actually recorded rather than a stale draft.
@@ -47,6 +60,15 @@ export function CountsPage() {
     }
     setCounted(next);
     setSaved(false);
+
+    setResponsibleName(data.signers.responsibleName ?? '');
+    setResponsiblePn(data.signers.responsiblePn ?? '');
+    setResponsibleRank(data.signers.responsibleRank ?? '');
+    setResponsibleSignature(data.signers.responsibleSignatureImage ?? null);
+    setOfficerName(data.signers.officerName ?? '');
+    setOfficerPn(data.signers.officerPn ?? '');
+    setOfficerRank(data.signers.officerRank ?? '');
+    setOfficerSignature(data.signers.officerSignatureImage ?? null);
   }, [data]);
 
   const rows = useMemo(() => {
@@ -68,23 +90,59 @@ export function CountsPage() {
     return gap !== null && gap !== 0;
   }).length;
 
-  async function submit(): Promise<void> {
+  function buildBody() {
     const lines = rows
       .filter((r) => counted[r.itemId] !== undefined && counted[r.itemId] !== '')
       .map((r) => ({ itemId: r.itemId, countedQty: Number(counted[r.itemId]) }));
+    return {
+      sessionDate: date,
+      shift,
+      lines,
+      responsibleName: responsibleName.trim() || undefined,
+      responsiblePn: responsiblePn.trim() || undefined,
+      responsibleRank: responsibleRank.trim() || undefined,
+      responsibleSignatureImage: responsibleSignature ?? undefined,
+      officerName: officerName.trim() || undefined,
+      officerPn: officerPn.trim() || undefined,
+      officerRank: officerRank.trim() || undefined,
+      officerSignatureImage: officerSignature ?? undefined,
+    };
+  }
 
-    const result = await save({ sessionDate: date, shift, lines });
+  async function submit(): Promise<void> {
+    const body = buildBody();
+    const result = await save(body);
     if (result.data) {
       setSaved(true);
       // The gap count is the reason to look again, so it leads the detail.
       toast.success({
         title: he.toast.countSaved,
         detail: gapCount > 0
-          ? he.counts.savedWithGaps(lines.length, gapCount)
-          : he.counts.savedClean(lines.length),
+          ? he.counts.savedWithGaps(body.lines.length, gapCount)
+          : he.counts.savedClean(body.lines.length),
       });
     } else {
       toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
+  }
+
+  /** Saves the current state first, then closes it — a sign-and-close must
+   * lock in whatever is on screen, not whatever was last saved. */
+  async function signAndClose(): Promise<void> {
+    if (!responsibleSignature || !officerSignature) {
+      toast.error({ title: he.toast.failed, detail: he.counts.needsBothSignatures });
+      return;
+    }
+    const saveResult = await save(buildBody());
+    if (!saveResult.data) {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(saveResult.error) ?? undefined });
+      return;
+    }
+    const closeResult = await close(saveResult.data.id);
+    if (closeResult.data) {
+      toast.success({ title: he.counts.closed });
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(closeResult.error) ?? undefined });
     }
   }
 
@@ -135,14 +193,30 @@ export function CountsPage() {
           </label>
 
           <div className="ms-auto flex items-end gap-2">
-            <Button variant="quiet" onClick={fillExpected}>
-              {he.counts.fillAll}
-            </Button>
-            <Button onClick={() => void submit()} disabled={isSaving}>
-              {isSaving ? he.counts.saving : he.counts.save}
-            </Button>
+            {data?.session?.id && (
+              <Button variant="quiet" onClick={() => window.open(`/api/counts/${data.session!.id}/print`, '_blank')}>
+                {he.counts.print}
+              </Button>
+            )}
+            {!isClosed && (
+              <>
+                <Button variant="quiet" onClick={fillExpected}>
+                  {he.counts.fillAll}
+                </Button>
+                <Button onClick={() => void submit()} disabled={isSaving}>
+                  {isSaving ? he.counts.saving : he.counts.save}
+                </Button>
+              </>
+            )}
           </div>
         </div>
+
+        {isClosed && (
+          <div className="border-t border-rule px-4 py-2.5">
+            <Tag tone="field">{he.counts.closedTag}</Tag>
+            <span className="ms-2 text-meta text-graphite">{he.counts.reopenHint}</span>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-rule px-4 py-2.5">
           <span className="text-meta text-graphite">{he.counts.gapHint}</span>
@@ -192,12 +266,13 @@ export function CountsPage() {
                         <input
                           type="number"
                           min={0}
+                          disabled={isClosed}
                           value={counted[row.itemId] ?? ''}
                           onChange={(e) => {
                             setCounted((c) => ({ ...c, [row.itemId]: e.target.value }));
                             setSaved(false);
                           }}
-                          className="w-20 rounded-ctl border border-rule-strong bg-card-raised px-2 py-1 text-center text-body"
+                          className="w-20 rounded-ctl border border-rule-strong bg-card-raised px-2 py-1 text-center text-body disabled:opacity-50"
                         />
                       </Td>
                       <Td numeric>
@@ -217,6 +292,110 @@ export function CountsPage() {
           </TableScroll>
         )}
       </Panel>
+
+      <Panel>
+        <div className="grid gap-5 p-4 sm:grid-cols-2">
+          <SignerCard
+            title={he.counts.responsible}
+            name={responsibleName}
+            onNameChange={setResponsibleName}
+            pn={responsiblePn}
+            onPnChange={setResponsiblePn}
+            rank={responsibleRank}
+            onRankChange={setResponsibleRank}
+            signature={responsibleSignature}
+            onSignatureChange={setResponsibleSignature}
+            disabled={isClosed}
+          />
+          <SignerCard
+            title={he.counts.officer}
+            name={officerName}
+            onNameChange={setOfficerName}
+            pn={officerPn}
+            onPnChange={setOfficerPn}
+            rank={officerRank}
+            onRankChange={setOfficerRank}
+            signature={officerSignature}
+            onSignatureChange={setOfficerSignature}
+            disabled={isClosed}
+          />
+        </div>
+
+        {!isClosed && (
+          <div className="flex items-center justify-end gap-3 border-t border-rule px-4 py-3">
+            {apiErrorMessage(closeError) && (
+              <span className="text-meta text-oxide">{apiErrorMessage(closeError)}</span>
+            )}
+            <Button onClick={() => void signAndClose()} disabled={isClosing || isSaving}>
+              {isClosing ? he.counts.closing : he.counts.signAndClose}
+            </Button>
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+function SignerCard({
+  title,
+  name,
+  onNameChange,
+  pn,
+  onPnChange,
+  rank,
+  onRankChange,
+  signature,
+  onSignatureChange,
+  disabled,
+}: {
+  title: string;
+  name: string;
+  onNameChange: (v: string) => void;
+  pn: string;
+  onPnChange: (v: string) => void;
+  rank: string;
+  onRankChange: (v: string) => void;
+  signature: string | null;
+  onSignatureChange: (v: string | null) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="rounded-ctl border border-rule-strong">
+      <h2 className="border-b border-rule bg-card-raised px-3 py-2 font-semibold">{title}</h2>
+      <div className="space-y-3 p-3">
+        <div className="grid grid-cols-3 gap-2">
+          <TextField
+            label={he.counts.fullName}
+            value={name}
+            onChange={onNameChange}
+            disabled={disabled}
+            className="col-span-1"
+          />
+          <TextField
+            label={he.counts.personalNumber}
+            value={pn}
+            onChange={onPnChange}
+            disabled={disabled}
+          />
+          <TextField
+            label={he.counts.rank}
+            value={rank}
+            onChange={onRankChange}
+            disabled={disabled}
+          />
+        </div>
+        {disabled ? (
+          signature ? (
+            <img src={signature} alt={title} className="h-28 w-full rounded-ctl border border-rule-strong bg-white object-contain" />
+          ) : (
+            <div className="flex h-28 items-center justify-center rounded-ctl border border-dashed border-rule-strong text-meta text-graphite">
+              {he.counts.needsBothSignatures}
+            </div>
+          )
+        ) : (
+          <SignaturePad onChange={onSignatureChange} />
+        )}
+      </div>
     </div>
   );
 }

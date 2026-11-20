@@ -320,10 +320,20 @@ export const api = createApi({
         shift: CountShift;
         lines: { itemId: string; countedQty: number; faultyQty?: number; notes?: string }[];
         responsibleName?: string;
+        responsiblePn?: string;
+        responsibleRank?: string;
+        responsibleSignatureImage?: string;
         officerName?: string;
+        officerPn?: string;
+        officerRank?: string;
+        officerSignatureImage?: string;
       }
     >({
       query: (body) => ({ url: '/counts', method: 'POST', body }),
+      invalidatesTags: ['Counts', 'Reports'],
+    }),
+    closeCount: build.mutation<{ id: string; isClosed: boolean }, string>({
+      query: (id) => ({ url: `/counts/${id}/close`, method: 'POST' }),
       invalidatesTags: ['Counts', 'Reports'],
     }),
 
@@ -635,6 +645,7 @@ export const {
   useCommitImportMutation,
   useCountSheetQuery,
   useSaveCountMutation,
+  useCloseCountMutation,
   useCreateItemMutation,
   useUpdateItemMutation,
   useLazyDeletionCheckQuery,

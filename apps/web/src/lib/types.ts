@@ -184,7 +184,16 @@ export type CountSheetRow = {
 export type CountSheet = {
   session: { id: string; isClosed: boolean } | null;
   rows: CountSheetRow[];
-  signers: Record<string, string | null>;
+  signers: {
+    responsibleName: string | null;
+    responsiblePn: string | null;
+    responsibleRank: string | null;
+    responsibleSignatureImage: string | null;
+    officerName: string | null;
+    officerPn: string | null;
+    officerRank: string | null;
+    officerSignatureImage: string | null;
+  };
 };
 
 export type AttendanceStatus =
