@@ -179,6 +179,8 @@ export type CountSheetRow = {
 };
 
 export type CountSheet = {
+  /** The מסכם day the figures come from — the day before for a morning count. */
+  figureDate: string;
   session: {
     id: string;
     isClosed: boolean;

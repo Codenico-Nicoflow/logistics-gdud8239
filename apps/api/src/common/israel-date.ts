@@ -39,3 +39,9 @@ export function israelDayEnd(iso: string): Date {
   const next = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
   return new Date(israelDayStart(next).getTime() - 1);
 }
+
+/** `iso` shifted by whole calendar days — pure date arithmetic, no timezone can move it. */
+export function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}

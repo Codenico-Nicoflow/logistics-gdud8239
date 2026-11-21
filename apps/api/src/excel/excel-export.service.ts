@@ -6,7 +6,7 @@ import { MovementsService } from '../movements/movements.service';
 import { MesakemService } from '../mesakem/mesakem.service';
 import { AllocationsService } from '../allocations/allocations.service';
 import { ITEM_ORDER } from '../common/item-order';
-import { israelToday } from '../common/israel-date';
+import { addDaysIso, israelToday } from '../common/israel-date';
 import { CATEGORY_HE, COMPANY_HE, COMPANY_ORDER } from './excel.constants';
 import {
   CATEGORY_TONE,
@@ -157,35 +157,63 @@ export class ExcelExportService {
   // ---------- ספירת נשקיה ----------
 
   /**
-   * The sign-off sheet: the day's בנשקייה figure per item, then who counted
-   * and signed in the evening and the morning. Uses the most recent day that
-   * has a session (a count signed yesterday evening is still "the latest"
-   * at 18:00 today before tonight's is done).
+   * The sign-off sheet for the latest *night*: the evening count of day D and
+   * the morning count after it (D+1), side by side, as the original file had
+   * them. Both sign the same figure — the בנשקייה entered in מסכם at the end
+   * of D — because nothing is issued overnight and D+1's מסכם does not exist
+   * yet when the morning count is done.
+   *
+   * Which night: the one containing the latest count. If that is an evening on
+   * D the morning is still pending; if it is a morning on M the evening is the
+   * one before it (M-1), which may be missing (e.g. after Shabbat).
    */
   private async addCount(wb: ExcelJS.Workbook): Promise<void> {
-    const latest = await this.prisma.countSession.findFirst({ orderBy: { sessionDate: 'desc' } });
-    const day = latest ? latest.sessionDate.toISOString().slice(0, 10) : israelToday();
+    const recent = await this.prisma.countSession.findMany({
+      orderBy: { sessionDate: 'desc' },
+      take: 4,
+    });
+    // Within one date the morning happens before the evening, so the evening is the later one.
+    const chronological = [...recent].sort(
+      (a, b) =>
+        b.sessionDate.getTime() - a.sessionDate.getTime() ||
+        (a.shift === 'EVENING' ? 1 : 0) - (b.shift === 'EVENING' ? 1 : 0),
+    );
+    const latest = chronological[0];
+    const latestDay = latest ? latest.sessionDate.toISOString().slice(0, 10) : israelToday();
+    const eveningDay = !latest || latest.shift === 'EVENING' ? latestDay : addDaysIso(latestDay, -1);
+    const morningDay = addDaysIso(eveningDay, 1);
 
-    const [sessions, items, nashkiya] = await Promise.all([
-      this.prisma.countSession.findMany({ where: { sessionDate: new Date(day) } }),
+    const [eveningRow, morningRow, items, nashkiya] = await Promise.all([
+      this.prisma.countSession.findUnique({
+        where: { sessionDate_shift: { sessionDate: new Date(eveningDay), shift: 'EVENING' } },
+      }),
+      this.prisma.countSession.findUnique({
+        where: { sessionDate_shift: { sessionDate: new Date(morningDay), shift: 'MORNING' } },
+      }),
       this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
-      this.mesakem.nashkiyaFor(day),
+      this.mesakem.nashkiyaFor(eveningDay),
     ]);
-    type Session = (typeof sessions)[number];
-    const evening = sessions.find((s) => s.shift === 'EVENING');
-    const morning = sessions.find((s) => s.shift === 'MORNING');
+    type Session = NonNullable<typeof eveningRow>;
+    const evening = eveningRow ?? undefined;
+    const morning = morningRow ?? undefined;
+    const short = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}`;
 
     const COLS = 3;
     const ws = createSheet(wb, SHEET.count, [34, 26, 26]);
-    addTitleBlock(ws, COLS, 'ספירת נשקיה', `${dayLabel(day)}   ·   הופק ${generatedAtLabel()}`);
+    addTitleBlock(
+      ws,
+      COLS,
+      'ספירת נשקיה',
+      `ערב ${dayLabel(eveningDay)}   ·   בוקר ${short(morningDay)}   ·   הופק ${generatedAtLabel()}`,
+    );
     const state = (s?: Session) => (s?.isClosed ? 'נחתמה' : 'טרם נחתמה');
     addKpiRow(ws, COLS, [
       { label: 'פריטים', value: items.length, tone: 'graphite' },
-      { label: 'ספירת ערב', value: state(evening), tone: evening?.isClosed ? 'field' : 'brass' },
-      { label: 'ספירת בוקר', value: state(morning), tone: morning?.isClosed ? 'field' : 'brass' },
+      { label: `ספירת ערב ${short(eveningDay)}`, value: state(evening), tone: evening?.isClosed ? 'field' : 'brass' },
+      { label: `ספירת בוקר ${short(morningDay)}`, value: state(morning), tone: morning?.isClosed ? 'field' : 'brass' },
     ]);
 
-    const header = addHeaderRow(ws, ['צל"מ', 'קטגוריה', 'בנשקייה']);
+    const header = addHeaderRow(ws, ['צל"מ', 'קטגוריה', `בנשקייה (מסכם ${short(eveningDay)})`]);
     items.forEach((item, i) => {
       const qty = nashkiya.get(item.id);
       const row = addBodyRow(ws, [item.name, CATEGORY_HE[item.category], qty ?? '—'], i, [2, 3]);
@@ -196,7 +224,7 @@ export class ExcelExportService {
 
     ws.addRow([]).height = 12;
     addBandRow(ws, COLS, 'חתימות הספירה');
-    addHeaderRow(ws, ['', 'ספירת ערב', 'ספירת בוקר']);
+    addHeaderRow(ws, ['', `ספירת ערב · ${short(eveningDay)}`, `ספירת בוקר · ${short(morningDay)}`]);
 
     let zebra = 0;
     const textRow = (label: string, pick: (s?: Session) => string | null) => {

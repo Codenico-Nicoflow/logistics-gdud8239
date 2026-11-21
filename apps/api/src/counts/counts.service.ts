@@ -2,9 +2,19 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { CountShift } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MesakemService } from '../mesakem/mesakem.service';
+import { addDaysIso } from '../common/israel-date';
 import type { AuthUser } from '../auth/auth.types';
 import type { SaveCountDto } from './dto/save-count.dto';
 import { ITEM_ORDER } from '../common/item-order';
+
+/**
+ * The מסכם date whose figure a count verifies. A night is the evening of day D
+ * plus the morning after (D+1), and both sign the number entered at the end of
+ * D — מסכם for D+1 is still empty when the morning count is done.
+ */
+export function figureDateFor(sessionDate: string, shift: CountShift): string {
+  return shift === 'MORNING' ? addDaysIso(sessionDate, -1) : sessionDate;
+}
 
 export type CountSheetRow = {
   itemId: string;
@@ -37,6 +47,8 @@ export class CountsService {
    * summary disappears from here too — one list, maintained once.
    */
   async sheet(sessionDate: string, shift: CountShift): Promise<{
+    /** The מסכם day the figures come from — the day before for a morning count. */
+    figureDate: string;
     session: {
       id: string;
       isClosed: boolean;
@@ -63,7 +75,7 @@ export class CountsService {
         where: { isActive: true, inSummary: true },
         orderBy: ITEM_ORDER,
       }),
-      this.mesakem.nashkiyaFor(sessionDate),
+      this.mesakem.nashkiyaFor(figureDateFor(sessionDate, shift)),
       this.prisma.countSession.findUnique({
         where: { sessionDate_shift: { sessionDate: date, shift } },
         include: {
@@ -84,6 +96,7 @@ export class CountsService {
     }));
 
     return {
+      figureDate: figureDateFor(sessionDate, shift),
       session: session
         ? {
             id: session.id,
@@ -179,7 +192,7 @@ export class CountsService {
 
     const [items, nashkiyaByItem] = await Promise.all([
       this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
-      this.mesakem.nashkiyaFor(session.sessionDate.toISOString().slice(0, 10)),
+      this.mesakem.nashkiyaFor(figureDateFor(session.sessionDate.toISOString().slice(0, 10), session.shift)),
     ]);
 
     const rows: CountSheetRow[] = items.map((item) => ({
