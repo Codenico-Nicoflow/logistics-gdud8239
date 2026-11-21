@@ -8,6 +8,7 @@ import { Prisma, Role } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
+import { MfaService } from '../auth/mfa.service';
 import { InvitesService } from '../auth/invites.service';
 import { normalizeOrigin } from '../common/origin-check.middleware';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
@@ -27,8 +28,10 @@ export type PublicUser = {
   lastLoginAt: Date | null;
   /** A setup link is outstanding: the account cannot log in until its owner uses it. */
   mustSetup: boolean;
-  /** How many devices the person has enrolled (a number only; keys never leave the server). */
-  passkeyCount?: number;
+  /** Whether the person has set up the authenticator app. */
+  mfaEnabled?: boolean;
+  /** A super-admin excused them from the authenticator step. */
+  mfaExempt: boolean;
 };
 
 /** The one-time link, returned exactly once when it is created. */
@@ -46,6 +49,7 @@ const PUBLIC_FIELDS = {
   lockedUntil: true,
   lastLoginAt: true,
   mustSetup: true,
+  mfaExempt: true,
 } as const;
 
 @Injectable()
@@ -54,6 +58,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
     private readonly invites: InvitesService,
+    private readonly mfa: MfaService,
     private readonly events: SecurityEventsService,
     private readonly config: ConfigService,
   ) {}
@@ -65,10 +70,10 @@ export class UsersService {
 
   async findAll(): Promise<PublicUser[]> {
     const rows = await this.prisma.user.findMany({
-      select: { ...PUBLIC_FIELDS, _count: { select: { passkeys: true } } },
+      select: { ...PUBLIC_FIELDS, totp: { select: { confirmedAt: true } } },
       orderBy: [{ isActive: 'desc' }, { username: 'asc' }],
     });
-    return rows.map(({ _count, ...user }) => ({ ...user, passkeyCount: _count.passkeys }));
+    return rows.map(({ totp, ...user }) => ({ ...user, mfaEnabled: !!totp?.confirmedAt }));
   }
 
   /**
@@ -126,6 +131,9 @@ export class UsersService {
     if (dto.isSuperAdmin !== undefined && !actor?.isSuperAdmin) {
       throw new BadRequestException('רק סופר-מנהל יכול להעניק הרשאת סופר-מנהל');
     }
+    if (dto.mfaExempt !== undefined && !actor?.isSuperAdmin) {
+      throw new BadRequestException('רק סופר-מנהל יכול לפטור משתמש מאימות דו-שלבי');
+    }
     // A regular admin cannot rename another admin account (their own name is
     // still theirs to change) — only a super-admin may rename any admin.
     if (
@@ -175,6 +183,11 @@ export class UsersService {
       select: PUBLIC_FIELDS,
     });
 
+    if (dto.mfaExempt !== undefined && dto.mfaExempt !== user.mfaExempt) {
+      await this.mfa.setExempt(actingUserId, id, dto.mfaExempt);
+      updated.mfaExempt = dto.mfaExempt;
+    }
+
     // Deactivating or demoting takes effect at once.
     if (dto.isActive === false || dto.role !== undefined) {
       await this.auth.revokeAllForUser(id);
@@ -215,6 +228,20 @@ export class UsersService {
     }
 
     return this.reissue(user, actingUserId);
+  }
+
+  /**
+   * Lost phone and no backup codes: wipes the authenticator app and ends the person's sessions. They
+   * set it up again at their next sign-in (if it is required of them) or from "אבטחה".
+   */
+  async resetMfa(id: string, actingUserId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('המשתמש אינו קיים');
+    if (user.isSuperAdmin && id !== actingUserId) {
+      const actor = await this.prisma.user.findUnique({ where: { id: actingUserId } });
+      if (!actor?.isSuperAdmin) throw new BadRequestException('אין הרשאה לאפס אימות לחשבון סופר-מנהל');
+    }
+    await this.mfa.reset(actingUserId, id);
   }
 
   private async reissue(user: { id: string; passwordHash: string | null }, actingUserId: string | null): Promise<SetupLink> {

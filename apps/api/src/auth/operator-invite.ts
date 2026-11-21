@@ -4,8 +4,8 @@ import { INVITE_TTL_MS, newInviteToken } from './invite-token';
 
 /**
  * Break-glass, for the operator who holds the database credentials: issues a setup link when no admin
- * can sign in to press "קישור הגדרה חדש" (every device lost, or passkeys switched on before anyone
- * enrolled). It does what the button does — ends the person's sessions, blocks the old password until
+ * can sign in to press "קישור הגדרה חדש" (every phone lost, or the authenticator step switched on
+ * before anyone set it up). It does what the button does — ends the person's sessions, blocks the old password until
  * the link is used, cancels older links and logs the event — without the admin-only checks.
  *
  * Plain Prisma on purpose: the script runs under `tsx`, which cannot do the framework's dependency

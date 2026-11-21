@@ -6,7 +6,7 @@ import { ACCESS_COOKIE, REFRESH_COOKIE } from './auth.constants';
 
 /**
  * Sets and clears the two session cookies. Shared by every route that can start a session (password
- * login, setup link, passkey), so they all hand out the same cookie, flags included.
+ * login, setup link, second step), so they all hand out the same cookie, flags included.
  *
  * Tokens live in httpOnly cookies so page scripts cannot read them, which removes the XSS-to-token-theft
  * path that localStorage leaves open.

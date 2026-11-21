@@ -17,7 +17,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { AuthService, type TokenPair } from './auth.service';
 import { InvitesService } from './invites.service';
 import { SessionCookies } from './session-cookies';
-import { WebauthnService } from './webauthn.service';
+import { MfaService } from './mfa.service';
 import { SetupPasswordDto } from './dto/setup-password.dto';
 import { REFRESH_COOKIE } from './auth.constants';
 import { Public } from './decorators/public.decorator';
@@ -27,7 +27,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import type { AuthUser } from './auth.types';
 
 /** Either a finished sign-in, or the next step still owed (with the token that proves the password step). */
-export type LoginResult = { user: AuthUser } | { step: 'passkey' | 'enroll'; mfaToken: string };
+export type LoginResult = { user: AuthUser } | { step: 'totp' | 'enroll'; mfaToken: string };
 
 @Controller('auth')
 export class AuthController {
@@ -36,7 +36,7 @@ export class AuthController {
     private readonly invites: InvitesService,
     private readonly config: ConfigService,
     private readonly cookies: SessionCookies,
-    private readonly webauthn: WebauthnService,
+    private readonly mfa: MfaService,
   ) {}
 
   /** Tight per-IP limits (see the `login` tiers): this is the one route where guessing is the attack. */
@@ -51,10 +51,10 @@ export class AuthController {
   ): Promise<LoginResult> {
     const user = await this.auth.validateCredentials(dto.username, dto.password, request.ip);
 
-    // The password is only the first proof. A person with a passkey (or anyone, once passkeys are
-    // required) gets no session yet — just a five-minute token good for the second step.
-    const step = await this.webauthn.stepFor(user.id);
-    if (step !== 'none') return { step, mfaToken: await this.webauthn.signStepToken(user.id) };
+    // The password is only the first proof. A person with the authenticator app (or anyone, once it
+    // is required) gets no session yet — just a five-minute token good for the second step.
+    const step = await this.mfa.stepFor(user.id);
+    if (step !== 'none') return { step, mfaToken: await this.mfa.signStepToken(user.id) };
 
     const tokens = await this.auth.issueTokens(user, { userAgent: request.headers['user-agent'], ip: request.ip });
     this.cookies.set(response, tokens);
@@ -89,8 +89,9 @@ export class AuthController {
 
     // Same rule as login: a person who still owes the second step does not get a session from the
     // password they just chose.
-    const step = await this.webauthn.stepFor(user.id);
-    if (step !== 'none') return { step, mfaToken: await this.webauthn.signStepToken(user.id) };
+    const step = await this.mfa.stepFor(user.id);
+    if (step !== 'none') return { step, mfaToken: await this.mfa.signStepToken(user.id) };
+    await this.auth.finishSignIn(user.id, request.ip, 'setup link');
 
     const tokens = await this.auth.issueTokens(user, { userAgent: request.headers['user-agent'], ip: request.ip });
     this.cookies.set(response, tokens);

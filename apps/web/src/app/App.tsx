@@ -4,7 +4,7 @@ import { Shell } from './Shell';
 import { Spinner } from '../components/ui';
 import { LoginPage } from '../features/auth/LoginPage';
 import { SetupPage } from '../features/auth/SetupPage';
-import { DevicesPage } from '../features/auth/DevicesPage';
+import { SecurityPage } from '../features/auth/SecurityPage';
 import { IssuePage } from '../features/issue/IssuePage';
 import { ServicePeriodsPage } from '../features/allocations/ServicePeriodsPage';
 import { CompanyAllocationPage } from '../features/allocations/CompanyAllocationPage';
@@ -100,7 +100,7 @@ function AuthenticatedApp() {
         {isAdmin && <Route path="naming" element={<NamingPage />} />}
         {isAdmin && <Route path="users" element={<UsersPage currentUserId={user.id} />} />}
         {isAdmin && <Route path="backups" element={<BackupsPage />} />}
-        <Route path="devices" element={<DevicesPage />} />
+        <Route path="security" element={<SecurityPage />} />
         <Route path="*" element={<Navigate to={defaultPathFor(user.role)} replace />} />
       </Route>
     </Routes>

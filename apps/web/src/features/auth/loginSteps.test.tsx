@@ -5,8 +5,8 @@ import { he } from '../../i18n/he';
 import { mount, resetApi, respond } from '../../test/mockApi';
 
 /**
- * Signing in is two steps now: the password, then (for anyone with a device, or everyone once passkeys
- * are required) a confirmation on the person's own device. The server answers the first step with
+ * Signing in is two steps now: the password, then (for anyone with the authenticator app, or everyone once it
+ * is required) the code from that app. The server answers the first step with
  * either a finished sign-in or `{ step, mfaToken }`; the page must show the right next screen and must
  * not keep the password around.
  */
@@ -30,37 +30,49 @@ afterEach(() => {
 });
 
 describe('login: the step after the password', () => {
-  it('asks for the device when the person has one', async () => {
-    respond({ ...NOT_SIGNED_IN, '/api/auth/login': { status: 200, body: { step: 'passkey', mfaToken: 'tok' } } });
+  it('asks for the code when the person has the app set up', async () => {
+    respond({ ...NOT_SIGNED_IN, '/api/auth/login': { status: 200, body: { step: 'totp', mfaToken: 'tok' } } });
     mount('/');
     await submitPassword();
-    expect(await screen.findByText(he.passkey.stepTitle)).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: he.mfa.stepTitle })).toBeTruthy();
     // No password box any more: the token is all the next step needs.
     expect(document.querySelector('input[type=password]')).toBeNull();
+    expect((screen.getByRole('button', { name: he.mfa.verify }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('asks for a first device when passkeys are required and there is none', async () => {
-    respond({ ...NOT_SIGNED_IN, '/api/auth/login': { status: 200, body: { step: 'enroll', mfaToken: 'tok' } } });
+  it('enables the button only once a full code is typed, and sends it with the token', async () => {
+    respond({
+      ...NOT_SIGNED_IN,
+      '/api/auth/login': { status: 200, body: { step: 'totp', mfaToken: 'tok' } },
+      '/api/auth/mfa/verify': { status: 401, body: { message: 'הקוד שגוי או שפג תוקפו. נסו שוב' } },
+    });
     mount('/');
     await submitPassword();
-    expect(await screen.findByText(he.passkey.enrolTitle)).toBeTruthy();
-    expect(screen.getByDisplayValue(/./)).toBeTruthy(); // a suggested device name is pre-filled
+    const code = (await screen.findByLabelText(new RegExp(he.mfa.codeLabel))) as HTMLInputElement;
+    fireEvent.change(code, { target: { value: '123456' } });
+    const button = screen.getByRole('button', { name: he.mfa.verify }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    fireEvent.click(button);
+    expect(await screen.findByText('הקוד שגוי או שפג תוקפו. נסו שוב')).toBeTruthy();
   });
 
-  it('says so, and does not offer a button that cannot work, in a browser without passkey support', async () => {
-    respond({ ...NOT_SIGNED_IN, '/api/auth/login': { status: 200, body: { step: 'passkey', mfaToken: 'tok' } } });
+  it('starts setting the app up when it is required and the person has none', async () => {
+    respond({
+      ...NOT_SIGNED_IN,
+      '/api/auth/login': { status: 200, body: { step: 'enroll', mfaToken: 'tok' } },
+      '/api/auth/mfa/enrol/start': { status: 200, body: { secret: 'JBSWY3DPEHPK3PXP', otpauthUrl: 'otpauth://totp/x:y?secret=JBSWY3DPEHPK3PXP' } },
+    });
     mount('/');
     await submitPassword();
-    expect(await screen.findByText(he.passkey.unsupported)).toBeTruthy();
-    const button = screen.getByRole('button', { name: he.passkey.stepButton }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
+    expect(await screen.findByText(he.mfa.enrolTitle)).toBeTruthy();
+    expect(await screen.findByText(he.mfa.cantScan)).toBeTruthy();
   });
 
   it('goes back to the password box', async () => {
-    respond({ ...NOT_SIGNED_IN, '/api/auth/login': { status: 200, body: { step: 'passkey', mfaToken: 'tok' } } });
+    respond({ ...NOT_SIGNED_IN, '/api/auth/login': { status: 200, body: { step: 'totp', mfaToken: 'tok' } } });
     mount('/');
     await submitPassword();
-    fireEvent.click(await screen.findByRole('button', { name: he.passkey.back }));
+    fireEvent.click(await screen.findByRole('button', { name: he.mfa.back }));
     await waitFor(() => expect(document.querySelector('input[type=password]')).not.toBeNull());
   });
 

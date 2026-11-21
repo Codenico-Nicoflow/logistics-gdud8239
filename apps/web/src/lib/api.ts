@@ -44,14 +44,10 @@ import type {
   SetupLink,
   SecurityEventRow,
   LoginResult,
-  PasskeySummary,
+  MfaStatus,
+  MfaEnrolStart,
+  MfaOverview,
 } from './types';
-import type {
-  AuthenticationResponseJSON,
-  PublicKeyCredentialCreationOptionsJSON,
-  PublicKeyCredentialRequestOptionsJSON,
-  RegistrationResponseJSON,
-} from '@simplewebauthn/browser';
 
 /**
  * Tokens live in httpOnly cookies, so every request must send credentials and
@@ -100,7 +96,7 @@ export const api = createApi({
     'Mesakem',
     'Attendance',
     'Users',
-    'Passkeys',
+    'Mfa',
     'ServicePeriods',
     'Allocations',
     'IssueForms',
@@ -480,38 +476,51 @@ export const api = createApi({
       invalidatesTags: ['Attendance'],
     }),
 
-    // --- passkeys: step 2 of signing in (public) and the person's own devices (signed in) ---
-    passkeyAuthOptions: build.mutation<PublicKeyCredentialRequestOptionsJSON, { mfaToken: string }>({
-      query: (body) => ({ url: '/auth/webauthn/authenticate/options', method: 'POST', body }),
-    }),
-    passkeyAuthVerify: build.mutation<{ user: AuthUser }, { mfaToken: string; response: AuthenticationResponseJSON }>({
-      query: (body) => ({ url: '/auth/webauthn/authenticate/verify', method: 'POST', body }),
+    // --- authenticator app: step 2 of signing in (public, with the step token) ---
+    mfaVerify: build.mutation<{ user: AuthUser }, { mfaToken: string; code: string }>({
+      query: (body) => ({ url: '/auth/mfa/verify', method: 'POST', body }),
       invalidatesTags: ['Auth'],
     }),
-    passkeyEnrolOptions: build.mutation<PublicKeyCredentialCreationOptionsJSON, { mfaToken: string }>({
-      query: (body) => ({ url: '/auth/webauthn/register/options', method: 'POST', body }),
+    mfaEnrolStart: build.mutation<MfaEnrolStart, { mfaToken: string }>({
+      query: (body) => ({ url: '/auth/mfa/enrol/start', method: 'POST', body }),
     }),
-    passkeyEnrolVerify: build.mutation<
-      { user: AuthUser },
-      { mfaToken: string; response: RegistrationResponseJSON; deviceName: string }
-    >({
-      query: (body) => ({ url: '/auth/webauthn/register/verify', method: 'POST', body }),
-      invalidatesTags: ['Auth'],
+    // Deliberately no `invalidatesTags: ['Auth']`: the person is signed in by this call, but must first
+    // see and save their backup codes. Leaving the page (a reload) is what starts the app.
+    mfaEnrolConfirm: build.mutation<{ user: AuthUser; backupCodes: string[] }, { mfaToken: string; code: string }>({
+      query: (body) => ({ url: '/auth/mfa/enrol/confirm', method: 'POST', body }),
     }),
-    myPasskeys: build.query<PasskeySummary[], void>({
-      query: () => '/auth/passkeys',
-      providesTags: ['Passkeys'],
+
+    // --- authenticator app: the signed-in person's own settings, and the super-admin switch ---
+    mfaStatus: build.query<MfaStatus, void>({
+      query: () => '/auth/mfa',
+      providesTags: ['Mfa'],
     }),
-    passkeyAddOptions: build.mutation<PublicKeyCredentialCreationOptionsJSON, void>({
-      query: () => ({ url: '/auth/passkeys/register/options', method: 'POST' }),
+    mfaSetupStart: build.mutation<MfaEnrolStart, void>({
+      query: () => ({ url: '/auth/mfa/setup/start', method: 'POST' }),
     }),
-    passkeyAddVerify: build.mutation<PasskeySummary, { response: RegistrationResponseJSON; deviceName: string }>({
-      query: (body) => ({ url: '/auth/passkeys/register/verify', method: 'POST', body }),
-      invalidatesTags: ['Passkeys'],
+    mfaSetupConfirm: build.mutation<{ backupCodes: string[] }, { code: string }>({
+      query: (body) => ({ url: '/auth/mfa/setup/confirm', method: 'POST', body }),
+      invalidatesTags: ['Mfa', 'Users'],
     }),
-    removePasskey: build.mutation<void, string>({
-      query: (id) => ({ url: `/auth/passkeys/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Passkeys'],
+    mfaBackupCodes: build.mutation<{ backupCodes: string[] }, { password: string }>({
+      query: (body) => ({ url: '/auth/mfa/backup-codes', method: 'POST', body }),
+      invalidatesTags: ['Mfa'],
+    }),
+    mfaDisable: build.mutation<void, { password: string }>({
+      query: (body) => ({ url: '/auth/mfa/disable', method: 'POST', body }),
+      invalidatesTags: ['Mfa', 'Users'],
+    }),
+    mfaOverview: build.query<MfaOverview, void>({
+      query: () => '/auth/mfa/overview',
+      providesTags: ['Mfa', 'Users'],
+    }),
+    setMfaEnforced: build.mutation<void, { enforced: boolean }>({
+      query: (body) => ({ url: '/auth/mfa/enforcement', method: 'PUT', body }),
+      invalidatesTags: ['Mfa', 'Users'],
+    }),
+    resetUserMfa: build.mutation<void, string>({
+      query: (id) => ({ url: `/users/${id}/mfa-reset`, method: 'POST' }),
+      invalidatesTags: ['Users'],
     }),
 
     // --- users ---
@@ -535,6 +544,7 @@ export const api = createApi({
         companyScope?: Company | null;
         isActive?: boolean;
         isSuperAdmin?: boolean;
+        mfaExempt?: boolean;
       }
     >({
       query: ({ id, ...body }) => ({ url: `/users/${id}`, method: 'PATCH', body }),
@@ -773,14 +783,17 @@ export const {
   useSecurityEventsQuery,
   useSetupInfoQuery,
   useCompleteSetupMutation,
-  usePasskeyAuthOptionsMutation,
-  usePasskeyAuthVerifyMutation,
-  usePasskeyEnrolOptionsMutation,
-  usePasskeyEnrolVerifyMutation,
-  useMyPasskeysQuery,
-  usePasskeyAddOptionsMutation,
-  usePasskeyAddVerifyMutation,
-  useRemovePasskeyMutation,
+  useMfaVerifyMutation,
+  useMfaEnrolStartMutation,
+  useMfaEnrolConfirmMutation,
+  useMfaStatusQuery,
+  useMfaSetupStartMutation,
+  useMfaSetupConfirmMutation,
+  useMfaBackupCodesMutation,
+  useMfaDisableMutation,
+  useMfaOverviewQuery,
+  useSetMfaEnforcedMutation,
+  useResetUserMfaMutation,
   useUnlockUserMutation,
   useDeleteUserMutation,
   useServicePeriodsQuery,

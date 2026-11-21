@@ -282,8 +282,10 @@ export type PublicUser = {
   lastLoginAt?: string | null;
   /** A setup link is outstanding: the account cannot log in until its owner opens it. */
   mustSetup?: boolean;
-  /** Devices (passkeys) the person has enrolled. */
-  passkeyCount?: number;
+  /** Whether the person has set up the authenticator app. */
+  mfaEnabled?: boolean;
+  /** A super-admin excused them from the authenticator step. */
+  mfaExempt?: boolean;
 };
 
 /** The one-time link an admin hands to a person; the server returns it exactly once. */
@@ -491,13 +493,20 @@ export type IfsunRecord = {
 };
 
 /** What a sign-in answers: a finished sign-in, or the next step still owed. */
-export type LoginResult = { user: AuthUser } | { step: 'passkey' | 'enroll'; mfaToken: string };
+export type LoginResult = { user: AuthUser } | { step: 'totp' | 'enroll'; mfaToken: string };
 
-export type PasskeySummary = {
-  id: string;
-  deviceName: string;
-  deviceType: string | null;
-  backedUp: boolean;
-  createdAt: string;
-  lastUsedAt: string | null;
+/** What the authenticator app screen needs to know about the signed-in person. */
+export type MfaStatus = {
+  enabled: boolean;
+  backupCodesLeft: number;
+  /** Required of everyone right now. */
+  enforced: boolean;
+  exempt: boolean;
+  /** False while it is required of this person: they may not switch it off. */
+  canDisable: boolean;
 };
+
+/** The secret to scan (as a link for the QR code) or type in by hand. */
+export type MfaEnrolStart = { secret: string; otpauthUrl: string };
+
+export type MfaOverview = { enforced: boolean; enrolled: number; active: number; exempt: number };

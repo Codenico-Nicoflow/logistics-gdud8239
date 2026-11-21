@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
 import { checkPassword } from './password-policy';
+import { MfaPolicy } from './mfa-policy.service';
 import { Cron } from '@nestjs/schedule';
 import {
   BCRYPT_ROUNDS,
@@ -64,6 +65,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly events: SecurityEventsService,
+    private readonly mfaPolicy: MfaPolicy,
   ) {}
 
   /**
@@ -105,11 +107,10 @@ export class AuthService {
       throw new UnauthorizedException('שם משתמש או סיסמה שגויים, או שהחשבון ננעל זמנית');
     }
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
-    });
-    await this.events.record(SecurityEventType.LOGIN_SUCCESS, { userId: user.id, ip });
+    // A person who still owes the second step has NOT signed in yet. Resetting the failure counter
+    // here would let someone who knows the password re-enter it to get fresh code guesses forever,
+    // so the reset waits for `finishSignIn`.
+    if ((await this.mfaPolicy.stepFor(user.id)) === 'none') await this.finishSignIn(user.id, ip);
 
     return {
       id: user.id,
@@ -118,6 +119,27 @@ export class AuthService {
       role: user.role,
       companyScope: user.companyScope,
     };
+  }
+
+  /** Everything that must be true of a completed sign-in, whichever steps it took. */
+  async finishSignIn(userId: string, ip?: string, detail?: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
+    });
+    await this.events.record(SecurityEventType.LOGIN_SUCCESS, { userId, ip, detail });
+  }
+
+  /** A wrong second-step code counts like a wrong password: same per-account lockout, same per-IP counter. */
+  async recordSecondFactorFailure(userId: string, ip: string | undefined, what: string): Promise<void> {
+    if (ip) this.noteIpFailure(ip);
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { failedLoginCount: true } });
+    if (!user) return;
+    const lockedUntil = await this.recordFailure(userId, user.failedLoginCount);
+    await this.events.record(SecurityEventType.LOGIN_FAILED, { userId, ip, detail: `second step: ${what}` });
+    if (lockedUntil) {
+      await this.events.record(SecurityEventType.ACCOUNT_LOCKED, { userId, ip, detail: `until ${lockedUntil.toISOString()}` });
+    }
   }
 
   /**
@@ -270,9 +292,10 @@ export class AuthService {
     if (stored.userId !== payload.sub || !stored.user.isActive) {
       throw new UnauthorizedException('המשתמש אינו פעיל');
     }
-    // Once passkeys are required, a session opened before that cannot be renewed by someone who has
-    // none: they sign in again and enrol. (Access tokens already issued run out within minutes.)
-    if (process.env.MFA_ENFORCED === 'true' && (await this.prisma.webauthnCredential.count({ where: { userId: stored.userId } })) === 0) {
+    // Once the authenticator step is required, a session opened before that cannot be renewed by
+    // someone who has not set it up: they sign in again and enrol. (Access tokens already issued run
+    // out within minutes.)
+    if ((await this.mfaPolicy.stepFor(stored.userId)) === 'enroll') {
       throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
     }
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCompleteSetupMutation, useSetupInfoQuery } from '../../lib/api';
 import { apiErrorMessage, Button, Spinner, TextField } from '../../components/ui';
-import { PasskeyStep } from './PasskeyStep';
+import { MfaStep } from './MfaStep';
 import { he } from '../../i18n/he';
 
 /**
@@ -16,8 +16,8 @@ export function SetupPage() {
   const [complete, { isLoading, error }] = useCompleteSetupMutation();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  // Set when passkeys are required: the password is saved, a first device must still be enrolled.
-  const [pending, setPending] = useState<{ step: 'passkey' | 'enroll'; mfaToken: string } | null>(null);
+  // Set when the authenticator app is required: the password is saved, the app must still be set up.
+  const [pending, setPending] = useState<{ step: 'totp' | 'enroll'; mfaToken: string } | null>(null);
 
   const mismatch = confirm.length > 0 && password !== confirm;
 
@@ -46,7 +46,7 @@ export function SetupPage() {
             {he.setup.invalid}
           </p>
         ) : pending ? (
-          <PasskeyStep
+          <MfaStep
             step={pending.step}
             mfaToken={pending.mfaToken}
             onBack={() => window.location.replace('/')}

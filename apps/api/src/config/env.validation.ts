@@ -52,23 +52,6 @@ export class EnvVars {
   @IsNumberString()
   TRUST_PROXY_HOPS?: string;
 
-  /**
-   * "true" makes the passkey step mandatory for everyone. Leave it off until at least two admins have
-   * enrolled a device: turning it on early locks people out until an admin sends them a setup link.
-   */
-  @IsOptional()
-  @IsBooleanString()
-  MFA_ENFORCED?: string;
-
-  /** The site address passkeys are bound to. Defaults to WEB_ORIGIN; changing it invalidates every passkey. */
-  @IsOptional()
-  @IsString()
-  WEBAUTHN_ORIGIN?: string;
-
-  @IsOptional()
-  @IsString()
-  WEBAUTHN_RP_ID?: string;
-
   /** Test-only escape hatch for rate limits; never set this in production. */
   @IsOptional()
   @IsBooleanString()
