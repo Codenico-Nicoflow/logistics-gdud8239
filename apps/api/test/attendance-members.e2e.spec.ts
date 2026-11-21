@@ -1,6 +1,6 @@
 /**
- * Removing a team member from ימי יציאה retires them going forward but must not
- * rewrite the past: a week in which they have entries still shows them.
+ * Removing a team member from ימי יציאה is a real delete: the person and every
+ * entry of theirs go, and the nickname is free to be added again.
  */
 import 'dotenv/config';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -54,65 +54,72 @@ const names = async (date: string): Promise<string[]> => {
   return res.body.rows.map((r: { nickname: string }) => r.nickname);
 };
 
-describe('removing a team member', () => {
-  it('drops them from empty weeks but keeps them where they have entries', async () => {
-    const member = (
-      await request(app.getHttpServer())
-        .post('/api/attendance/members')
-        .set('Cookie', jar)
-        .send({ nickname: NICK, gender: 'M' })
-        .expect(201)
-    ).body;
-    await request(app.getHttpServer())
+describe('deleting a team member', () => {
+  const add = (nickname: string) =>
+    request(app.getHttpServer()).post('/api/attendance/members').set('Cookie', jar).send({ nickname, gender: 'M' });
+  const fill = (teamMemberId: string, date: string, status = 'PRESENT') =>
+    request(app.getHttpServer())
       .post('/api/attendance/cells')
       .set('Cookie', jar)
-      .send({ cells: [{ teamMemberId: member.id, date: '2031-03-04', status: 'PRESENT' }] })
+      .send({ cells: [{ teamMemberId, date, status }] })
       .expect(201);
 
+  it('removes them and all their entries from every week, and frees the name', async () => {
+    const member = (await add(NICK).expect(201)).body;
+    await fill(member.id, '2031-03-04');
     expect(await names('2031-03-04')).toContain(NICK);
-    expect(await names('2031-06-10')).toContain(NICK);
 
-    await request(app.getHttpServer())
-      .patch(`/api/attendance/members/${member.id}`)
-      .set('Cookie', jar)
-      .send({ isActive: false })
-      .expect(200);
+    await request(app.getHttpServer()).delete(`/api/attendance/members/${member.id}`).set('Cookie', jar).expect(200);
 
-    expect(await names('2031-03-04')).toContain(NICK);
+    expect(await names('2031-03-04')).not.toContain(NICK);
     expect(await names('2031-06-10')).not.toContain(NICK);
+    expect(await prisma.attendance.count({ where: { teamMemberId: member.id } })).toBe(0);
 
-    const week = (await request(app.getHttpServer()).get('/api/attendance/week?date=2031-03-04').set('Cookie', jar)).body;
-    expect(week.rows.find((r: { nickname: string }) => r.nickname === NICK).isActive).toBe(false);
+    // The name can be used again, and the new person starts clean.
+    const again = (await add(NICK).expect(201)).body;
+    expect(again.id).not.toBe(member.id);
+    expect(await names('2031-03-04')).toContain(NICK);
   });
 
-  it('is in the Excel backup, with the status and a removed person marked', async () => {
-    const member = (
-      await request(app.getHttpServer())
-        .post('/api/attendance/members')
-        .set('Cookie', jar)
-        .send({ nickname: `${NICK}-אקסל`, gender: 'M' })
-        .expect(201)
-    ).body;
+  it('adding a name left behind by the old deactivate-only removal clears the leftover', async () => {
+    const legacy = (await add(`${NICK}-ישן`).expect(201)).body;
+    await fill(legacy.id, '2031-03-04');
     await request(app.getHttpServer())
-      .post('/api/attendance/cells')
-      .set('Cookie', jar)
-      .send({ cells: [{ teamMemberId: member.id, date: israelToday(), status: 'GIMELIM' }] })
-      .expect(201);
-
-    const wb = await app.get(ExcelExportService).build();
-    const cells: string[] = [];
-    wb.getWorksheet('ימי יציאה')?.eachRow((row) => row.eachCell((c) => cells.push(String(c.value ?? ''))));
-    expect(cells).toContain(`${NICK}-אקסל`);
-    expect(cells).toContain('גימלים');
-
-    await request(app.getHttpServer())
-      .patch(`/api/attendance/members/${member.id}`)
+      .patch(`/api/attendance/members/${legacy.id}`)
       .set('Cookie', jar)
       .send({ isActive: false })
       .expect(200);
-    const after = await app.get(ExcelExportService).build();
-    const cellsAfter: string[] = [];
-    after.getWorksheet('ימי יציאה')?.eachRow((row) => row.eachCell((c) => cellsAfter.push(String(c.value ?? ''))));
-    expect(cellsAfter).toContain(`${NICK}-אקסל (הוסר)`);
+
+    await add(`${NICK}-ישן`).expect(201);
+    expect(await prisma.teamMember.count({ where: { nickname: `${NICK}-ישן` } })).toBe(1);
+    expect(await prisma.attendance.count({ where: { teamMemberId: legacy.id } })).toBe(0);
+  });
+
+  it('still refuses a name that is in use', async () => {
+    await add(`${NICK}-כפול`).expect(201);
+    await add(`${NICK}-כפול`).expect(409);
+  });
+
+  it('is in the Excel backup, and gone from it once deleted', async () => {
+    const member = (await add(`${NICK}-אקסל`).expect(201)).body;
+    await fill(member.id, israelToday(), 'GIMELIM');
+
+    const cellsOf = async (): Promise<string[]> => {
+      const wb = await app.get(ExcelExportService).build();
+      const out: string[] = [];
+      wb.getWorksheet('ימי יציאה')?.eachRow((row) => row.eachCell((c) => out.push(String(c.value ?? ''))));
+      return out;
+    };
+    const before = await cellsOf();
+    expect(before).toContain(`${NICK}-אקסל`);
+    expect(before).toContain('גימלים');
+
+    await request(app.getHttpServer()).delete(`/api/attendance/members/${member.id}`).set('Cookie', jar).expect(200);
+    expect(await cellsOf()).not.toContain(`${NICK}-אקסל`);
+  });
+
+  it('is admin only', async () => {
+    const member = (await add(`${NICK}-הרשאה`).expect(201)).body;
+    await request(app.getHttpServer()).delete(`/api/attendance/members/${member.id}`).expect(401);
   });
 });

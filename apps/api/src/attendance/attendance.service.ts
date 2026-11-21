@@ -13,8 +13,6 @@ export type WeekRow = {
   teamMemberId: string;
   nickname: string;
   gender: Gender;
-  /** `false` for someone removed from the list who still has entries in this week. */
-  isActive: boolean;
   cells: WeekCell[];
 };
 
@@ -67,17 +65,11 @@ export class AttendanceService {
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
 
     const dates = weekDates(date);
+    const members = await this.listMembers();
     const records = await this.prisma.attendance.findMany({
       where: {
         date: { gte: new Date(dates[0] as string), lte: new Date(dates[6] as string) },
       },
-    });
-    // Removing someone only retires them going forward: a week they actually have
-    // entries in keeps showing them, so history is not rewritten by a removal.
-    const withEntries = [...new Set(records.map((r) => r.teamMemberId))];
-    const members = await this.prisma.teamMember.findMany({
-      where: { OR: [{ isActive: true }, { id: { in: withEntries } }] },
-      orderBy: [{ sortOrder: 'asc' }, { nickname: 'asc' }],
     });
 
     const byKey = new Map(
@@ -88,7 +80,6 @@ export class AttendanceService {
       teamMemberId: m.id,
       nickname: m.nickname,
       gender: m.gender,
-      isActive: m.isActive,
       cells: dates.map((d) => {
         const record = byKey.get(`${m.id}|${d}`);
         return { status: record?.status ?? null, note: record?.note ?? null };
@@ -137,7 +128,10 @@ export class AttendanceService {
 
   async createMember(dto: CreateTeamMemberDto) {
     const clash = await this.prisma.teamMember.findUnique({ where: { nickname: dto.nickname } });
-    if (clash) throw new ConflictException(`"${dto.nickname}" כבר קיים ברשימה`);
+    if (clash?.isActive) throw new ConflictException(`"${dto.nickname}" כבר קיים ברשימה`);
+    // An earlier version of "remove" only deactivated the person, which left the nickname
+    // taken and invisible. Such a leftover is cleared here so the name can be used again.
+    if (clash) await this.prisma.teamMember.delete({ where: { id: clash.id } });
 
     const last = await this.prisma.teamMember.findFirst({ orderBy: { sortOrder: 'desc' } });
     return this.prisma.teamMember.create({
@@ -149,6 +143,18 @@ export class AttendanceService {
         sortOrder: dto.sortOrder ?? (last?.sortOrder ?? 0) + 1,
       },
     });
+  }
+
+  /**
+   * A real delete: the person and every entry of theirs (the FK cascades) are gone,
+   * from every week and from the next backup. Removing someone has to free the
+   * nickname, otherwise they could never be added again.
+   */
+  async deleteMember(id: string): Promise<{ deleted: true }> {
+    const member = await this.prisma.teamMember.findUnique({ where: { id } });
+    if (!member) throw new NotFoundException('חבר הצוות אינו קיים');
+    await this.prisma.teamMember.delete({ where: { id } });
+    return { deleted: true };
   }
 
   async updateMember(id: string, dto: UpdateTeamMemberDto) {

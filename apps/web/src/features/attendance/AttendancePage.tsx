@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   useCreateTeamMemberMutation,
   useSetAttendanceMutation,
-  useUpdateTeamMemberMutation,
+  useDeleteTeamMemberMutation,
   useWeekQuery,
 } from '../../lib/api';
 import {
@@ -16,6 +16,7 @@ import {
   Th,
   TextField,
 } from '../../components/ui';
+import { DeleteDialog } from '../../components/DeleteDialog';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { todayIso } from '../../lib/dates';
@@ -179,9 +180,6 @@ export function AttendancePage({ user }: { user: AuthUser }) {
                 <tr key={row.teamMemberId}>
                   <Td className="whitespace-nowrap font-semibold">
                     {row.nickname}
-                    {row.isActive === false && (
-                      <span className="ms-2 text-micro font-normal text-graphite">{he.attendance.removedTag}</span>
-                    )}
                   </Td>
                   {row.cells.map((cell, i) => (
                     <Td key={dates[i]} numeric className="p-1">
@@ -195,11 +193,9 @@ export function AttendancePage({ user }: { user: AuthUser }) {
                   ))}
                   {isAdmin && (
                     <Td className="w-px whitespace-nowrap">
-                      {row.isActive !== false && (
-                        <Button variant="quiet" size="sm" onClick={() => setRemoving(row)}>
-                          {he.attendance.removeMember}
-                        </Button>
-                      )}
+                      <Button variant="quiet" size="sm" onClick={() => setRemoving(row)}>
+                        {he.attendance.removeMember}
+                      </Button>
                     </Td>
                   )}
                 </tr>
@@ -246,7 +242,7 @@ export function AttendancePage({ user }: { user: AuthUser }) {
       </ul>
 
       {adding && <AddMemberDialog onClose={() => setAdding(false)} />}
-      {removing && <RemoveMemberDialog row={removing} onClose={() => setRemoving(null)} />}
+      {removing && <DeleteMemberDialog row={removing} onClose={() => setRemoving(null)} />}
     </div>
   );
 }
@@ -312,11 +308,8 @@ function MemberCard({
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="font-semibold">
           {row.nickname}
-          {row.isActive === false && (
-            <span className="ms-2 text-micro font-normal text-graphite">{he.attendance.removedTag}</span>
-          )}
         </span>
-        {isAdmin && row.isActive !== false && (
+        {isAdmin && (
           <Button variant="quiet" size="sm" onClick={onRemove}>
             {he.attendance.removeMember}
           </Button>
@@ -347,16 +340,12 @@ function MemberCard({
   );
 }
 
-/**
- * Removal is a deactivation, not a delete: the person's past entries stay in the
- * database and in the weeks they belong to. Only the roster going forward changes.
- */
-function RemoveMemberDialog({ row, onClose }: { row: WeekRow; onClose: () => void }) {
-  const [update, { isLoading }] = useUpdateTeamMemberMutation();
+function DeleteMemberDialog({ row, onClose }: { row: WeekRow; onClose: () => void }) {
+  const [deleteMember, { isLoading }] = useDeleteTeamMemberMutation();
   const toast = useToast();
 
   async function submit(): Promise<void> {
-    const result = await update({ id: row.teamMemberId, isActive: false });
+    const result = await deleteMember(row.teamMemberId);
     if ('error' in result) {
       toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
       return;
@@ -366,20 +355,13 @@ function RemoveMemberDialog({ row, onClose }: { row: WeekRow; onClose: () => voi
   }
 
   return (
-    <Modal onClose={onClose} role="alertdialog" className="w-full max-w-sm">
-      <div className="space-y-3 px-5 py-5">
-        <h2 className="text-lead font-semibold">{he.attendance.removeTitle}</h2>
-        <p className="text-meta text-ink-soft">{he.attendance.removeBody(row.nickname)}</p>
-        <div className="flex gap-2 pt-1">
-          <Button variant="danger" onClick={() => void submit()} disabled={isLoading}>
-            {he.attendance.removeMember}
-          </Button>
-          <Button variant="quiet" onClick={onClose} disabled={isLoading}>
-            {he.common.cancel}
-          </Button>
-        </div>
-      </div>
-    </Modal>
+    <DeleteDialog
+      title={he.attendance.removeTitle}
+      body={he.attendance.removeBody(row.nickname)}
+      isLoading={isLoading}
+      onConfirm={() => void submit()}
+      onCancel={onClose}
+    />
   );
 }
 
