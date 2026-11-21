@@ -10,31 +10,25 @@ import {
   TextField,
 } from '../../components/ui';
 import { he } from '../../i18n/he';
+import { addDays, todayIso } from '../../lib/dates';
 import { COMPANIES, type Company, type MovementAction, type MovementRow } from '../../lib/types';
 
-/**
- * Items a report like this exists to track precisely — weapons, optics,
- * anything serialized — vs. the routine accessories (מחסניות, מק פורק,
- * רצועה…) that go out with nearly every handover and just add noise when
- * someone's trying to see "what actually happened today" at a glance.
- * `routine` is computed server-side from the item's real category/
- * isSerialized, not a hardcoded name list, so it tracks the catalog.
- */
-function buildExportUrl(params: URLSearchParams, hideRoutine: boolean): string {
-  const query = new URLSearchParams(params);
-  if (hideRoutine) query.set('hideRoutine', 'true');
-  return `/api/movements/export/daily?${query.toString()}`;
+function buildExportUrl(params: URLSearchParams): string {
+  return `/api/movements/export/daily?${params.toString()}`;
 }
 
-/** Local-timezone day key (YYYY-MM-DD), not UTC — `occurredAt` is an ISO UTC
+/** Israel-timezone day key (YYYY-MM-DD), not UTC — `occurredAt` is an ISO UTC
  *  string, so a plain `.slice(0, 10)` puts anything after ~22:00 Israel time
  *  under the wrong, earlier day. `en-CA` is the one locale whose date format
  *  is already YYYY-MM-DD, so no manual padding/reassembly is needed. */
 function localDayKey(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-CA');
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
 }
 
 const PAGE_SIZE = 500;
+
+type RangeKey = 'today' | 'yesterday' | 'week' | 'custom';
+const RANGES: RangeKey[] = ['today', 'yesterday', 'week', 'custom'];
 
 /**
  * דוח תנועות יומי — every signature-related event (ניפוק, זיכוי, or the
@@ -50,9 +44,19 @@ export function DailyMovementsPage() {
   const [q, setQ] = useState('');
   const [action, setAction] = useState<MovementAction | ''>('');
   const [company, setCompany] = useState<Company | ''>('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [hideRoutine, setHideRoutine] = useState(false);
+  const [range, setRange] = useState<RangeKey>('today');
+  const [customFrom, setCustomFrom] = useState(todayIso());
+  const [customTo, setCustomTo] = useState('');
+
+  // Today by default. "Today" is recomputed on every render so a page left
+  // open past midnight rolls over instead of showing yesterday.
+  const today = todayIso();
+  const { from, to } = useMemo(() => {
+    if (range === 'yesterday') return { from: addDays(today, -1), to: addDays(today, -1) };
+    if (range === 'week') return { from: addDays(today, -6), to: today };
+    if (range === 'custom') return { from: customFrom, to: customTo || customFrom };
+    return { from: today, to: today };
+  }, [range, today, customFrom, customTo]);
 
   const { data, isLoading } = useMovementsQuery({
     ...(q ? { q } : {}),
@@ -63,10 +67,7 @@ export function DailyMovementsPage() {
     take: PAGE_SIZE,
   });
 
-  const visibleRows = useMemo(
-    () => (hideRoutine ? (data?.rows ?? []).filter((r) => !r.routine) : data?.rows ?? []),
-    [data, hideRoutine],
-  );
+  const visibleRows = useMemo(() => data?.rows ?? [], [data]);
 
   const days = useMemo(() => {
     const byDay = new Map<string, MovementRow[]>();
@@ -87,7 +88,6 @@ export function DailyMovementsPage() {
       ...(from ? { from } : {}),
       ...(to ? { to } : {}),
     }),
-    hideRoutine,
   );
 
   return (
@@ -106,7 +106,44 @@ export function DailyMovementsPage() {
       </div>
 
       <Panel>
-        <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-3 border-b border-rule px-4 py-4">
+          <div>
+            <span className="mb-1 block text-meta font-semibold text-ink-soft">{he.dailyMovements.range}</span>
+            <div className="flex overflow-hidden rounded-ctl border border-rule-strong">
+              {RANGES.map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setRange(key)}
+                  className={`h-11 px-4 text-body font-semibold transition-colors ${
+                    range === key ? 'bg-field text-white' : 'bg-card-raised text-ink-soft hover:bg-card'
+                  }`}
+                >
+                  {he.dailyMovements[key === 'week' ? 'lastWeek' : key === 'custom' ? 'pickDate' : key]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {range === 'custom' && (
+            <>
+              <TextField
+                label={he.dailyMovements.date}
+                value={customFrom}
+                onChange={setCustomFrom}
+                type="date"
+                required
+                className="w-44"
+              />
+              <TextField
+                label={he.dailyMovements.untilDate}
+                value={customTo}
+                onChange={setCustomTo}
+                type="date"
+                className="w-44"
+              />
+            </>
+          )}
+        </div>
+        <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
           <TextField label={he.common.search} value={q} onChange={setQ} className="lg:col-span-2" />
           <Select
             label={he.movements.action}
@@ -127,17 +164,6 @@ export function DailyMovementsPage() {
               ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
             ]}
           />
-          <TextField label={he.movements.from} value={from} onChange={setFrom} type="date" />
-        </div>
-        <div className="flex flex-wrap items-end justify-between gap-3 border-t border-rule px-4 py-4">
-          <TextField
-            label={he.movements.to}
-            value={to}
-            onChange={setTo}
-            type="date"
-            className="w-full max-w-[12rem]"
-          />
-          <RoutineToggle checked={hideRoutine} onChange={setHideRoutine} />
         </div>
       </Panel>
 
@@ -157,33 +183,6 @@ export function DailyMovementsPage() {
         </div>
       )}
     </div>
-  );
-}
-
-/** Same visual pattern as the serialized-item toggle in BasketStep — a plain
- *  flex-positioned switch, RTL-safe without fragile transform arbitrary
- *  values. */
-function RoutineToggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2.5">
-      <span className="text-meta font-semibold text-ink-soft">{he.dailyMovements.hideRoutine}</span>
-      <button
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`inline-flex h-7 w-12 items-center rounded-full border px-0.5 transition-colors duration-200 ${
-          checked ? 'justify-end border-field bg-field' : 'justify-start border-rule-strong bg-card-raised'
-        }`}
-      >
-        <span className="h-5.5 w-5.5 rounded-full bg-white shadow-panel transition-transform duration-200 ease-out" />
-      </button>
-    </label>
   );
 }
 

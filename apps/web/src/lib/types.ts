@@ -280,10 +280,6 @@ export type MovementRow = {
   receiptNo: string | null;
   performedBy: string;
   notes: string | null;
-  /** A bulk ACCESSORY item with no מסד (מחסניות, מק פורק, רצועה…) — never a
-   *  serialized item, regardless of category. Drives the "הצג הכל / דוח
-   *  צלם" toggle in the daily report. */
-  routine: boolean;
 };
 
 export type Snapshot = {

@@ -19,10 +19,7 @@ import {
 import { useToast } from '../../components/toast';
 
 import { he } from '../../i18n/he';
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+import { todayIso } from '../../lib/dates';
 
 /**
  * `מסכם` — the once-a-day armory headcount. Only בנשקייה is typed by hand;
@@ -30,7 +27,7 @@ function today(): string {
  * signature data the way the hand-kept sheet did.
  */
 export function SummaryPage() {
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(todayIso());
   const [nashkiya, setNashkiya] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
 

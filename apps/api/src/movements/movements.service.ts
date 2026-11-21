@@ -46,12 +46,6 @@ export type MovementRow = {
   receiptNo: string | null;
   performedBy: string;
   notes: string | null;
-  /** A bulk ACCESSORY item with no מסד — מחסניות, מק פורק, רצועה and the
-   *  like. Never a serialized item, regardless of category: a weapon's own
-   *  accessory (e.g. a serialized optic) is still something to track by its
-   *  own מסד and always counts as routine = false. Lets the frontend offer
-   *  a "הצג הכל" vs "דוח צלם" toggle without a second round-trip. */
-  routine: boolean;
 };
 
 /**
@@ -63,8 +57,20 @@ export type MovementRow = {
 export class MovementsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Only צל"מ items: anything serialized, and everything that is not a bulk
+   * accessory. Bulk accessories with no מסד (מחסניות, מק פורק, רצועה…) go out
+   * with nearly every handover and only add noise to a report about what
+   * actually happened. They stay in the audit log itself; this report just
+   * never lists them. Rows whose item no longer exists are kept.
+   */
+  private readonly TRACKED_ONLY: Prisma.MovementWhereInput = {
+    OR: [{ itemId: null }, { item: { OR: [{ isSerialized: true }, { category: { not: 'ACCESSORY' } }] } }],
+  };
+
   private buildWhere(query: QueryMovementsDto): Prisma.MovementWhereInput {
     return {
+      AND: [this.TRACKED_ONLY],
       ...(query.action ? { action: query.action } : {}),
       ...(query.company ? { companySnapshot: query.company } : {}),
       ...(query.soldierId ? { soldierId: query.soldierId } : {}),
@@ -119,30 +125,23 @@ export class MovementsService {
   }
 
   /**
-   * דוח תנועות יומי as a downloadable sheet — same filters and the same
-   * "הצג הכל / דוח צלם" toggle the screen itself uses (`hideRoutine` drops
-   * every non-serialized ACCESSORY row, same `routine` flag `toRow` already
-   * computes), one row per movement, grouped visually by day with a bold
-   * separator row rather than a separate sheet per day — simpler to scan
+   * דוח תנועות יומי as a downloadable sheet — the same filters (and the same
+   * צל"מ-only rule) the screen uses, one row per movement, grouped visually by
+   * day with a band row rather than a separate sheet per day — simpler to scan
    * and to re-filter in Excel than N sheets would be.
    */
-  async exportDaily(query: QueryMovementsDto, hideRoutine: boolean): Promise<Buffer> {
+  async exportDaily(query: QueryMovementsDto): Promise<Buffer> {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'מערכת לוגיסטיקה';
     wb.created = new Date();
-    await this.addMovementsSheet(wb, query, hideRoutine);
+    await this.addMovementsSheet(wb, query);
     const data = await wb.xlsx.writeBuffer();
     return Buffer.from(data);
   }
 
   /** Adds the styled תנועות sheet — shared by the standalone file and the full workbook. */
-  async addMovementsSheet(
-    wb: ExcelJS.Workbook,
-    query: QueryMovementsDto,
-    hideRoutine: boolean,
-  ): Promise<void> {
-    const all = await this.findAllForExport(query);
-    const rows = hideRoutine ? all.filter((r) => !r.routine) : all;
+  async addMovementsSheet(wb: ExcelJS.Workbook, query: QueryMovementsDto): Promise<void> {
+    const rows = await this.findAllForExport(query);
 
     const COLS = 8;
     const ws = createSheet(wb, 'דוח תנועות יומי', [11, 11, 24, 11, 22, 16, 9, 20]);
@@ -156,7 +155,7 @@ export class MovementsService {
     addTitleBlock(
       ws,
       COLS,
-      hideRoutine ? 'דוח צלם' : 'דוח תנועות',
+      'דוח תנועות',
       [range || 'כל התאריכים', `הופק ${generatedAtLabel()}`].join('   ·   '),
     );
 
@@ -265,7 +264,6 @@ export class MovementsService {
       receiptNo: m.receiptNo,
       performedBy: m.performedByNameSnapshot,
       notes: m.notes,
-      routine: m.item ? m.item.category === 'ACCESSORY' && !m.item.isSerialized : false,
     };
   }
 }

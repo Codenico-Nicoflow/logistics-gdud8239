@@ -6,6 +6,7 @@ import { MovementsService } from '../movements/movements.service';
 import { MesakemService } from '../mesakem/mesakem.service';
 import { AllocationsService } from '../allocations/allocations.service';
 import { ITEM_ORDER } from '../common/item-order';
+import { israelToday } from '../common/israel-date';
 import { CATEGORY_HE, COMPANY_HE, COMPANY_ORDER } from './excel.constants';
 import {
   CATEGORY_TONE,
@@ -39,10 +40,6 @@ type CompanyKey = (typeof COMPANY_ORDER)[number];
 const FOOTER = 'מערכת הלוגיסטיקה של גדוד 8239';
 const BOLD = { name: 'Arial', size: 10.5, bold: true, color: { argb: PALETTE.ink } };
 const MUTED = { name: 'Arial', size: 10.5, color: { argb: PALETTE.graphite } };
-
-function israelDate(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
-}
 
 function dayLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -89,7 +86,7 @@ export class ExcelExportService {
     wb.created = new Date();
     wb.views = [{ x: 0, y: 0, width: 20000, height: 20000, firstSheet: 0, activeTab: 0, visibility: 'visible' }];
 
-    const day = israelDate();
+    const day = israelToday();
     // Created first so it is the first tab, filled last once the numbers exist.
     const overview = createSheet(wb, SHEET.overview, [22, 22, 22, 22]);
 
@@ -98,7 +95,7 @@ export class ExcelExportService {
     const held = await this.addSignatures(wb);
     await this.addCompanies(wb);
     await this.addSoldiers(wb);
-    await this.movements.addMovementsSheet(wb, {}, false);
+    await this.movements.addMovementsSheet(wb, {});
 
     await this.fillOverview(overview, day, held);
     return wb;
@@ -167,7 +164,7 @@ export class ExcelExportService {
    */
   private async addCount(wb: ExcelJS.Workbook): Promise<void> {
     const latest = await this.prisma.countSession.findFirst({ orderBy: { sessionDate: 'desc' } });
-    const day = latest ? latest.sessionDate.toISOString().slice(0, 10) : israelDate();
+    const day = latest ? latest.sessionDate.toISOString().slice(0, 10) : israelToday();
 
     const [sessions, items, nashkiya] = await Promise.all([
       this.prisma.countSession.findMany({ where: { sessionDate: new Date(day) } }),

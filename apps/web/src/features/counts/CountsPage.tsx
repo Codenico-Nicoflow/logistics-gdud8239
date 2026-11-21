@@ -20,11 +20,8 @@ import {
 import { SignaturePad } from '../../components/SignaturePad';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
+import { todayIso } from '../../lib/dates';
 import type { CountShift } from '../../lib/types';
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /**
  * `ספירת נשקיה` — the two-party sign-off on the day's already-entered מסכם
@@ -33,7 +30,7 @@ function today(): string {
  * verifying and signing that existing figure together, not re-entering it.
  */
 export function CountsPage() {
-  const [date, setDate] = useState(today());
+  const [date, setDate] = useState(todayIso());
   const [shift, setShift] = useState<CountShift>('EVENING');
 
   const [responsibleName, setResponsibleName] = useState('');
