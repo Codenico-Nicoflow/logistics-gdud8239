@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
   MinLength,
   ValidateNested,
@@ -61,4 +62,11 @@ export class UpdateTeamMemberDto {
   @IsOptional() @IsEnum(Gender) gender?: Gender;
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() sortOrder?: number;
+}
+
+export class SendWeekDto {
+  /** Any date inside the week to send; omitted means the current week. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'תאריך לא תקין' })
+  date?: string;
 }

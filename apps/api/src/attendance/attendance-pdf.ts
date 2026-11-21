@@ -34,7 +34,7 @@ const STATUS_COLOR: Record<AttendanceStatus, { bg: string; fg: string }> = {
 
 const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 
-type Run = { text: string; hebrew: boolean };
+type Run = { text: string; hebrew: boolean; space: boolean };
 
 /**
  * Splits logical text into runs by the face that has the glyphs: Hebrew letters in
@@ -47,11 +47,14 @@ function runsOf(text: string): Run[] {
   const runs: Run[] = [];
   for (const ch of text) {
     const hebrew = HE.test(ch);
+    // Whitespace is a run of its own: attached to a neighbour it would end up on that
+    // neighbour's far side once runs are placed right to left.
+    const space = /\s/.test(ch);
     // Brackets flip inside right-to-left text; a plain glyph would point the wrong way.
     const out = !hebrew && hasHebrew ? (MIRROR[ch] ?? ch) : ch;
     const last = runs[runs.length - 1];
-    if (last && last.hebrew === hebrew) last.text += out;
-    else runs.push({ text: out, hebrew });
+    if (last && last.hebrew === hebrew && last.space === space) last.text += out;
+    else runs.push({ text: out, hebrew, space });
   }
   return runs;
 }
@@ -89,7 +92,11 @@ export function buildWeekPdf(week: Week, generatedAt: string): Promise<Buffer> {
       opts: { right: number; left?: number; y: number; size: number; bold?: boolean; color?: string; center?: boolean },
     ): void => {
       const w = opts.bold ? 700 : 400;
-      const runs = runsOf(text).map((r) => ({ ...r, font: `${r.hebrew ? 'he' : 'la'}${w}` }));
+      // Text with no Hebrew in it ("Dan Cohen 2", "10 (+1)") reads left to right, so its
+      // runs are laid out in reverse of the right-to-left placement below.
+      const logical = runsOf(text);
+      const ordered = HE.test(text) ? logical : [...logical].reverse();
+      const runs = ordered.map((r) => ({ ...r, font: `${r.hebrew ? 'he' : 'la'}${w}` }));
       doc.fontSize(opts.size);
       const widths = runs.map((r) => doc.font(r.font).widthOfString(r.text));
       const total = widths.reduce((a, b) => a + b, 0);

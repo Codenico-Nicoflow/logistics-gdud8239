@@ -828,3 +828,21 @@ model IfsunRecord {
   @@index([soldierId])
   @@map("ifsun_records")
 }
+
+/// One row per ימי יציאה week posted to Slack, by hand or by the Thursday job.
+///
+/// `cronKey` is the week's start date for the scheduled send only and is unique, so
+/// when two API instances overlap during a deploy at 15:00 only one can claim the
+/// week — the other's insert fails and it stays quiet. Manual sends leave it null.
+model AttendanceWeekSend {
+  id        String   @id @default(uuid())
+  weekStart DateTime @map("week_start") @db.Date
+  sentAt    DateTime @default(now()) @map("sent_at")
+  trigger   String
+  sentBy    String?  @map("sent_by")
+  cronKey   String?  @unique @map("cron_key")
+  error     String?
+
+  @@index([weekStart])
+  @@map("attendance_week_sends")
+}

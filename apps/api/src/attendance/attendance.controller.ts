@@ -4,9 +4,11 @@ import { israelToday } from '../common/israel-date';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { AttendanceService } from './attendance.service';
+import { AttendanceSlackService } from './attendance-slack.service';
 import {
   BulkAttendanceDto,
   CreateTeamMemberDto,
+  SendWeekDto,
   UpdateTeamMemberDto,
 } from './dto/attendance.dto';
 
@@ -26,7 +28,10 @@ function weeksFromToday(iso: string): number {
 
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly attendance: AttendanceService) {}
+  constructor(
+    private readonly attendance: AttendanceService,
+    private readonly slack: AttendanceSlackService,
+  ) {}
 
   @Get('week')
   week(@Query('date') date: string, @CurrentUser() user: AuthUser) {
@@ -55,6 +60,13 @@ export class AttendanceController {
   @Roles('admin')
   createMember(@Body() dto: CreateTeamMemberDto) {
     return this.attendance.createMember(dto);
+  }
+
+  /** Posts the chosen week (default: this one) to the ימי יציאה Slack channel as a PDF. */
+  @Post('send-week')
+  @Roles('admin')
+  sendWeek(@Body() dto: SendWeekDto, @CurrentUser() user: AuthUser) {
+    return this.slack.sendWeek(dto.date ?? israelToday(), 'manual', user.displayName);
   }
 
   @Patch('members/:id')

@@ -458,6 +458,9 @@ export const api = createApi({
       query: ({ id, ...body }) => ({ url: `/attendance/members/${id}`, method: 'PATCH', body }),
       invalidatesTags: ['Attendance'],
     }),
+    sendAttendanceWeek: build.mutation<{ sent: boolean; error?: string; weekStart: string }, { date: string }>({
+      query: (body) => ({ url: '/attendance/send-week', method: 'POST', body }),
+    }),
     createTeamMember: build.mutation<
       TeamMember,
       { nickname: string; gender: 'M' | 'F'; fullName?: string }
@@ -699,6 +702,7 @@ export const {
   useTeamMembersQuery,
   useSetAttendanceMutation,
   useCreateTeamMemberMutation,
+  useSendAttendanceWeekMutation,
   useUpdateTeamMemberMutation,
   useUsersQuery,
   useCreateUserMutation,

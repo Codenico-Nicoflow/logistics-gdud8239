@@ -36,3 +36,6 @@ services:
         sync: false
       - key: MESAKEM_SLACK_CHANNEL_ID
         sync: false
+      # ימי יציאה: the Thursday 15:00 post and the "send to Slack" button (a channel ID, C…).
+      - key: ATTENDANCE_SLACK_CHANNEL_ID
+        sync: false

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   useCreateTeamMemberMutation,
+  useSendAttendanceWeekMutation,
   useSetAttendanceMutation,
   useUpdateTeamMemberMutation,
   useWeekQuery,
@@ -85,6 +86,7 @@ export function AttendancePage({ user }: { user: AuthUser }) {
   const isAdmin = user.role === 'admin';
   const [anchor, setAnchor] = useState(todayIso());
   const [adding, setAdding] = useState(false);
+  const [sending, setSending] = useState(false);
   const [removing, setRemoving] = useState<WeekRow | null>(null);
   const { data, isLoading, isFetching } = useWeekQuery(anchor);
   const [setCells] = useSetAttendanceMutation();
@@ -115,9 +117,14 @@ export function AttendancePage({ user }: { user: AuthUser }) {
           <p className="mt-1 text-ink-soft">{he.attendance.subtitle}</p>
         </div>
         {isAdmin && (
-          <Button variant="quiet" onClick={() => setAdding(true)}>
-            {he.attendance.addMember}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="quiet" onClick={() => setSending(true)} disabled={!data}>
+              {he.attendance.sendToSlack}
+            </Button>
+            <Button variant="quiet" onClick={() => setAdding(true)}>
+              {he.attendance.addMember}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -246,6 +253,9 @@ export function AttendancePage({ user }: { user: AuthUser }) {
       </ul>
 
       {adding && <AddMemberDialog onClose={() => setAdding(false)} />}
+      {sending && data && (
+        <SendWeekDialog anchor={anchor} dates={data.dates} onClose={() => setSending(false)} />
+      )}
       {removing && <RemoveMemberDialog row={removing} onClose={() => setRemoving(null)} />}
     </div>
   );
@@ -373,6 +383,49 @@ function RemoveMemberDialog({ row, onClose }: { row: WeekRow; onClose: () => voi
         <div className="flex gap-2 pt-1">
           <Button variant="danger" onClick={() => void submit()} disabled={isLoading}>
             {he.attendance.removeMember}
+          </Button>
+          <Button variant="quiet" onClick={onClose} disabled={isLoading}>
+            {he.common.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Posts the week on screen to Slack. Outward-facing — the whole channel sees it — so it asks
+ * first, naming the week, rather than firing on a single click.
+ */
+function SendWeekDialog({ anchor, dates, onClose }: { anchor: string; dates: string[]; onClose: () => void }) {
+  const [send, { isLoading }] = useSendAttendanceWeekMutation();
+  const toast = useToast();
+  const label = `${new Date(dates[0] as string).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })} – ${new Date(
+    dates[6] as string,
+  ).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })}`;
+
+  async function submit(): Promise<void> {
+    const result = await send({ date: anchor });
+    if ('error' in result) {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+      return;
+    }
+    if (!result.data.sent) {
+      toast.error({ title: he.toast.failed, detail: result.data.error });
+      return;
+    }
+    toast.success({ title: he.attendance.sent, detail: label });
+    onClose();
+  }
+
+  return (
+    <Modal onClose={onClose} className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <h2 className="text-lead font-semibold">{he.attendance.sendTitle}</h2>
+        <p className="text-meta text-ink-soft">{he.attendance.sendBody(label)}</p>
+        <div className="flex gap-2 pt-1">
+          <Button onClick={() => void submit()} disabled={isLoading}>
+            {he.attendance.sendAction}
           </Button>
           <Button variant="quiet" onClick={onClose} disabled={isLoading}>
             {he.common.cancel}
