@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Tier } from '../common/throttle-tiers';
-import { Roles } from './decorators/roles.decorator';
 import type { CookieOptions, Request, Response } from 'express';
 import { AuthService, type TokenPair } from './auth.service';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './auth.constants';
@@ -82,23 +81,6 @@ export class AuthController {
     if (token) await this.auth.revoke(token);
     this.clearCookies(response);
     return { ok: true };
-  }
-
-  /**
-   * TEMPORARY, admin only: shows what the API sees of the connection, so the number of proxy
-   * hops (Vercel, then Render) can be read once on production and set as TRUST_PROXY_HOPS.
-   * Remove after that — see docs/fix-platform-hardening-and-throttling.md.
-   */
-  @Roles('admin')
-  @Get('debug-ip')
-  debugIp(@Req() request: Request): Record<string, unknown> {
-    return {
-      ip: request.ip,
-      ips: request.ips,
-      xForwardedFor: request.headers['x-forwarded-for'] ?? null,
-      remoteAddress: request.socket.remoteAddress ?? null,
-      trustProxyHops: this.config.get<string>('TRUST_PROXY_HOPS') ?? '0',
-    };
   }
 
   @Get('me')

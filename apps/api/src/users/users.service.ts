@@ -68,6 +68,11 @@ export class UsersService {
       throw new BadRequestException('סתם אפס כמוך לא מקים מנהלים, תוריד ציפיות ותבחר תפקיד אחר');
     }
 
+    // A commander without a company would be read as "unscoped" everywhere, i.e. able to see every company.
+    if (dto.role === 'COMPANY_CMDR' && !dto.companyScope) {
+      throw new BadRequestException('סגן מפקד פלוגה חייב להיות משויך לפלוגה');
+    }
+
     const generated = dto.password ? undefined : AuthService.generatePassword();
     const password = dto.password ?? generated;
     if (!password) throw new BadRequestException('נדרשת סיסמה');

@@ -1,4 +1,5 @@
 import { Tier } from '../common/throttle-tiers';
+import { BoundedIntPipe } from '../common/pipes';
 import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -12,8 +13,8 @@ export class SnapshotsController {
   constructor(private readonly snapshots: SnapshotsService) {}
 
   @Get()
-  list(@Query('limit') limit?: string) {
-    return this.snapshots.list(limit ? Number(limit) : undefined);
+  list(@Query('limit', new BoundedIntPipe(1, 200, 'limit')) limit?: number) {
+    return this.snapshots.list(limit);
   }
 
   @Tier('heavyCreate')

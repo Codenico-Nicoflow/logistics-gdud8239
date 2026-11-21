@@ -1,5 +1,5 @@
 import { Tier } from '../common/throttle-tiers';
-import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Res, ParseEnumPipe } from '@nestjs/common';
 import { CountShift } from '@prisma/client';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -10,6 +10,7 @@ import { DeleteCountDto } from './dto/delete-count.dto';
 import { ReopenCountDto } from './dto/reopen-count.dto';
 import { renderCountSession } from './count-session.html';
 import { sendPrintPage } from '../common/print-page';
+import { IsoDatePipe } from '../common/pipes';
 import type { AuthUser } from '../auth/auth.types';
 
 @Controller('counts')
@@ -26,7 +27,10 @@ export class CountsController {
 
   @Get('sheet')
   @Roles('admin', 'logistics')
-  sheet(@Query('date') date: string, @Query('shift') shift: CountShift) {
+  sheet(
+    @Query('date', new IsoDatePipe()) date: string,
+    @Query('shift', new ParseEnumPipe(CountShift)) shift: CountShift,
+  ) {
     return this.counts.sheet(date, shift);
   }
 

@@ -1,5 +1,11 @@
 import { Transform } from 'class-transformer';
-import { IsDate, IsIn, IsOptional, IsString } from 'class-validator';
+import {
+  IsDate,
+  IsIn,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { PaginationDto } from '../../common/pagination.dto';
 import { asDate } from '../../movements/dto/query-movements.dto';
 
@@ -11,6 +17,7 @@ export class QueryIfsunDto extends PaginationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value))
   q?: string;
 

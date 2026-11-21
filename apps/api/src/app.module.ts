@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
@@ -25,6 +25,7 @@ import { IfsunModule } from './ifsun/ifsun.module';
 import { DbBackupsModule } from './db-backups/db-backups.module';
 import { AppController } from './app.controller';
 import { ipTracker, onlyForTier, perMinute, trackerOf } from './common/throttle-tiers';
+import { RejectNullBytesPipe } from './common/pipes';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
@@ -107,6 +108,8 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     // JwtAuthGuard untouched and are limited by IP.
     // Authentication is global and opted out of with @Public(), so a new route
     // is protected by default rather than by remembering to add a guard.
+    // Runs on every query, body and path parameter (see RejectNullBytesPipe).
+    { provide: APP_PIPE, useClass: RejectNullBytesPipe },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

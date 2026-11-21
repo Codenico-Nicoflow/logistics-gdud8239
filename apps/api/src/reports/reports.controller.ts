@@ -1,3 +1,4 @@
+import { OptionalIsoDatePipe } from '../common/pipes';
 import { Controller, Get, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import {
@@ -21,7 +22,7 @@ export class ReportsController {
 
   @Get('summary')
   @Roles('admin', 'logistics')
-  summary(@Query('date') date?: string): Promise<SummaryRow[]> {
+  summary(@Query('date', new OptionalIsoDatePipe()) date?: string): Promise<SummaryRow[]> {
     return this.reports.summary(date);
   }
 

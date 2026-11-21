@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseEnumPipe, Patch, Post, Query } from '@nestjs/common';
 import { Company } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermission } from '../auth/decorators/permission.decorator';
@@ -80,14 +80,14 @@ export class AllocationsController {
   findSoldierAllocations(
     @Param('id') id: string,
     @CurrentUser() actor: AuthUser,
-    @Query('company') company?: Company,
+    @Query('company', new ParseEnumPipe(Company, { optional: true })) company?: Company,
   ) {
     return this.allocations.findSoldierAllocations(id, actor, company);
   }
 
   @Get('service-periods/:id/soldier-allocations/soldiers')
   @RequirePermission('allocations.company', 'READ', ['COMPANY_CMDR'])
-  findCompanySoldiers(@CurrentUser() actor: AuthUser, @Query('company') company?: Company) {
+  findCompanySoldiers(@CurrentUser() actor: AuthUser, @Query('company', new ParseEnumPipe(Company, { optional: true })) company?: Company) {
     return this.allocations.findCompanySoldiers(actor, company);
   }
 

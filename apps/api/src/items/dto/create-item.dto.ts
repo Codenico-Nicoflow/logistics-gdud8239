@@ -1,6 +1,7 @@
 import { ItemCategory } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -8,8 +9,9 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  Min,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 
@@ -22,7 +24,9 @@ export class CreateItemDto {
   /** Alternative spellings the Excel import should resolve to this item. */
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(30)
   @IsString({ each: true })
+  @MaxLength(80, { each: true })
   aliases?: string[];
 
   @IsEnum(ItemCategory, { message: 'קטגוריה לא חוקית' })
@@ -40,6 +44,7 @@ export class CreateItemDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(1_000_000)
   authorizedQty!: number;
 
   /** Units physically at ימ״ח, out of authorizedQty. Admin-typed count. */
@@ -47,6 +52,7 @@ export class CreateItemDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(1_000_000)
   yamahQty?: number;
 
   /** Bulk (non-serialized) units currently sent out for repair, out of
@@ -56,11 +62,13 @@ export class CreateItemDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(1_000_000)
   repairQty?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(100_000_000)
   unitPrice?: number;
 }

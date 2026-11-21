@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 const PNG = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
 
@@ -12,6 +22,7 @@ export class StoreDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100_000)
   quantity?: number;
 
   @IsOptional()

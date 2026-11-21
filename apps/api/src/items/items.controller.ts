@@ -1,18 +1,10 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { InstanceStatus } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ItemsService } from './items.service';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
+import { SetInstanceStatusDto } from './dto/set-instance-status.dto';
 import { CreateInstanceDto } from './dto/create-instance.dto';
 
 @Controller('items')
@@ -68,8 +60,8 @@ export class ItemsController {
   @Patch('instances/:instanceId/status')
   @Roles('admin', 'logistics')
   setInstanceStatus(
-    @Param('instanceId') instanceId: string,
-    @Body() body: { status: InstanceStatus; notes?: string },
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Body() body: SetInstanceStatusDto,
   ) {
     return this.items.setInstanceStatus(instanceId, body.status, body.notes);
   }

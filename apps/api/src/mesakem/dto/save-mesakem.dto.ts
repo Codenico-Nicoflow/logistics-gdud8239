@@ -1,11 +1,13 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsDateString,
   IsInt,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -19,6 +21,7 @@ export class MesakemLineDto {
   @Type(() => Number)
   @IsInt()
   @Min(0, { message: 'כמות לא יכולה להיות שלילית' })
+  @Max(1_000_000)
   nashkiyaQty!: number;
 }
 
@@ -27,6 +30,7 @@ export class SaveMesakemDto {
   sessionDate!: string;
 
   @IsArray()
+  @ArrayMaxSize(500)
   @ValidateNested({ each: true })
   @Type(() => MesakemLineDto)
   lines!: MesakemLineDto[];

@@ -1,6 +1,7 @@
 import { AttendanceStatus, Gender } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -35,6 +36,7 @@ export class SetAttendanceDto {
 
 export class BulkAttendanceDto {
   @IsArray()
+  @ArrayMaxSize(500)
   @ValidateNested({ each: true })
   @Type(() => SetAttendanceDto)
   cells!: SetAttendanceDto[];
