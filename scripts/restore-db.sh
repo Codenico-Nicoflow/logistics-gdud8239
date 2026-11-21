@@ -25,8 +25,14 @@ if [[ -z "$DUMP" || -z "$TARGET" || ! -f "$DUMP" ]]; then
   echo "usage: $0 <dump.sql.gz> [<target-postgres-url>] [--compare <source-postgres-url>]  (or set RESTORE_DATABASE_URL)" >&2; exit 2
 fi
 
-# psql does not understand Prisma's ?schema= parameter.
-strip() { echo "${1%%\?*}"; }
+# psql does not understand Prisma's ?schema= parameter, and libpq rejects node-pg's
+# sslmode=no-verify (same meaning as require: encrypted, certificate not checked).
+strip() {
+  local u="${1%%\?*}" q=""
+  [[ "$1" == *\?* ]] && q="${1#*\?}"
+  if [[ "$q" == *sslmode=no-verify* ]]; then u="$u?sslmode=require"; fi
+  echo "$u"
+}
 T="$(strip "$TARGET")"
 
 existing=$(psql "$T" -tA -c "select count(*) from information_schema.tables where table_schema = 'public'")
