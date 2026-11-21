@@ -94,7 +94,6 @@ export class SignaturesService {
       ...(query.includeReturned ? {} : { returnedAt: null }),
       ...(query.itemId ? { itemId: query.itemId } : {}),
       ...(query.soldierId ? { soldierId: query.soldierId } : {}),
-      ...(query.needsAttentionOnly ? { needsAttention: true } : {}),
       ...(query.company ? { soldier: { company: query.company } } : {}),
       ...(query.q ? { OR: searchClauses(query.q) } : {}),
     };
@@ -125,9 +124,6 @@ export class SignaturesService {
       signatures: { some: { returnedAt: null } },
       ...(query.company ? { company: query.company } : {}),
       ...(query.itemId ? { signatures: { some: { returnedAt: null, itemId: query.itemId } } } : {}),
-      ...(query.needsAttentionOnly
-        ? { signatures: { some: { returnedAt: null, needsAttention: true } } }
-        : {}),
       ...(query.q ? { OR: soldierClauses(query.q) } : {}),
     };
 
@@ -428,56 +424,5 @@ export class SignaturesService {
 
       return updated;
     });
-  }
-
-  /**
-   * Fills in a serial that the Excel import could not supply, clearing the
-   * "דרוש טיפול" flag.
-   *
-   * This is a data correction, not a weapon movement — the item was already
-   * signed to the soldier — so it is deliberately not written to דוח תנועות.
-   * The import issue it resolves is closed instead, which is the audit trail.
-   */
-  async backfillSerial(signatureId: string, serial: string, actor: AuthUser): Promise<Signature> {
-    const signature = await this.prisma.signature.findUnique({
-      where: { id: signatureId },
-      include: { soldier: true, item: true },
-    });
-    if (!signature) throw new NotFoundException('החתימה אינה קיימת');
-    if (signature.returnedAt) throw new BadRequestException('החתימה זוכתה כבר');
-    if (signature.itemInstanceId) throw new BadRequestException('לחתימה זו יש כבר מסד');
-    // Allowed whatever the item's flag: recording a מסד that was missing is an
-    // improvement to the record either way.
-
-    const trimmed = serial.trim();
-    if (!trimmed) throw new BadRequestException('נדרש מסד');
-
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        const instance = await tx.itemInstance.upsert({
-          where: { itemId_serial: { itemId: signature.itemId, serial: trimmed } },
-          update: {},
-          create: { itemId: signature.itemId, serial: trimmed },
-        });
-
-        const updated = await tx.signature.update({
-          where: { id: signature.id },
-          data: { itemInstanceId: instance.id, needsAttention: false },
-        });
-
-        // Close the matching import issue, if one is open.
-        await tx.importIssue.updateMany({
-          where: { signatureId: signature.id, kind: 'MISSING_SERIAL', resolvedAt: null },
-          data: { resolvedAt: new Date() },
-        });
-
-        return updated;
-      });
-    } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === UNIQUE_VIOLATION) {
-        throw new ConflictException(`מסד "${trimmed}" חתום כבר על חייל אחר`);
-      }
-      throw e;
-    }
   }
 }

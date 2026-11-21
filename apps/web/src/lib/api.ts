@@ -18,7 +18,6 @@ import type {
   MatrixRow,
   MovementAction,
   MovementRow,
-  NeedsAttention,
   Paginated,
   Signature,
   SoldierSummary,
@@ -88,7 +87,6 @@ export const api = createApi({
     'Movements',
     'Snapshots',
     'DbBackups',
-    'Attention',
     'Counts',
     'Mesakem',
     'Attendance',
@@ -187,10 +185,6 @@ export const api = createApi({
       }),
       providesTags: ['Items', 'Signatures'],
     }),
-    needsAttention: build.query<NeedsAttention, void>({
-      query: () => '/items/needs-attention',
-      providesTags: ['Attention'],
-    }),
 
     // --- signatures ---
     signatures: build.query<
@@ -201,7 +195,6 @@ export const api = createApi({
         itemId?: string;
         soldierId?: string;
         includeReturned?: boolean;
-        needsAttentionOnly?: boolean;
         take?: number;
         skip?: number;
       }
@@ -215,7 +208,6 @@ export const api = createApi({
         q?: string;
         company?: Company;
         itemId?: string;
-        needsAttentionOnly?: boolean;
         take?: number;
         skip?: number;
       }
@@ -240,14 +232,6 @@ export const api = createApi({
     returnItem: build.mutation<Signature, { id: string; quantity?: number; notes?: string }>({
       query: ({ id, ...body }) => ({ url: `/signatures/${id}/return`, method: 'POST', body }),
       invalidatesTags: ['Signatures', 'Reports', 'Movements', 'Soldiers', 'Items'],
-    }),
-    backfillSerial: build.mutation<Signature, { id: string; serial: string }>({
-      query: ({ id, serial }) => ({
-        url: `/signatures/${id}/backfill-serial`,
-        method: 'POST',
-        body: { serial },
-      }),
-      invalidatesTags: ['Signatures', 'Attention', 'Movements', 'Items'],
     }),
 
     // --- reports ---
@@ -633,8 +617,7 @@ export const api = createApi({
         'Items',
         'Reports',
         'Movements',
-        'Attention',
-        'Snapshots',
+            'Snapshots',
       ],
     }),
   }),
@@ -648,12 +631,10 @@ export const {
   useItemsQuery,
   useItemQuery,
   useAvailableInstancesQuery,
-  useNeedsAttentionQuery,
   useSignaturesQuery,
   useSignatureHoldersQuery,
   useIssueItemMutation,
   useReturnItemMutation,
-  useBackfillSerialMutation,
   useSummaryQuery,
   useMesakemSheetQuery,
   useSaveMesakemMutation,

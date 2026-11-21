@@ -3,7 +3,6 @@ import {
   useCompanyMatrixQuery,
   useLatestCountQuery,
   useMeQuery,
-  useNeedsAttentionQuery,
   useSummaryQuery,
   useTodayQuery,
 } from '../../lib/api';
@@ -51,7 +50,6 @@ function daysSince(iso: string): number {
 export function DashboardPage() {
   const summary = useSummaryQuery();
   const matrix = useCompanyMatrixQuery();
-  const attention = useNeedsAttentionQuery();
   const today = useTodayQuery();
   const count = useLatestCountQuery();
   const me = useMeQuery();
@@ -68,7 +66,6 @@ export function DashboardPage() {
   const gapRows = rows
     .filter((r) => r.gap !== null && r.gap !== 0)
     .sort((a, b) => Math.abs(b.gap ?? 0) - Math.abs(a.gap ?? 0));
-  const attentionCount = attention.data?.issues.length ?? 0;
 
   const perCompany = COMPANIES.map((company) => ({
     company,
@@ -95,11 +92,6 @@ export function DashboardPage() {
           // of unchecked items belongs next to it — without that, "0 gaps"
           // reads as "all clear" when most of the shelf was never looked at.
           hint={uncounted > 0 ? he.dashboard.uncounted(uncounted) : undefined}
-        />
-        <Figure
-          label={he.dashboard.needsAttention}
-          value={attentionCount}
-          tone={attentionCount ? 'oxide' : 'ink'}
         />
       </div>
 

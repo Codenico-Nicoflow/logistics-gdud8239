@@ -20,7 +20,6 @@ import {
   Select,
   Serial,
   Spinner,
-  Tag,
   TableScroll,
   Td,
   Th,
@@ -125,11 +124,6 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
                       >
                         <Td className="font-semibold">
                           {h.firstName} {h.lastName}
-                          {h.needsAttention && (
-                            <Tag tone="oxide">
-                              <span className="mx-1">{he.attention.title}</span>
-                            </Tag>
-                          )}
                         </Td>
                         <Td>{he.companies[h.company]}</Td>
                         <Td numeric>{h.itemCount}</Td>
@@ -226,11 +220,6 @@ function SoldierDetail({
                     <span className="font-semibold">{s.item.name}</span>
                     {s.itemInstance && <Serial value={s.itemInstance.serial} />}
                     {s.quantity > 1 && <span className="text-meta text-graphite">×{s.quantity}</span>}
-                    {s.needsAttention && (
-                      <Tag tone="oxide">
-                        <span className="mx-1">{he.attention.title}</span>
-                      </Tag>
-                    )}
                   </span>
                   <span className="whitespace-nowrap text-meta text-graphite">
                     {formatDateTime(s.signedAt)}

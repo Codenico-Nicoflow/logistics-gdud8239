@@ -44,7 +44,6 @@ export const SHEET = {
   weaponNames: ' רשימת שמות נשק',
   priceList: 'מחירון פריטים',
   movements: 'דוח תנועות',
-  issues: 'דרוש טיפול',
 } as const;
 
 /** `צלמ` header row, in the original column order. */

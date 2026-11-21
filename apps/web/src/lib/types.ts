@@ -125,7 +125,6 @@ export type Signature = {
   notes: string | null;
   signedAt: string;
   returnedAt: string | null;
-  needsAttention: boolean;
   soldier: SoldierSummary;
   item: Item;
   itemInstance: ItemInstance | null;
@@ -147,7 +146,6 @@ export type SignatureHolder = {
   phone: string | null;
   company: Company;
   itemCount: number;
-  needsAttention: boolean;
   signatures: HolderSignature[];
   forms: { id: string; formNo: number; signedAt: string }[];
 };
@@ -326,22 +324,6 @@ export type MovementRow = {
    *  serialized item, regardless of category. Drives the "הצג הכל / דוח
    *  צלם" toggle in the daily report. */
   routine: boolean;
-};
-
-export type ImportIssue = {
-  id: string;
-  kind: IssueKind;
-  rowNumber: number;
-  rawRow: string;
-  detail: string;
-  signatureId: string | null;
-  serial: string | null;
-  resolvedAt: string | null;
-};
-
-export type NeedsAttention = {
-  issues: ImportIssue[];
-  signatures: Signature[];
 };
 
 export type Snapshot = {
