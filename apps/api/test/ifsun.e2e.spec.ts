@@ -14,6 +14,8 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import ExcelJS from 'exceljs';
+import { ExcelExportService } from '../src/excel/excel-export.service';
 import { israelToday } from '../src/common/israel-date';
 
 const STAFF = { username: 'e2e_ifsun_staff', password: 'e2e-ifsun-staff-123' };
@@ -152,6 +154,20 @@ describe('אפסון', () => {
       .set('Cookie', jar)
       .expect(200);
     expect(past.body.total).toBe(0);
+  });
+
+  it('puts closed records and signer names in the Excel backup, not just what is stored now', async () => {
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201)).body;
+    await post(`ifsun/${rec.id}/collect`, { signatureImage: PNG, signerName: 'אחיו של החייל' }).expect(201);
+
+    const wb = await app.get(ExcelExportService).build();
+    const ws = wb.getWorksheet('אפסון');
+    const cells: string[] = [];
+    ws?.eachRow((row) => row.eachCell((c) => cells.push(String(c.value ?? ''))));
+    expect(cells).toContain('אחיו של החייל');
+    expect(cells).toContain('נלקח');
+    expect(cells).toContain('הפקדה + לקיחה');
+    expect(wb).toBeInstanceOf(ExcelJS.Workbook);
   });
 
   it('refuses accessories — slings and magazines are stripped off, not stored', async () => {

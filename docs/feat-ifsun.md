@@ -35,3 +35,7 @@ Deposit and collection are each signed on the device with the same pad as the 10
 
 ## History at scale
 `GET /ifsun` filters on the server by `status`, `q`, and `from`/`to` (the day it was stored, whole Israeli days, same parsing as דוח תנועות) and pages with `skip`/`take` (default 50). The history tab has date range, status and search, 25 per page with previous/next and a "page X of Y · N records" line. Changing a filter returns to page 1.
+
+## What the backups hold
+- DB backup (pg_dump, Slack): everything, including the signature drawings.
+- Excel: the `אפסון` sheet is now the whole ledger (stored now + history): soldier, item, מסד, status, when stored, who signed the deposit, when closed, who signed the collection, who logged it, and whether each signature is on file. The drawings are not embedded in the workbook on purpose (size); the DB backup has them.
