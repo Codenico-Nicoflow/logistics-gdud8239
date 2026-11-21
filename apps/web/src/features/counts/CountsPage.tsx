@@ -57,6 +57,13 @@ export function CountsPage() {
 
   const isClosed = data?.session?.isClosed ?? false;
 
+  // The web and the API deploy separately, so for a few minutes after a release
+  // this screen can get a sheet without `figureDate`; show nothing rather than
+  // "Invalid Date".
+  const figureDate = data?.figureDate ? new Date(`${data.figureDate}T00:00:00`) : null;
+  const figureDay =
+    figureDate && !Number.isNaN(figureDate.getTime()) ? figureDate.toLocaleDateString('he-IL') : null;
+
   // Reload the signer fields whenever the sheet changes, so switching date or
   // shift shows what was actually recorded rather than a stale draft.
   useEffect(() => {
@@ -234,12 +241,9 @@ export function CountsPage() {
       </Panel>
 
       <Panel>
-        {data && (
+        {figureDay && (
           <div className="border-b border-rule px-4 py-2 text-meta text-graphite">
-            {he.counts.figureNote(
-              new Date(`${data.figureDate}T00:00:00`).toLocaleDateString('he-IL'),
-              shift === 'MORNING',
-            )}
+            {he.counts.figureNote(figureDay, shift === 'MORNING')}
           </div>
         )}
         {isLoading || isFetching ? (
