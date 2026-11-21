@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MesakemService } from '../mesakem/mesakem.service';
 import type { AuthUser } from '../auth/auth.types';
 import type { SaveCountDto } from './dto/save-count.dto';
+import { ITEM_ORDER } from '../common/item-order';
 
 export type CountSheetRow = {
   itemId: string;
@@ -55,7 +56,7 @@ export class CountsService {
     const [items, nashkiyaByItem, session] = await Promise.all([
       this.prisma.item.findMany({
         where: { isActive: true, inSummary: true },
-        orderBy: { name: 'asc' },
+        orderBy: ITEM_ORDER,
       }),
       this.mesakem.nashkiyaFor(sessionDate),
       this.prisma.countSession.findUnique({
@@ -181,7 +182,7 @@ export class CountsService {
     const session = await this.prisma.countSession.findUniqueOrThrow({ where: { id } });
 
     const [items, nashkiyaByItem] = await Promise.all([
-      this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: { name: 'asc' } }),
+      this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
       this.mesakem.nashkiyaFor(session.sessionDate.toISOString().slice(0, 10)),
     ]);
 

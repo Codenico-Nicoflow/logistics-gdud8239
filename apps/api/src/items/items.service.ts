@@ -10,6 +10,7 @@ import { syncAuthorizedQty } from './sync-authorized-qty';
 import type { CreateItemDto } from './dto/create-item.dto';
 import type { UpdateItemDto } from './dto/update-item.dto';
 import type { CreateInstanceDto } from './dto/create-instance.dto';
+import { ITEM_ORDER } from '../common/item-order';
 
 @Injectable()
 export class ItemsService {
@@ -18,7 +19,7 @@ export class ItemsService {
   findAll(includeInactive = false): Promise<Item[]> {
     return this.prisma.item.findMany({
       where: includeInactive ? {} : { isActive: true },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      orderBy: ITEM_ORDER,
     });
   }
 

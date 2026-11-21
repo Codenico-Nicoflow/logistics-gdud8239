@@ -176,6 +176,12 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
         roles: ['admin', 'logistics', 'SAMGAD'],
       },
       {
+        to: '/company-split',
+        label: he.nav.companySplit,
+        icon: <CompanyIcon />,
+        roles: ['admin', 'logistics', 'SAMGAD'],
+      },
+      {
         to: '/company-allocation',
         label: he.nav.companyAllocation,
         icon: <CompanyIcon />,

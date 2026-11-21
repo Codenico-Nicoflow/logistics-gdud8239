@@ -296,7 +296,10 @@ export type PublicUser = {
 };
 
 export type MatrixRow = {
+  itemId: string;
   itemName: string;
+  category: ItemCategory;
+  inSummary: boolean;
   byCompany: Record<Company, number>;
   total: number;
   inArmory: number;

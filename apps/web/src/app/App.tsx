@@ -17,6 +17,7 @@ import { CountsPage } from '../features/counts/CountsPage';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 import { IntakePage } from '../features/intake/IntakePage';
 import { NamingPage } from '../features/naming/NamingPage';
+import { CompanySplitPage } from '../features/allocations/CompanySplitPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
 import { SoldiersPage } from '../features/soldiers/SoldiersPage';
 import { UsersPage } from '../features/users/UsersPage';
@@ -74,6 +75,9 @@ export function App() {
           {can(['admin', 'logistics']) && <Route path="issue" element={<IssuePage />} />}
           {can(['admin', 'logistics', 'SAMGAD']) && (
             <Route path="service-periods" element={<ServicePeriodsPage user={user} />} />
+          )}
+          {can(['admin', 'logistics', 'SAMGAD']) && (
+            <Route path="company-split" element={<CompanySplitPage />} />
           )}
           {can(['admin', 'COMPANY_CMDR']) && (
             <Route path="company-allocation" element={<CompanyAllocationPage isAdmin={isAdmin} />} />
