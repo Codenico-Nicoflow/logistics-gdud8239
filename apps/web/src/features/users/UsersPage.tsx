@@ -69,6 +69,14 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
         <div>
           <h1 className="text-display font-bold">{he.users.title}</h1>
           <p className="mt-1 text-ink-soft">{he.users.subtitle}</p>
+          {data && (
+            <p className="mt-1 text-meta text-graphite">
+              {he.users.deviceSummary(
+                data.filter((u) => u.isActive && (u.passkeyCount ?? 0) > 0).length,
+                data.filter((u) => u.isActive).length,
+              )}
+            </p>
+          )}
         </div>
         <Button onClick={() => setAdding(true)}>{he.users.add}</Button>
       </div>
@@ -126,6 +134,11 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
                         <Tag>
                           <span className="mx-1">{he.users.inactive}</span>
                         </Tag>
+                      )}
+                      {user.isActive && !user.mustSetup && user.passkeyCount === 0 && (
+                        <span className="ms-2">
+                          <Tag>{he.users.noDevice}</Tag>
+                        </span>
                       )}
                       {user.mustSetup && (
                         <span className="ms-2">

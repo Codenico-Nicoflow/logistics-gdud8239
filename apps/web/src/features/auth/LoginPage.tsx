@@ -1,16 +1,24 @@
 import { useState } from 'react';
 import { useLoginMutation } from '../../lib/api';
 import { Button, TextField } from '../../components/ui';
+import { PasskeyStep } from './PasskeyStep';
 import { he } from '../../i18n/he';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [login, { isLoading, isError }] = useLoginMutation();
+  // Set when the password was right but a device confirmation is still owed.
+  const [pending, setPending] = useState<{ step: 'passkey' | 'enroll'; mfaToken: string } | null>(null);
 
   async function submit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
-    await login({ username, password });
+    const result = await login({ username, password });
+    if ('data' in result && result.data && 'step' in result.data) {
+      // The password is not kept around: the token is all the next step needs.
+      setPassword('');
+      setPending({ step: result.data.step, mfaToken: result.data.mfaToken });
+    }
   }
 
   return (
@@ -23,32 +31,36 @@ export function LoginPage() {
           <h1 className="mt-1 text-lead text-ink-soft">{he.app.name}</h1>
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
-          <TextField
-            label={he.auth.username}
-            value={username}
-            onChange={setUsername}
-            autoFocus
-            required
-          />
-          <TextField
-            label={he.auth.password}
-            value={password}
-            onChange={setPassword}
-            type="password"
-            required
-          />
+        {pending ? (
+          <PasskeyStep step={pending.step} mfaToken={pending.mfaToken} onBack={() => setPending(null)} />
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <TextField
+              label={he.auth.username}
+              value={username}
+              onChange={setUsername}
+              autoFocus
+              required
+            />
+            <TextField
+              label={he.auth.password}
+              value={password}
+              onChange={setPassword}
+              type="password"
+              required
+            />
 
-          {isError && (
-            <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
-              {he.auth.failed}
-            </p>
-          )}
+            {isError && (
+              <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
+                {he.auth.failed}
+              </p>
+            )}
 
-          <Button type="submit" disabled={isLoading || !username || !password} className="w-full">
-            {isLoading ? he.auth.submitting : he.auth.submit}
-          </Button>
-        </form>
+            <Button type="submit" disabled={isLoading || !username || !password} className="w-full">
+              {isLoading ? he.auth.submitting : he.auth.submit}
+            </Button>
+          </form>
+        )}
       </div>
     </main>
   );

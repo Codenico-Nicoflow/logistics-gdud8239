@@ -43,7 +43,15 @@ import type {
   SignatureHolder,
   SetupLink,
   SecurityEventRow,
+  LoginResult,
+  PasskeySummary,
 } from './types';
+import type {
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+} from '@simplewebauthn/browser';
 
 /**
  * Tokens live in httpOnly cookies, so every request must send credentials and
@@ -92,6 +100,7 @@ export const api = createApi({
     'Mesakem',
     'Attendance',
     'Users',
+    'Passkeys',
     'ServicePeriods',
     'Allocations',
     'IssueForms',
@@ -102,7 +111,7 @@ export const api = createApi({
       query: () => '/auth/me',
       providesTags: ['Auth'],
     }),
-    login: build.mutation<{ user: AuthUser }, { username: string; password: string }>({
+    login: build.mutation<LoginResult, { username: string; password: string }>({
       query: (body) => ({ url: '/auth/login', method: 'POST', body }),
       invalidatesTags: ['Auth'],
     }),
@@ -471,6 +480,40 @@ export const api = createApi({
       invalidatesTags: ['Attendance'],
     }),
 
+    // --- passkeys: step 2 of signing in (public) and the person's own devices (signed in) ---
+    passkeyAuthOptions: build.mutation<PublicKeyCredentialRequestOptionsJSON, { mfaToken: string }>({
+      query: (body) => ({ url: '/auth/webauthn/authenticate/options', method: 'POST', body }),
+    }),
+    passkeyAuthVerify: build.mutation<{ user: AuthUser }, { mfaToken: string; response: AuthenticationResponseJSON }>({
+      query: (body) => ({ url: '/auth/webauthn/authenticate/verify', method: 'POST', body }),
+      invalidatesTags: ['Auth'],
+    }),
+    passkeyEnrolOptions: build.mutation<PublicKeyCredentialCreationOptionsJSON, { mfaToken: string }>({
+      query: (body) => ({ url: '/auth/webauthn/register/options', method: 'POST', body }),
+    }),
+    passkeyEnrolVerify: build.mutation<
+      { user: AuthUser },
+      { mfaToken: string; response: RegistrationResponseJSON; deviceName: string }
+    >({
+      query: (body) => ({ url: '/auth/webauthn/register/verify', method: 'POST', body }),
+      invalidatesTags: ['Auth'],
+    }),
+    myPasskeys: build.query<PasskeySummary[], void>({
+      query: () => '/auth/passkeys',
+      providesTags: ['Passkeys'],
+    }),
+    passkeyAddOptions: build.mutation<PublicKeyCredentialCreationOptionsJSON, void>({
+      query: () => ({ url: '/auth/passkeys/register/options', method: 'POST' }),
+    }),
+    passkeyAddVerify: build.mutation<PasskeySummary, { response: RegistrationResponseJSON; deviceName: string }>({
+      query: (body) => ({ url: '/auth/passkeys/register/verify', method: 'POST', body }),
+      invalidatesTags: ['Passkeys'],
+    }),
+    removePasskey: build.mutation<void, string>({
+      query: (id) => ({ url: `/auth/passkeys/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Passkeys'],
+    }),
+
     // --- users ---
     users: build.query<PublicUser[], void>({
       query: () => '/users',
@@ -509,7 +552,7 @@ export const api = createApi({
     setupInfo: build.query<{ username: string; displayName: string; kind: 'INVITE' | 'RESET' }, string>({
       query: (token) => `/auth/setup/${encodeURIComponent(token)}`,
     }),
-    completeSetup: build.mutation<{ user: AuthUser }, { token: string; password: string }>({
+    completeSetup: build.mutation<LoginResult, { token: string; password: string }>({
       query: ({ token, ...body }) => ({ url: `/auth/setup/${encodeURIComponent(token)}`, method: 'POST', body }),
       invalidatesTags: ['Auth'],
     }),
@@ -730,6 +773,14 @@ export const {
   useSecurityEventsQuery,
   useSetupInfoQuery,
   useCompleteSetupMutation,
+  usePasskeyAuthOptionsMutation,
+  usePasskeyAuthVerifyMutation,
+  usePasskeyEnrolOptionsMutation,
+  usePasskeyEnrolVerifyMutation,
+  useMyPasskeysQuery,
+  usePasskeyAddOptionsMutation,
+  usePasskeyAddVerifyMutation,
+  useRemovePasskeyMutation,
   useUnlockUserMutation,
   useDeleteUserMutation,
   useServicePeriodsQuery,

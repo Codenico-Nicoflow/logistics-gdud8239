@@ -4,6 +4,9 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { InvitesService } from './invites.service';
+import { SessionCookies } from './session-cookies';
+import { WebauthnController } from './webauthn.controller';
+import { WebauthnService } from './webauthn.service';
 
 /**
  * Global because the app-wide `JwtAuthGuard` is registered in `AppModule` and
@@ -13,8 +16,8 @@ import { InvitesService } from './invites.service';
 @Global()
 @Module({
   imports: [ConfigModule, JwtModule.register({})],
-  providers: [AuthService, InvitesService],
-  controllers: [AuthController],
-  exports: [AuthService, InvitesService, JwtModule],
+  providers: [AuthService, InvitesService, SessionCookies, WebauthnService],
+  controllers: [AuthController, WebauthnController],
+  exports: [AuthService, InvitesService, WebauthnService, JwtModule],
 })
 export class AuthModule {}
