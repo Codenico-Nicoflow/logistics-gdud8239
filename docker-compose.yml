@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: logistics_dev
       POSTGRES_DB: logistics
     ports:
-      - "5433:5432"
+      # Loopback only: the dev database has a known password and must not be reachable from the
+      # network the laptop happens to be on.
+      - "127.0.0.1:5433:5432"
     volumes:
       - logistics-pgdata:/var/lib/postgresql/data
     healthcheck:
