@@ -192,7 +192,7 @@ export const he = {
     noSoldiers: 'לא נמצא חייל מתאים',
     chooseItem: 'בחר פריט',
     serialLabel: 'מסד הפריט',
-    serialRequired: 'פריט זה דורש מסד — לא ניתן להמשיך בלעדיו',
+    serialRequired: (items: string) => `חסר מסד בפריטים הבאים — יש להזין מסד לכל אחד כדי להמשיך: ${items}`,
     serialHelp: 'בחר מסד פנוי או הקלד אותו',
     availableSerials: 'מסדים פנויים',
     noAvailable: 'אין מסדים פנויים ברשימה — ניתן להקליד מסד חדש',
@@ -204,6 +204,15 @@ export const he = {
     overAllocationBody: (company: string) =>
       `פלוגה ${company} כבר ניצלה את כל הכמות שהוקצתה לה לפריט זה בתקופת השרות הנוכחית. להמשיך בכל זאת?`,
     overAllocationAction: 'הוסף בכל זאת',
+    duplicateTitle: (item: string) => `${item} כבר ברשימה`,
+    duplicateBody: (item: string, count: number, serials: string[]) =>
+      `החייל כבר מקבל ${count > 1 ? `${count} יחידות של` : 'יחידה של'} ${item}${
+        serials.length > 0 ? ` (מסד ${serials.join(', ')})` : ''
+      }. להוסיף עוד אחת?`,
+    duplicateAction: 'הוסף עוד אחד',
+    inList: (n: number) => (n > 1 ? `ברשימה ×${n}` : 'ברשימה'),
+    addPicked: (n: number) => (n === 0 ? 'בחר פריטים' : `הוסף ${n} נבחרים`),
+    clearPicked: 'נקה בחירה',
     alreadyHoldsWarning: 'לחייל כבר יש ציוד חתום. כל שינוי (הוספה, החלפת מסד, החזרה) נעשה דרך מסך חתימות ← ערוך פריטים וחתום מחדש.',
     notEnlistedWarning:'החייל אינו מחויל לתקופת השרות הנוכחית — לא ניתן להמשיך לניפוק. יש לחייל אותו במסך חיילים.',
     notEnlistedTitle: (item: string) => `לא ניתן להוסיף — ${item}`,
@@ -260,7 +269,7 @@ export const he = {
     addItem: 'הוסף פריט',
     searchItem: 'חפש פריט להוספה',
     basket: 'פריטים לחתימה',
-    basketEmpty: 'לא נבחרו פריטים. בחר ערכה או הוסף פריט.',
+    basketEmpty: 'לא נבחרו פריטים. הוסף פריט.',
     remove: 'הסר',
     alreadyInBasket: 'הפריט כבר ברשימה',
     quantityZeroHint: 'כמות 0 מסירה את הפריט מהטופס',

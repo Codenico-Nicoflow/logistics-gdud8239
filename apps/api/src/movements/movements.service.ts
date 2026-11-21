@@ -89,7 +89,7 @@ export class MovementsService {
             OR: [
               { soldierNameSnapshot: { contains: query.q, mode: 'insensitive' } },
               { itemNameSnapshot: { contains: query.q, mode: 'insensitive' } },
-              { serialSnapshot: { contains: query.q } },
+              { serialSnapshot: { contains: query.q, mode: 'insensitive' } },
               { performedByNameSnapshot: { contains: query.q, mode: 'insensitive' } },
               { receiptNo: { contains: query.q } },
             ],

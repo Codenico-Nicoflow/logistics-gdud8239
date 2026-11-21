@@ -14,6 +14,7 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
+import { itemMatches, normalizeSearch } from '../../lib/search';
 import type { Item } from '../../lib/types';
 
 /**
@@ -33,8 +34,8 @@ export function NamingPage() {
   const catalog = useMemo(() => {
     const all = (items.data ?? []).filter((i) => i.isActive);
     if (!query.trim()) return all;
-    const q = query.trim();
-    return all.filter((i) => i.name.includes(q) || i.aliases.some((a) => a.includes(q)));
+    const q = normalizeSearch(query);
+    return all.filter((i) => itemMatches(i, q));
   }, [items.data, query]);
 
   if (items.isLoading) return <Spinner />;

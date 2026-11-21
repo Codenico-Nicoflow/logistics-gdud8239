@@ -36,7 +36,7 @@ import {
   type SignatureHolder,
   type SoldierSummary,
 } from '../../lib/types';
-import { BasketStep, type BasketLine } from '../issue/BasketStep';
+import { BasketStep, newLine, type BasketLine } from '../issue/BasketStep';
 import { SignStep } from '../issue/SignStep';
 
 const PAGE_SIZE = 100;
@@ -475,7 +475,7 @@ function ReissueDialog({ original, onClose }: { original: IssueForm; onClose: ()
       .map((l) => {
         const item = byId.get(l.itemId);
         if (!item) return null;
-        return { item, quantity: l.quantity, serial: l.serialSnapshot ?? '', lineNotes: l.lineNotes ?? '' };
+        return newLine(item, l.quantity, l.serialSnapshot ?? '', l.lineNotes ?? '');
       })
       .filter((l): l is BasketLine => l !== null);
   }, [items.data, original.lines]);
