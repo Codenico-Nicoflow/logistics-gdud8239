@@ -331,6 +331,10 @@ export const api = createApi({
       query: (id) => ({ url: `/counts/${id}/close`, method: 'POST' }),
       invalidatesTags: ['Counts', 'Reports'],
     }),
+    reopenCount: build.mutation<{ id: string; isClosed: boolean }, { id: string; reason: string }>({
+      query: ({ id, reason }) => ({ url: `/counts/${id}/reopen`, method: 'POST', body: { reason } }),
+      invalidatesTags: ['Counts', 'Reports'],
+    }),
 
     // --- catalog management ---
     createItem: build.mutation<
@@ -618,6 +622,7 @@ export const {
   useCountSheetQuery,
   useSaveCountMutation,
   useCloseCountMutation,
+  useReopenCountMutation,
   useCreateItemMutation,
   useUpdateItemMutation,
   useLazyDeletionCheckQuery,

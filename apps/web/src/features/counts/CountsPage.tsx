@@ -4,11 +4,14 @@ import {
   useSaveCountMutation,
   useCloseCountMutation,
   useRecentCountsQuery,
+  useReopenCountMutation,
+  useMeQuery,
 } from '../../lib/api';
 import {
   apiErrorMessage,
   Button,
   CategoryDot,
+  Modal,
   Panel,
   Spinner,
   TableScroll,
@@ -45,6 +48,11 @@ export function CountsPage() {
   const { data, isLoading, isFetching } = useCountSheetQuery({ date, shift });
   const [save, { isLoading: isSaving, error }] = useSaveCountMutation();
   const [close, { isLoading: isClosing, error: closeError }] = useCloseCountMutation();
+  const [reopen, { isLoading: isReopening }] = useReopenCountMutation();
+  const me = useMeQuery();
+  const isAdmin = me.data?.user.role === 'admin';
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const toast = useToast();
 
   const isClosed = data?.session?.isClosed ?? false;
@@ -89,22 +97,42 @@ export function CountsPage() {
     }
   }
 
-  /** Saves the current state first, then closes it — a sign-and-close must
-   * lock in whatever is on screen, not whatever was last saved. */
-  async function signAndClose(): Promise<void> {
-    const complete =
-      responsibleName.trim() &&
+  const signersComplete = Boolean(
+    responsibleName.trim() &&
       responsiblePn.trim() &&
       responsibleRank.trim() &&
       responsibleSignature &&
       officerName.trim() &&
       officerPn.trim() &&
       officerRank.trim() &&
-      officerSignature;
-    if (!complete) {
+      officerSignature,
+  );
+
+  /** Asks first — but only once there is something valid to confirm, so the
+   *  operator is not asked "are you sure?" about an action that would just fail. */
+  function askToClose(): void {
+    if (!signersComplete) {
       toast.error({ title: he.toast.failed, detail: he.counts.needsBothSignatures });
       return;
     }
+    setConfirmingClose(true);
+  }
+
+  async function doReopen(reason: string): Promise<void> {
+    if (!data?.session) return;
+    const result = await reopen({ id: data.session.id, reason });
+    if (result.data) {
+      setReopening(false);
+      toast.success({ title: he.counts.reopened });
+    } else {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    }
+  }
+
+  /** Saves the current state first, then closes it — a sign-and-close must
+   * lock in whatever is on screen, not whatever was last saved. */
+  async function signAndClose(): Promise<void> {
+    setConfirmingClose(false);
     const saveResult = await save(buildBody());
     if (!saveResult.data) {
       toast.error({ title: he.toast.failed, detail: apiErrorMessage(saveResult.error) ?? undefined });
@@ -169,9 +197,32 @@ export function CountsPage() {
         </div>
 
         {isClosed && (
-          <div className="border-t border-rule px-4 py-2.5">
-            <Tag tone="field">{he.counts.closedTag}</Tag>
-            <span className="ms-2 text-meta text-graphite">{he.counts.reopenHint}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-rule px-4 py-2.5">
+            <div>
+              <Tag tone="field">{he.counts.closedTag}</Tag>
+              <span className="ms-2 text-meta text-graphite">{he.counts.reopenHint}</span>
+            </div>
+            {isAdmin && (
+              <Button variant="quiet" size="sm" onClick={() => setReopening(true)}>
+                {he.counts.reopen}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {data?.session?.lastReopen && (
+          <div className="border-t border-rule bg-brass-wash px-4 py-2 text-meta text-ink-soft">
+            {he.counts.lastReopen(
+              data.session.lastReopen.by,
+              new Date(data.session.lastReopen.at).toLocaleString('he-IL', {
+                timeZone: 'Asia/Jerusalem',
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              data.session.lastReopen.reason,
+            )}
           </div>
         )}
 
@@ -251,7 +302,7 @@ export function CountsPage() {
             {apiErrorMessage(closeError) && (
               <span className="text-meta text-oxide">{apiErrorMessage(closeError)}</span>
             )}
-            <Button onClick={() => void signAndClose()} disabled={isClosing || isSaving}>
+            <Button onClick={askToClose} disabled={isClosing || isSaving}>
               {isClosing ? he.counts.closing : he.counts.signAndClose}
             </Button>
           </div>
@@ -259,7 +310,106 @@ export function CountsPage() {
       </Panel>
 
       <RecentSessions onPick={(d, s) => { setDate(d); setShift(s); }} />
+
+      {confirmingClose && (
+        <ConfirmCloseDialog
+          body={he.counts.confirmCloseBody(
+            shift === 'EVENING' ? he.counts.evening : he.counts.morning,
+            new Date(`${date}T00:00:00`).toLocaleDateString('he-IL'),
+            rows.length,
+            responsibleName.trim(),
+            officerName.trim(),
+          )}
+          isLoading={isClosing || isSaving}
+          onConfirm={() => void signAndClose()}
+          onCancel={() => setConfirmingClose(false)}
+        />
+      )}
+      {reopening && (
+        <ReopenDialog
+          isLoading={isReopening}
+          onConfirm={(reason) => void doReopen(reason)}
+          onCancel={() => setReopening(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function ConfirmCloseDialog({
+  body,
+  isLoading,
+  onConfirm,
+  onCancel,
+}: {
+  body: string;
+  isLoading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brass-wash text-brass">
+            <span className="h-2.5 w-2.5 rounded-full bg-brass" />
+          </span>
+          <h2 className="text-lead font-semibold">{he.counts.confirmCloseTitle}</h2>
+        </div>
+        <p className="text-meta text-ink-soft">{body}</p>
+        <div className="flex gap-2 pt-1">
+          <Button onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? he.counts.closing : he.counts.confirmCloseAction}
+          </Button>
+          <Button variant="quiet" onClick={onCancel} disabled={isLoading}>
+            {he.common.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Admin only: undoing a close needs a reason, which is recorded with who did it. */
+function ReopenDialog({
+  isLoading,
+  onConfirm,
+  onCancel,
+}: {
+  isLoading: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const valid = reason.trim().length >= 3;
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-oxide-wash text-oxide">
+            <span className="h-2.5 w-2.5 rounded-full bg-oxide" />
+          </span>
+          <h2 className="text-lead font-semibold">{he.counts.reopenTitle}</h2>
+        </div>
+        <p className="text-meta text-ink-soft">{he.counts.reopenBody}</p>
+        <TextField
+          label={he.counts.reopenReason}
+          value={reason}
+          onChange={setReason}
+          placeholder={he.counts.reopenReasonPlaceholder}
+          autoFocus
+          required
+        />
+        <div className="flex gap-2 pt-1">
+          <Button variant="danger" onClick={() => onConfirm(reason)} disabled={isLoading || !valid}>
+            {he.counts.reopenAction}
+          </Button>
+          <Button variant="quiet" onClick={onCancel} disabled={isLoading}>
+            {he.common.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
