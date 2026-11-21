@@ -26,8 +26,9 @@ export class ReportsController {
     return this.reports.summary(date);
   }
 
+  // SAMGAD too: חלוקה לפלוגות (read-only holdings per company) is his view.
   @Get('companies')
-  @Roles('admin', 'logistics', 'viewer')
+  @Roles('admin', 'logistics', 'viewer', 'SAMGAD')
   companies(): Promise<MatrixRow[]> {
     return this.reports.companyMatrix();
   }

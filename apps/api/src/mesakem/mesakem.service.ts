@@ -1,3 +1,4 @@
+import { ITEM_ORDER } from '../common/item-order';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WebClient } from '@slack/web-api';
@@ -63,7 +64,7 @@ export class MesakemService {
     const date = this.parseDate(sessionDate);
 
     const [items, issuedRows, lines, exportRow] = await Promise.all([
-      this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: { name: 'asc' } }),
+      this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
       this.prisma.signature.groupBy({
         by: ['itemId'],
         where: { returnedAt: null },

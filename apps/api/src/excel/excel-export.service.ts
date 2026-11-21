@@ -1,3 +1,4 @@
+import { ITEM_ORDER } from '../common/item-order';
 import { Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -188,7 +189,7 @@ export class ExcelExportService {
     const morning = latest.find((s) => s.shift === 'MORNING');
     const mostRecent = latest[0];
 
-    const items = await this.prisma.item.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
+    const items = await this.prisma.item.findMany({ where: { isActive: true }, orderBy: ITEM_ORDER });
     const summary = mostRecent
       ? await this.reports.summary(mostRecent.sessionDate.toISOString().slice(0, 10))
       : await this.reports.summary();
