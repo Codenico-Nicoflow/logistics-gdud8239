@@ -9,6 +9,8 @@ export type MovementAction = 'ISSUE' | 'RETURN' | 'STORE' | 'COLLECT';
 export type IfsunStatus = 'STORED' | 'COLLECTED' | 'CREDITED';
 export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
 export type DbBackupKind = 'daily' | 'manual';
+/** Mirrors the API rule: only these categories may be stored (see ifsun-rules.ts there). */
+export const IFSUN_CATEGORIES: ItemCategory[] = ['WEAPON', 'OPTICS', 'DRONE'];
 export const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
 
 export type AuthUser = {

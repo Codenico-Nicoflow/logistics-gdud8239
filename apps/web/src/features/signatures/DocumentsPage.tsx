@@ -32,6 +32,7 @@ import { StoreDialog, type StorableSignature } from '../ifsun/StoreDialog';
 import { he } from '../../i18n/he';
 import {
   COMPANIES,
+  IFSUN_CATEGORIES,
   type AuthUser,
   type Company,
   type IssueForm,
@@ -233,7 +234,7 @@ function SoldierDetail({
                     <span className="whitespace-nowrap text-meta text-graphite">
                       {formatDateTime(s.signedAt)}
                     </span>
-                    {canEditForm && storedQty(s) < s.quantity && (
+                    {canEditForm && IFSUN_CATEGORIES.includes(s.item.category) && storedQty(s) < s.quantity && (
                       <Button
                         variant="quiet"
                         size="sm"

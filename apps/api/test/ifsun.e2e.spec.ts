@@ -137,6 +137,11 @@ describe('אפסון', () => {
     await post(`signatures/${sigId}/return`).expect(400);
   });
 
+  it('refuses accessories — slings and magazines are stripped off, not stored', async () => {
+    await prisma.item.update({ where: { id: itemId }, data: { category: 'ACCESSORY' } });
+    await post('ifsun', { signatureId: sigId }).expect(400);
+  });
+
   it('is closed to viewers', async () => {
     await request(app.getHttpServer()).get('/api/ifsun').set('Cookie', viewerJar).expect(403);
     await post('ifsun', { signatureId: sigId }, viewerJar).expect(403);

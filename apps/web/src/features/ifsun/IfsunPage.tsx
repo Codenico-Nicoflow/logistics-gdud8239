@@ -20,7 +20,7 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import type { IfsunRecord, SignatureHolder } from '../../lib/types';
+import { IFSUN_CATEGORIES, type IfsunRecord, type SignatureHolder } from '../../lib/types';
 import { StoreDialog, type StorableSignature } from './StoreDialog';
 
 type Tab = 'STORED' | 'ALL';
@@ -47,6 +47,15 @@ export function IfsunPage() {
         </div>
         <Button onClick={() => setAdding(true)}>{he.ifsun.newAction}</Button>
       </div>
+
+      <section className="rounded-panel border border-brass/30 bg-brass-wash px-4 py-3">
+        <h2 className="text-meta font-semibold text-brass">{he.ifsun.rulesTitle}</h2>
+        <ol className="mt-1.5 list-decimal space-y-0.5 ps-5 text-meta text-ink-soft">
+          {he.ifsun.rules.map((rule) => (
+            <li key={rule}>{rule}</li>
+          ))}
+        </ol>
+      </section>
 
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
@@ -191,7 +200,9 @@ function NewIfsunDialog({ onClose }: { onClose: () => void }) {
     return <StoreDialog signature={picked} soldierName={`${holder.firstName} ${holder.lastName}`} onClose={onClose} />;
   }
 
-  const free = holder?.signatures.filter((s) => !(s.ifsunRecords && s.ifsunRecords.length >= 1)) ?? [];
+  const free = holder?.signatures.filter(
+      (s) => IFSUN_CATEGORIES.includes(s.item.category) && !(s.ifsunRecords && s.ifsunRecords.length >= 1),
+    ) ?? [];
 
   return (
     <Modal onClose={onClose} className="flex max-h-[85dvh] w-full max-w-md flex-col">

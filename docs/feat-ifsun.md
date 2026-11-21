@@ -21,3 +21,6 @@ A soldier can leave a signed item (a weapon, an optic) in the armory instead of 
 
 ## Backups
 Excel export gets an `אפסון` sheet (what is stored now) and an `אפסון` column on `חתימות`. The pg_dump backup includes the new table automatically; Excel carries only what is stored now, full history lives in the DB dump.
+
+## Only important items
+Only WEAPON / OPTICS / DRONE can be stored (`ifsun-rules.ts`, enforced by the API, mirrored in the UI). Slings, magazines, gear and ammo are refused. The rules (strip sling and magazine, put a note with the soldier's name on the weapon, update the system and verify) are shown at the top of the אפסון page.

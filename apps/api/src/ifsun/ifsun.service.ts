@@ -6,6 +6,7 @@ import type { AuthUser } from '../auth/auth.types';
 import type { Paginated } from '../common/pagination.dto';
 import type { QueryIfsunDto } from './dto/query-ifsun.dto';
 import { storedQtyForSignature } from './stored-qty';
+import { IFSUN_CATEGORIES } from './ifsun-rules';
 
 @Injectable()
 export class IfsunService {
@@ -49,6 +50,9 @@ export class IfsunService {
         include: { soldier: true, item: true, itemInstance: true },
       });
       if (!sig || sig.returnedAt) throw new NotFoundException('החתימה אינה פעילה');
+      if (!IFSUN_CATEGORIES.includes(sig.item.category)) {
+        throw new BadRequestException('מאפסנים רק פריטים חשובים (נשק, אופטיקה, רחפן) — לא אבזור, ציוד או תחמושת');
+      }
 
       const already = await storedQtyForSignature(tx, sig.id);
       const free = sig.quantity - already;
