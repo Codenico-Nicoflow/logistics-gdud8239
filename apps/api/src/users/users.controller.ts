@@ -1,7 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { UsersService, type PublicUser } from './users.service';
+import { UsersService, type PublicUser, type SetupLink } from './users.service';
+import { BoundedIntPipe } from '../common/pipes';
+import { Tier } from '../common/throttle-tiers';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import type { AuthUser } from '../auth/auth.types';
@@ -20,7 +22,7 @@ export class UsersController {
   create(
     @Body() dto: CreateUserDto,
     @CurrentUser() actor: AuthUser,
-  ): Promise<PublicUser & { generatedPassword?: string }> {
+  ): Promise<PublicUser & { setup: SetupLink }> {
     return this.users.create(dto, actor.id);
   }
 
@@ -35,16 +37,23 @@ export class UsersController {
 
   @Post(':id/unlock')
   @HttpCode(204)
-  unlock(@Param('id') id: string): Promise<void> {
-    return this.users.unlock(id);
+  unlock(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser): Promise<void> {
+    return this.users.unlock(id, actor.id);
   }
 
-  @Post(':id/reset-password')
-  resetPassword(
-    @Param('id') id: string,
-    @CurrentUser() actor: AuthUser,
-  ): Promise<{ password: string }> {
-    return this.users.resetPassword(id, actor.id);
+  @Get(':id/security-events')
+  securityEvents(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('take', new BoundedIntPipe(1, 200, 'take')) take?: number,
+  ) {
+    return this.users.securityEvents(id, take);
+  }
+
+  /** A fresh one-time setup link: forgotten password, lost device, or a link that expired. */
+  @Tier('account')
+  @Post(':id/setup-link')
+  issueSetupLink(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser): Promise<SetupLink> {
+    return this.users.issueSetupLink(id, actor.id);
   }
 
   @Delete(':id')

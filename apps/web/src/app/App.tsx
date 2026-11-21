@@ -3,6 +3,7 @@ import { useMeQuery } from '../lib/api';
 import { Shell } from './Shell';
 import { Spinner } from '../components/ui';
 import { LoginPage } from '../features/auth/LoginPage';
+import { SetupPage } from '../features/auth/SetupPage';
 import { IssuePage } from '../features/issue/IssuePage';
 import { ServicePeriodsPage } from '../features/allocations/ServicePeriodsPage';
 import { CompanyAllocationPage } from '../features/allocations/CompanyAllocationPage';
@@ -40,7 +41,22 @@ function defaultPathFor(role: Role): string {
   return '/issue';
 }
 
+/**
+ * The setup page is reachable without being logged in (the person is opening a one-time link to
+ * choose their first password), so it sits above the authentication gate.
+ */
 export function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/setup/:token" element={<SetupPage />} />
+        <Route path="*" element={<AuthenticatedApp />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function AuthenticatedApp() {
   const { data, isLoading } = useMeQuery();
 
   if (isLoading) return <Spinner />;
@@ -52,41 +68,39 @@ export function App() {
   const can = (roles: Role[]): boolean => roles.includes(user.role);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Shell user={user} />} path="/">
-          <Route index element={<Navigate to={defaultPathFor(user.role)} replace />} />
-          {can(OLD_ROLES) && <Route path="documents" element={<DocumentsPage user={user} />} />}
-          {can(['admin', 'logistics']) && <Route path="summary" element={<SummaryPage />} />}
-          {can(['admin', 'logistics']) && (
-            <Route path="daily-movements" element={<DailyMovementsPage />} />
-          )}
-          {can(['admin', 'logistics']) && <Route path="ifsun" element={<IfsunPage />} />}
-          {can(['admin', 'logistics']) && <Route path="counts" element={<CountsPage />} />}
-          {can([...OLD_ROLES, 'SHLISHUT', 'SAMGAD', 'COMPANY_CMDR']) && (
-            <Route path="soldiers" element={<SoldiersPage user={user} />} />
-          )}
-          {can(['admin', 'logistics']) && <Route path="issue" element={<IssuePage />} />}
-          {can(['admin', 'logistics', 'SAMGAD']) && (
-            <Route path="service-periods" element={<ServicePeriodsPage user={user} />} />
-          )}
-          {can(['admin', 'logistics', 'SAMGAD']) && (
-            <Route path="company-split" element={<CompanySplitPage />} />
-          )}
-          {can(['admin', 'COMPANY_CMDR']) && (
-            <Route path="company-allocation" element={<CompanyAllocationPage isAdmin={isAdmin} />} />
-          )}
-          {can(['admin', 'logistics']) && (
-            <Route path="attendance" element={<AttendancePage user={user} />} />
-          )}
-          {isAdmin && <Route path="catalog" element={<CatalogPage />} />}
-          {isAdmin && <Route path="intake" element={<IntakePage />} />}
-          {isAdmin && <Route path="naming" element={<NamingPage />} />}
-          {isAdmin && <Route path="users" element={<UsersPage currentUserId={user.id} />} />}
-          {isAdmin && <Route path="backups" element={<BackupsPage />} />}
-          <Route path="*" element={<Navigate to={defaultPathFor(user.role)} replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route element={<Shell user={user} />} path="/">
+        <Route index element={<Navigate to={defaultPathFor(user.role)} replace />} />
+        {can(OLD_ROLES) && <Route path="documents" element={<DocumentsPage user={user} />} />}
+        {can(['admin', 'logistics']) && <Route path="summary" element={<SummaryPage />} />}
+        {can(['admin', 'logistics']) && (
+          <Route path="daily-movements" element={<DailyMovementsPage />} />
+        )}
+        {can(['admin', 'logistics']) && <Route path="ifsun" element={<IfsunPage />} />}
+        {can(['admin', 'logistics']) && <Route path="counts" element={<CountsPage />} />}
+        {can([...OLD_ROLES, 'SHLISHUT', 'SAMGAD', 'COMPANY_CMDR']) && (
+          <Route path="soldiers" element={<SoldiersPage user={user} />} />
+        )}
+        {can(['admin', 'logistics']) && <Route path="issue" element={<IssuePage />} />}
+        {can(['admin', 'logistics', 'SAMGAD']) && (
+          <Route path="service-periods" element={<ServicePeriodsPage user={user} />} />
+        )}
+        {can(['admin', 'logistics', 'SAMGAD']) && (
+          <Route path="company-split" element={<CompanySplitPage />} />
+        )}
+        {can(['admin', 'COMPANY_CMDR']) && (
+          <Route path="company-allocation" element={<CompanyAllocationPage isAdmin={isAdmin} />} />
+        )}
+        {can(['admin', 'logistics']) && (
+          <Route path="attendance" element={<AttendancePage user={user} />} />
+        )}
+        {isAdmin && <Route path="catalog" element={<CatalogPage />} />}
+        {isAdmin && <Route path="intake" element={<IntakePage />} />}
+        {isAdmin && <Route path="naming" element={<NamingPage />} />}
+        {isAdmin && <Route path="users" element={<UsersPage currentUserId={user.id} />} />}
+        {isAdmin && <Route path="backups" element={<BackupsPage />} />}
+        <Route path="*" element={<Navigate to={defaultPathFor(user.role)} replace />} />
+      </Route>
+    </Routes>
   );
 }

@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
+  Param,
   Post,
   Req,
   Res,
@@ -13,6 +15,8 @@ import { ConfigService } from '@nestjs/config';
 import { Tier } from '../common/throttle-tiers';
 import type { CookieOptions, Request, Response } from 'express';
 import { AuthService, type TokenPair } from './auth.service';
+import { InvitesService } from './invites.service';
+import { SetupPasswordDto } from './dto/setup-password.dto';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './auth.constants';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -24,6 +28,7 @@ import type { AuthUser } from './auth.types';
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly invites: InvitesService,
     private readonly config: ConfigService,
   ) {}
 
@@ -42,6 +47,36 @@ export class AuthController {
       userAgent: request.headers['user-agent'],
       ip: request.ip,
     });
+    this.setCookies(response, tokens);
+    return { user };
+  }
+
+  /**
+   * The setup page asks this before showing the form. An invalid, used or expired link all answer
+   * the same 404, so the endpoint cannot be used to learn which links ever existed.
+   */
+  @Public()
+  @Tier('login')
+  @Get('setup/:token')
+  async describeSetup(@Param('token') token: string): Promise<{ username: string; displayName: string; kind: string }> {
+    const invite = await this.invites.describe(token);
+    if (!invite) throw new NotFoundException('הקישור אינו תקף או שפג תוקפו');
+    return invite;
+  }
+
+  /** The person chooses their own password and is signed in. */
+  @Public()
+  @Tier('login')
+  @Post('setup/:token')
+  @HttpCode(HttpStatus.OK)
+  async completeSetup(
+    @Param('token') token: string,
+    @Body() dto: SetupPasswordDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<{ user: AuthUser }> {
+    const user = await this.invites.complete(token, dto.password, request.ip);
+    const tokens = await this.auth.issueTokens(user, { userAgent: request.headers['user-agent'], ip: request.ip });
     this.setCookies(response, tokens);
     return { user };
   }

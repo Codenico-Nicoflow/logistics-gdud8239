@@ -126,7 +126,9 @@ enum DbBackupKind {
 model User {
   id           String   @id @default(uuid())
   username     String   @unique
-  passwordHash String   @map("password_hash")
+  /// Null until a new user opens his invite link and chooses his own password: nobody else ever
+  /// knows or sets it, and a user without one cannot log in.
+  passwordHash String?  @map("password_hash")
   displayName  String   @map("display_name")
   role         Role
   companyScope Company? @map("company_scope")
@@ -148,8 +150,14 @@ model User {
   /// password ends other sessions now, not when their 15-minute token runs out.
   passwordChangedAt DateTime? @map("password_changed_at")
   lastLoginAt       DateTime? @map("last_login_at")
+  /// True from the moment an admin issues a setup link (new user, or a forgotten password / lost
+  /// device) until it is used. While set, the account cannot log in.
+  mustSetup         Boolean   @default(false) @map("must_setup")
 
   refreshTokens       RefreshToken[]
+  invites             UserInvite[]         @relation("inviteFor")
+  invitesCreated      UserInvite[]         @relation("inviteBy")
+  securityEvents      SecurityEvent[]      @relation("eventFor")
   importLogs          ImportLog[]
   signaturesIssued    Signature[]          @relation("signedBy")
   signaturesReturned  Signature[]          @relation("returnedBy")
@@ -854,4 +862,43 @@ model AttendanceWeekSend {
 
   @@index([weekStart])
   @@map("attendance_week_sends")
+}
+
+/// A one-time link an admin hands to a person so THEY choose their password. Only the SHA-256 of the
+/// token is stored; the token itself exists once, in the link shown to the admin. `kind` is INVITE
+/// (a new account) or RESET (a forgotten password / lost device).
+model UserInvite {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  tokenHash       String    @unique @map("token_hash")
+  kind            String
+  expiresAt       DateTime  @map("expires_at")
+  usedAt          DateTime? @map("used_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  createdByUserId String?   @map("created_by_user_id")
+
+  user      User  @relation("inviteFor", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("inviteBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("user_invites")
+}
+
+/// What happened on accounts: sign-ins, failures, locks, setup links, password changes. Never holds a
+/// password, token or signature. A failed login for a username that does not exist is not stored (it
+/// would let anyone fill the table), only logged.
+model SecurityEvent {
+  id          String   @id @default(uuid())
+  at          DateTime @default(now())
+  type        String
+  userId      String?  @map("user_id")
+  actorUserId String?  @map("actor_user_id")
+  ip          String?
+  detail      String?
+
+  user User? @relation("eventFor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, at])
+  @@index([at])
+  @@map("security_events")
 }

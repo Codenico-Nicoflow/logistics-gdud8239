@@ -6,7 +6,7 @@ export class ChangePasswordDto {
   currentPassword!: string;
 
   @IsString()
-  @MinLength(10, { message: 'הסיסמה החדשה חייבת להכיל לפחות 10 תווים' })
+  @MinLength(12, { message: 'הסיסמה החדשה חייבת להכיל לפחות 12 תווים' })
   @MaxLength(200, { message: 'סיסמה ארוכה מדי' })
   newPassword!: string;
 }
