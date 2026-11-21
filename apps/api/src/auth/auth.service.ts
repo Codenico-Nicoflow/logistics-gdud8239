@@ -1,10 +1,19 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { BCRYPT_ROUNDS } from './auth.constants';
+import { Cron } from '@nestjs/schedule';
+import {
+  BCRYPT_ROUNDS,
+  LOCKOUT_AFTER_FAILURES,
+  LOCKOUT_BASE_MINUTES,
+  LOCKOUT_MAX_MINUTES,
+  LOGIN_IP_FAILURES_DEFAULT,
+  LOGIN_IP_FAILURE_WINDOW_MS,
+  REFRESH_REUSE_GRACE_MS,
+} from './auth.constants';
 import type { AuthUser, JwtPayload, RefreshPayload } from './auth.types';
 
 /**
@@ -57,19 +66,36 @@ export class AuthService {
   /**
    * Verifies credentials.
    *
-   * A missing username is compared against a dummy hash anyway, so the response
-   * time does not reveal which usernames exist.
+   * Every failure returns the same message and does the same work: a missing username is
+   * compared against a dummy hash, and a locked account is too, so neither the response nor
+   * its timing says which usernames exist or which are locked.
    */
-  async validateCredentials(username: string, password: string): Promise<AuthUser> {
+  async validateCredentials(username: string, password: string, ip?: string): Promise<AuthUser> {
+    if (ip && this.ipBlocked(ip)) {
+      throw new HttpException('יותר מדי ניסיונות כניסה כושלים מהרשת הזו. נסו שוב בעוד כמה דקות', HttpStatus.TOO_MANY_REQUESTS);
+    }
     const user = await this.prisma.user.findUnique({ where: { username } });
+    const locked = !!user?.lockedUntil && user.lockedUntil > new Date();
 
     const hash = user?.passwordHash ?? '$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
     const matches = await bcrypt.compare(password, hash);
 
-    if (!user || !matches || !user.isActive) {
-      this.logger.warn(`Failed login attempt for username="${username}"`);
-      throw new UnauthorizedException('שם משתמש או סיסמה שגויים');
+    if (!user || !user.isActive || locked || !matches) {
+      // The id, never the typed username: people mistype passwords into that field.
+      if (ip) this.noteIpFailure(ip);
+      if (user && user.isActive && !locked) await this.recordFailure(user.id, user.failedLoginCount);
+      this.logger.warn(
+        user
+          ? `Failed login for user ${user.id}${locked ? ' (locked)' : ''}`
+          : `Failed login for an unknown username (${username.length} chars)`,
+      );
+      throw new UnauthorizedException('שם משתמש או סיסמה שגויים, או שהחשבון ננעל זמנית');
     }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
+    });
 
     return {
       id: user.id,
@@ -78,6 +104,77 @@ export class AuthService {
       role: user.role,
       companyScope: user.companyScope,
     };
+  }
+
+  /**
+   * Failed logins per IP, in memory (the API is one instance; a restart simply forgives).
+   * Only FAILURES count — a successful login neither adds to it nor clears it, so an attacker
+   * cannot reset the counter by logging in to an account of their own.
+   */
+  private readonly ipFailures = new Map<string, number[]>();
+
+  private recentFailures(ip: string): number[] {
+    const cutoff = Date.now() - LOGIN_IP_FAILURE_WINDOW_MS;
+    const recent = (this.ipFailures.get(ip) ?? []).filter((t) => t > cutoff);
+    if (recent.length) this.ipFailures.set(ip, recent);
+    else this.ipFailures.delete(ip);
+    return recent;
+  }
+
+  private ipBlocked(ip: string): boolean {
+    if (process.env.DISABLE_RATE_LIMIT === 'true') return false;
+    const limit = Number(process.env.LOGIN_IP_FAILURES_PER_15MIN) || LOGIN_IP_FAILURES_DEFAULT;
+    return this.recentFailures(ip).length >= limit;
+  }
+
+  private noteIpFailure(ip: string): void {
+    const recent = this.recentFailures(ip);
+    recent.push(Date.now());
+    this.ipFailures.set(ip, recent);
+    // Bounded: a flood of distinct addresses must not grow this without limit.
+    if (this.ipFailures.size > 5_000) {
+      const oldest = this.ipFailures.keys().next().value;
+      if (oldest !== undefined) this.ipFailures.delete(oldest);
+    }
+  }
+
+  /** Counts the failure and, past the threshold, locks the account for a growing time. */
+  private async recordFailure(userId: string, previousCount: number): Promise<void> {
+    const count = previousCount + 1;
+    const over = count - LOCKOUT_AFTER_FAILURES;
+    const lockedUntil =
+      over >= 0
+        ? new Date(Date.now() + Math.min(LOCKOUT_MAX_MINUTES, LOCKOUT_BASE_MINUTES * 2 ** over) * 60_000)
+        : undefined;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginCount: { increment: 1 }, ...(lockedUntil ? { lockedUntil } : {}) },
+    });
+  }
+
+  /**
+   * Expired and long-revoked refresh rows are dead weight (and, in a backup, a list of past
+   * sessions with IPs and user agents). Revoked rows are kept a week so reuse detection still
+   * recognises a recently stolen token.
+   */
+  @Cron('30 3 * * *', { timeZone: 'Asia/Jerusalem', name: 'prune-refresh-tokens' })
+  async pruneRefreshTokens(): Promise<void> {
+    if (this.config.get<string>('NODE_ENV') !== 'production') return;
+    const day = 86_400_000;
+    const { count } = await this.prisma.refreshToken.deleteMany({
+      where: {
+        OR: [
+          { expiresAt: { lt: new Date(Date.now() - day) } },
+          { revokedAt: { lt: new Date(Date.now() - 7 * day) } },
+        ],
+      },
+    });
+    if (count > 0) this.logger.log(`Pruned ${count} old refresh tokens`);
+  }
+
+  /** Admin unlock: clears the counter and the lock. */
+  async unlock(userId: string): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { failedLoginCount: 0, lockedUntil: null } });
   }
 
   async issueTokens(user: AuthUser, session: SessionContext = {}): Promise<TokenPair> {
@@ -138,7 +235,9 @@ export class AuthService {
     if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
       // Reuse of a revoked token may mean it was stolen; drop every session for
       // that user so a compromised token cannot be chained indefinitely.
-      if (stored?.revokedAt) {
+      // A token rotated a moment ago is the normal result of two tabs refreshing at once,
+      // not theft, so it is refused without ending every session.
+      if (stored?.revokedAt && Date.now() - stored.revokedAt.getTime() > REFRESH_REUSE_GRACE_MS) {
         this.logger.warn(`Revoked refresh token reused for user ${stored.userId}; revoking all sessions`);
         await this.revokeAllForUser(stored.userId);
       }
@@ -149,10 +248,13 @@ export class AuthService {
       throw new UnauthorizedException('המשתמש אינו פעיל');
     }
 
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
+    // Claimed atomically: of two concurrent refreshes with the same token only one updates
+    // a row, so a token can never be rotated into two live sessions.
+    const claimed = await this.prisma.refreshToken.updateMany({
+      where: { id: stored.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    if (claimed.count !== 1) throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
 
     return this.issueTokens(
       {
@@ -191,7 +293,7 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: userId },
-        data: { passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS) },
+        data: { passwordHash: await bcrypt.hash(newPassword, BCRYPT_ROUNDS), passwordChangedAt: new Date() },
       }),
       this.prisma.refreshToken.updateMany({
         where: { userId, revokedAt: null },

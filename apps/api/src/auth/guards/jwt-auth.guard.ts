@@ -53,6 +53,11 @@ export class JwtAuthGuard implements CanActivate {
     if (!user || !user.isActive) {
       throw new UnauthorizedException('המשתמש אינו פעיל');
     }
+    // A password change or reset ends sessions at once: a token issued before it is refused,
+    // instead of staying valid until its 15 minutes run out.
+    if (user.passwordChangedAt && (payload.iat ?? 0) * 1000 < user.passwordChangedAt.getTime()) {
+      throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
+    }
 
     request.user = {
       id: user.id,

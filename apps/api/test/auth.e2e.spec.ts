@@ -151,17 +151,52 @@ describe('refresh tokens', () => {
     expect(secondRefresh).toBeDefined();
     expect(secondRefresh).not.toBe(firstRefresh);
 
-    // Reusing the rotated-out token looks like theft.
+    // Reusing the rotated-out token right away is what two tabs refreshing at once look like:
+    // refused, but the newer token (the other tab's) must keep working.
     await request(app.getHttpServer())
       .post('/api/auth/refresh')
       .set('Cookie', firstRefresh as string)
       .expect(401);
-
-    // ...so the legitimate newer token is revoked as well.
     await request(app.getHttpServer())
       .post('/api/auth/refresh')
       .set('Cookie', secondRefresh as string)
-      .expect(401);
+      .expect(200);
+  });
+
+  it('treats reuse of a token revoked a while ago as theft and ends every session', async () => {
+    const login = await request(app.getHttpServer()).post('/api/auth/login').send(ADMIN).expect(200);
+    const firstRefresh = cookieValue(
+      cookie(login.headers['set-cookie'] as unknown as string[], 'logistics_refresh'),
+    ) as string;
+    const refreshed = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', firstRefresh)
+      .expect(200);
+    const secondRefresh = cookieValue(
+      cookie(refreshed.headers['set-cookie'] as unknown as string[], 'logistics_refresh'),
+    ) as string;
+
+    // Past the grace window: age the rotated-out token's revocation.
+    await prisma.refreshToken.updateMany({
+      where: { revokedAt: { not: null }, user: { username: ADMIN.username } },
+      data: { revokedAt: new Date(Date.now() - 60_000) },
+    });
+
+    await request(app.getHttpServer()).post('/api/auth/refresh').set('Cookie', firstRefresh).expect(401);
+    await request(app.getHttpServer()).post('/api/auth/refresh').set('Cookie', secondRefresh).expect(401);
+  });
+
+  it('lets only one of two simultaneous refreshes of the same token through', async () => {
+    const login = await request(app.getHttpServer()).post('/api/auth/login').send(ADMIN).expect(200);
+    const token = cookieValue(
+      cookie(login.headers['set-cookie'] as unknown as string[], 'logistics_refresh'),
+    ) as string;
+
+    const [a, b] = await Promise.all([
+      request(app.getHttpServer()).post('/api/auth/refresh').set('Cookie', token),
+      request(app.getHttpServer()).post('/api/auth/refresh').set('Cookie', token),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 401]);
   });
 });
 

@@ -139,6 +139,15 @@ model User {
   /// `admin`-scoped guard and permission check keeps working unchanged —
   /// this only widens what a super-admin may additionally do in users.service.
   isSuperAdmin Boolean  @default(false) @map("is_super_admin")
+  /// Consecutive wrong passwords. Past a threshold the account is locked for a growing
+  /// time (`lockedUntil`), counted per ACCOUNT rather than per IP so an attack spread over
+  /// many addresses is still stopped. Reset on a successful login.
+  failedLoginCount  Int       @default(0) @map("failed_login_count")
+  lockedUntil       DateTime? @map("locked_until")
+  /// Access tokens issued before this instant are refused, so changing or resetting a
+  /// password ends other sessions now, not when their 15-minute token runs out.
+  passwordChangedAt DateTime? @map("password_changed_at")
+  lastLoginAt       DateTime? @map("last_login_at")
 
   refreshTokens       RefreshToken[]
   importLogs          ImportLog[]

@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Controller, Get, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { israelToday } from '../common/israel-date';
@@ -10,6 +11,7 @@ export class ExcelController {
   constructor(private readonly exporter: ExcelExportService) {}
 
   /** Downloads the full workbook, structured like the original file. */
+  @Tier('heavy')
   @Get('export')
   async export(@Res() res: Response): Promise<void> {
     const buffer = await this.exporter.toBuffer();

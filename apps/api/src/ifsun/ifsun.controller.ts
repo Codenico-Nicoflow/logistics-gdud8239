@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { sendPrintPage } from '../common/print-page';
@@ -26,6 +27,7 @@ export class IfsunController {
   }
 
   /** Printable document — HTML, so the browser's print dialog makes the PDF (same as the 1008 and the count sheet). */
+  @Tier('print')
   @Get(':id/print')
   async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const record = await this.ifsun.findOne(id);

@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -15,11 +16,13 @@ export class DbBackupsController {
     return this.backups.list(limit ? Number(limit) : undefined);
   }
 
+  @Tier('heavyCreate')
   @Post()
   create(@CurrentUser() actor: AuthUser) {
     return this.backups.create('manual', actor);
   }
 
+  @Tier('heavy')
   @Get(':id/download')
   async download(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const { stream, fileName } = await this.backups.readFile(id);
@@ -33,6 +36,7 @@ export class DbBackupsController {
     return this.backups.remove(id);
   }
 
+  @Tier('heavy')
   @Post(':id/send-to-slack')
   sendToSlack(@Param('id') id: string) {
     return this.backups.sendToSlack(id);

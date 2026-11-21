@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';

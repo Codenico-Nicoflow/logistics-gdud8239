@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Controller, Get, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { israelToday } from '../common/israel-date';
@@ -24,6 +25,7 @@ export class MovementsController {
   }
 
   /** דוח תנועות יומי as an xlsx download, honoring the same filters the screen is showing. */
+  @Tier('heavy')
   @Get('export/daily')
   @Roles('admin', 'logistics')
   async exportDaily(@Query() query: QueryMovementsDto, @Res() res: Response): Promise<void> {

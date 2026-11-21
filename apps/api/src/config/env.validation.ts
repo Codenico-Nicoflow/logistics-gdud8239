@@ -42,6 +42,16 @@ export class EnvVars {
   @IsBooleanString()
   COOKIE_SECURE?: string;
 
+  /**
+   * How many reverse proxies sit in front of the API (Vercel's rewrite, then Render's load
+   * balancer). Express uses it to find the real client IP in X-Forwarded-For; rate limiting
+   * is only as good as that IP. Too low and everyone shares the proxy's address; too high and a
+   * client can invent its own. Read it off `GET /api/auth/debug-ip` on production.
+   */
+  @IsOptional()
+  @IsNumberString()
+  TRUST_PROXY_HOPS?: string;
+
   /** Test-only escape hatch for rate limits; never set this in production. */
   @IsOptional()
   @IsBooleanString()
@@ -61,9 +71,23 @@ export function validateEnv(raw: Record<string, unknown>): EnvVars {
     throw new Error(`Invalid environment configuration:\n  - ${detail}`);
   }
 
-  const isProduction = config.NODE_ENV === 'production';
+  // Render sets RENDER=true on every service, so a deploy that forgot NODE_ENV is still
+  // treated as production rather than quietly skipping the checks below.
+  const isProduction = config.NODE_ENV === 'production' || raw.RENDER === 'true';
   if (isProduction && raw.DISABLE_RATE_LIMIT === 'true') {
     throw new Error('DISABLE_RATE_LIMIT must not be enabled in production');
+  }
+  if (isProduction) {
+    if (!config.WEB_ORIGIN) throw new Error('WEB_ORIGIN must be set in production (CORS and the Origin check use it)');
+    if (config.COOKIE_SECURE !== 'true') {
+      throw new Error('COOKIE_SECURE must be "true" in production, or login cookies travel without the Secure flag');
+    }
+    if (config.TRUST_PROXY_HOPS === undefined) {
+      console.warn(
+        '[config] TRUST_PROXY_HOPS is not set: behind Vercel and Render every visitor shares one IP, so ' +
+          'per-IP rate limiting cannot tell them apart. Read the hop count from GET /api/auth/debug-ip.',
+      );
+    }
   }
   for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
     if (WEAK_SECRETS.includes(config[key])) {

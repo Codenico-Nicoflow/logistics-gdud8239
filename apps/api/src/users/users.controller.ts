@@ -33,6 +33,12 @@ export class UsersController {
     return this.users.update(id, dto, actor.id);
   }
 
+  @Post(':id/unlock')
+  @HttpCode(204)
+  unlock(@Param('id') id: string): Promise<void> {
+    return this.users.unlock(id);
+  }
+
   @Post(':id/reset-password')
   resetPassword(
     @Param('id') id: string,

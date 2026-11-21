@@ -19,7 +19,7 @@ const USER = { username: 'e2e_throttle', password: 'e2e-throttle-password-123' }
 /** A second account, so the budget-scoping case is not blocked by the cases
  *  above that deliberately exhaust the login window. */
 const BROWSER = { username: 'e2e_throttle_browser', password: 'e2e-browser-password-123' };
-const LOGIN_LIMIT = 5;
+const FAILURE_LIMIT = 6;
 
 let app: INestApplication;
 let prisma: PrismaService;
@@ -27,6 +27,7 @@ let prisma: PrismaService;
 beforeAll(async () => {
   // Re-enable rate limiting: `skipIf` reads this per request.
   delete process.env.DISABLE_RATE_LIMIT;
+  process.env.LOGIN_IP_FAILURES_PER_15MIN = String(FAILURE_LIMIT);
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   app = moduleRef.createNestApplication();
@@ -66,6 +67,7 @@ afterAll(async () => {
   await app?.close();
   // Restore the suite-wide default for any file that runs after this one.
   process.env.DISABLE_RATE_LIMIT = 'true';
+  delete process.env.LOGIN_IP_FAILURES_PER_15MIN;
 });
 
 describe('login rate limit', () => {
@@ -81,31 +83,25 @@ describe('login rate limit', () => {
       .map((c) => c.split(';')[0])
       .join('; ');
 
-    // Comfortably more than the login limit of 5.
+    // Far more than a login ever needs.
     for (let i = 0; i < 25; i++) {
       await request(app.getHttpServer()).get('/api/items').set('Cookie', jar).expect(200);
     }
   });
 
-  it(`allows ${LOGIN_LIMIT} attempts per minute and then returns 429`, async () => {
+  it('stops a password-spraying IP after too many failures, and then refuses even a correct login', async () => {
+    // Guesses across DIFFERENT usernames, so the per-account lockout is not what stops them.
     const codes: number[] = [];
-    for (let i = 0; i < LOGIN_LIMIT + 2; i++) {
+    for (let i = 0; i < FAILURE_LIMIT + 2; i++) {
       const res = await request(app.getHttpServer())
         .post('/api/auth/login')
-        .send({ username: USER.username, password: 'wrong-on-purpose' });
+        .send({ username: `e2e_spray_${i}`, password: 'wrong-on-purpose' });
       codes.push(res.status);
     }
-
-    // Login is tracked by IP, and the scoping case above already used one of
-    // the attempts, so the exact cut-off shifts. What matters is that some
-    // attempts are judged on credentials and the rest are blocked on rate.
-    expect(codes.filter((c) => c === 401).length).toBeGreaterThan(0);
+    expect(codes.slice(0, FAILURE_LIMIT).every((c) => c === 401)).toBe(true);
     expect(codes.slice(-2)).toEqual([429, 429]);
-  });
 
-  it('blocks a correct password too once the limit is reached', async () => {
-    // The previous case already exhausted the window for this tracker.
+    // The address stays blocked for everyone on it until the window passes.
     await request(app.getHttpServer()).post('/api/auth/login').send(USER).expect(429);
   });
-
 });

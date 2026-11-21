@@ -6,6 +6,8 @@ export type JwtPayload = {
   username: string;
   role: Role;
   companyScope: Company | null;
+  /** Issued-at (seconds), set by the JWT library. */
+  iat?: number;
 };
 
 /** The authenticated user as attached to the request by the JWT guard. */

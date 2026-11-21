@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -17,6 +18,7 @@ export class MesakemController {
     return this.mesakem.sheet(date);
   }
 
+  @Tier('heavy')
   @Get('export')
   async export(@Query('date') date: string, @Res() res: Response): Promise<void> {
     const { buffer, fileName } = await this.mesakem.exportExcel(date);

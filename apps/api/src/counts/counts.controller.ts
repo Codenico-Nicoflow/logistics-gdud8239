@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { CountShift } from '@prisma/client';
 import type { Response } from 'express';
@@ -36,6 +37,7 @@ export class CountsController {
   }
 
   /** Printable sheet — same reasoning as the 1008's print route: HTML, not a PDF binary, so the browser handles Hebrew layout and the print dialog produces the PDF. */
+  @Tier('print')
   @Get(':id/print')
   @Roles('admin', 'logistics')
   async print(@Param('id') id: string, @Res() res: Response): Promise<void> {

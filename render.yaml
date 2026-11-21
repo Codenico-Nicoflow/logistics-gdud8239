@@ -39,3 +39,7 @@ services:
       # ימי יציאה: the Thursday 15:00 post and the "send to Slack" button (a channel ID, C…).
       - key: ATTENDANCE_SLACK_CHANNEL_ID
         sync: false
+      # Proxy hops in front of the API (Vercel rewrite + Render). Set it from GET /api/auth/debug-ip, see
+      # docs/fix-platform-hardening-and-throttling.md. Unset = every visitor looks like one IP.
+      - key: TRUST_PROXY_HOPS
+        sync: false

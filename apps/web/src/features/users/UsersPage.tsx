@@ -3,6 +3,7 @@ import {
   useCreateUserMutation,
   useDeleteUserMutation,
   useResetPasswordMutation,
+  useUnlockUserMutation,
   useUpdateUserMutation,
   useUsersQuery,
 } from '../../lib/api';
@@ -40,6 +41,7 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
   const [deleting, setDeleting] = useState<PublicUser | null>(null);
   const [update] = useUpdateUserMutation();
   const [reset] = useResetPasswordMutation();
+  const [unlock] = useUnlockUserMutation();
   const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
   const toast = useToast();
   const [shownPassword, setShownPassword] = useState<{ name: string; password: string } | null>(
@@ -137,6 +139,11 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
                           <span className="mx-1">{he.users.inactive}</span>
                         </Tag>
                       )}
+                      {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+                        <span title={he.users.lockedHint(formatDateTime(user.lockedUntil))} className="ms-2">
+                          <Tag tone="oxide">{he.users.locked}</Tag>
+                        </span>
+                      )}
                     </Td>
                     <Td className="text-meta text-graphite">{user.username}</Td>
                     <Td>
@@ -160,6 +167,14 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
                           >
                             {he.users.edit}
                           </button>
+                          {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
+                            <button
+                              onClick={() => void unlock(user.id)}
+                              className="text-meta font-semibold text-oxide hover:underline"
+                            >
+                              {he.users.unlock}
+                            </button>
+                          )}
                           <button
                             onClick={() =>
                               void reset(user.id).then((r) => {
