@@ -13,6 +13,8 @@ export type WeekRow = {
   teamMemberId: string;
   nickname: string;
   gender: Gender;
+  /** `false` for someone removed from the list who still has entries in this week. */
+  isActive: boolean;
   cells: WeekCell[];
 };
 
@@ -65,11 +67,17 @@ export class AttendanceService {
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
 
     const dates = weekDates(date);
-    const members = await this.listMembers();
     const records = await this.prisma.attendance.findMany({
       where: {
         date: { gte: new Date(dates[0] as string), lte: new Date(dates[6] as string) },
       },
+    });
+    // Removing someone only retires them going forward: a week they actually have
+    // entries in keeps showing them, so history is not rewritten by a removal.
+    const withEntries = [...new Set(records.map((r) => r.teamMemberId))];
+    const members = await this.prisma.teamMember.findMany({
+      where: { OR: [{ isActive: true }, { id: { in: withEntries } }] },
+      orderBy: [{ sortOrder: 'asc' }, { nickname: 'asc' }],
     });
 
     const byKey = new Map(
@@ -80,6 +88,7 @@ export class AttendanceService {
       teamMemberId: m.id,
       nickname: m.nickname,
       gender: m.gender,
+      isActive: m.isActive,
       cells: dates.map((d) => {
         const record = byKey.get(`${m.id}|${d}`);
         return { status: record?.status ?? null, note: record?.note ?? null };

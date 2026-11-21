@@ -752,6 +752,12 @@ export const he = {
       OTHER: 'אחר',
     },
     memberAdded: 'איש הצוות נוסף',
+    removeMember: 'הסר מהרשימה',
+    removeTitle: 'להסיר מהרשימה?',
+    removeBody: (name: string) =>
+      `${name} ייעלם מהרשימה ומהשבועות הבאים. שבועות שבהם כבר יש לו רישומים ימשיכו להציג אותו, כך שההיסטוריה לא משתנה.`,
+    memberRemoved: 'איש הצוות הוסר',
+    removedTag: 'הוסר',
     days: ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'],
   },
 
