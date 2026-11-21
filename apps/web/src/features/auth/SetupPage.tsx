@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCompleteSetupMutation, useSetupInfoQuery } from '../../lib/api';
 import { apiErrorMessage, Button, Spinner, TextField } from '../../components/ui';
+import { PasskeyStep } from './PasskeyStep';
 import { he } from '../../i18n/he';
 
 /**
@@ -15,6 +16,8 @@ export function SetupPage() {
   const [complete, { isLoading, error }] = useCompleteSetupMutation();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  // Set when passkeys are required: the password is saved, a first device must still be enrolled.
+  const [pending, setPending] = useState<{ step: 'passkey' | 'enroll'; mfaToken: string } | null>(null);
 
   const mismatch = confirm.length > 0 && password !== confirm;
 
@@ -22,8 +25,10 @@ export function SetupPage() {
     e.preventDefault();
     if (password !== confirm) return;
     const result = await complete({ token, password });
+    if (!('data' in result) || !result.data) return;
+    if ('step' in result.data) setPending({ step: result.data.step, mfaToken: result.data.mfaToken });
     // The server signed them in; a full load starts the app with their session.
-    if ('data' in result) window.location.replace('/');
+    else window.location.replace('/');
   }
 
   return (
@@ -40,6 +45,13 @@ export function SetupPage() {
           <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-3 text-meta text-oxide">
             {he.setup.invalid}
           </p>
+        ) : pending ? (
+          <PasskeyStep
+            step={pending.step}
+            mfaToken={pending.mfaToken}
+            onBack={() => window.location.replace('/')}
+            onSignedIn={() => window.location.replace('/')}
+          />
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>

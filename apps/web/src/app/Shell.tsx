@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useLogoutMutation } from '../lib/api';
 import { Logo } from '../components/Logo';
@@ -147,6 +147,15 @@ function NamingIcon() {
     </svg>
   );
 }
+function DevicesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+      <path d="M10 2.5 4 5v4.5c0 3.6 2.5 6.3 6 8 3.5-1.7 6-4.4 6-8V5l-6-2.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="m7.5 10 1.8 1.8L13 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function UsersIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -234,6 +243,10 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
       { to: '/backups', label: he.nav.backups, icon: <BackupsIcon />, roles: ['admin'] },
     ],
   },
+  {
+    heading: he.nav.myAccount,
+    items: [{ to: '/devices', label: he.nav.devices, icon: <DevicesIcon /> }],
+  },
 ];
 
 export function Shell({ user }: { user: AuthUser }) {
@@ -243,10 +256,26 @@ export function Shell({ user }: { user: AuthUser }) {
   const groups = NAV_GROUPS;
   const initial = user.displayName.trim().charAt(0) || '?';
 
+  // The open menu covers the screen on a phone, so the page behind it must not scroll under the
+  // finger, and Escape (a keyboard on a tablet) closes it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
   return (
     <div className="lg:grid lg:h-screen lg:grid-cols-[17rem_1fr]">
       {/* On a phone the rail collapses behind a toggle. */}
-      <header className="flex items-center justify-between gap-3 bg-ink px-4 py-3 lg:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 bg-ink px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
         <Link to="/" className="flex items-center gap-2.5 rounded-ctl transition-opacity hover:opacity-85">
           <Logo className="h-9 w-9" />
           <div>
@@ -260,7 +289,7 @@ export function Shell({ user }: { user: AuthUser }) {
         </Link>
         <button
           onClick={() => setMenuOpen((v) => !v)}
-          className="rounded-ctl border border-white/20 bg-white/5 px-3 py-1.5 text-meta font-semibold text-white transition-colors hover:bg-white/10"
+          className="h-11 min-w-[5rem] shrink-0 rounded-ctl border border-white/20 bg-white/5 px-4 text-body font-semibold text-white transition-colors hover:bg-white/10"
           aria-expanded={menuOpen}
         >
           {menuOpen ? he.common.close : 'תפריט'}
@@ -272,7 +301,9 @@ export function Shell({ user }: { user: AuthUser }) {
           the sign-out footer away — only `main` below scrolls. */}
       <nav
         className={`flex flex-col border-rule bg-[linear-gradient(175deg,var(--ink)_0%,#1b2a24_100%)] text-card lg:h-screen lg:border-b-0 ${
-          menuOpen ? 'block border-b' : 'hidden lg:flex'
+          menuOpen
+            ? 'fixed inset-0 z-30 overflow-y-auto overscroll-contain pt-[calc(4.5rem+env(safe-area-inset-top))] lg:static lg:overflow-visible lg:pt-0'
+            : 'hidden lg:flex'
         }`}
       >
         <Link
@@ -341,7 +372,7 @@ export function Shell({ user }: { user: AuthUser }) {
           })}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 px-4 py-4">
+        <div className="shrink-0 border-t border-white/10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
           <div className="flex items-center gap-2.5 rounded-ctl bg-white/5 px-3 py-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brass-bright text-body font-bold text-ink">
               {initial}
@@ -380,9 +411,9 @@ export function Shell({ user }: { user: AuthUser }) {
               onClick={() => void logout()}
               aria-label={he.auth.logout}
               title={he.auth.logout}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-ctl text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ctl text-white/70 transition-colors hover:bg-white/10 hover:text-white"
             >
-              <svg viewBox="0 0 20 20" fill="none" className="h-4.5 w-4.5">
+              <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
                 <path
                   d="M8 4H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M13 7l3.5 3-3.5 3M7.5 10H16"
                   stroke="currentColor"
@@ -396,7 +427,7 @@ export function Shell({ user }: { user: AuthUser }) {
         </div>
       </nav>
 
-      <main className="scroll-slim min-w-0 bg-card px-4 py-5 lg:h-screen lg:overflow-y-auto lg:px-8 lg:py-8">
+      <main className="scroll-slim min-w-0 bg-card px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 lg:h-screen lg:overflow-y-auto lg:px-8 lg:py-8">
         <Outlet />
       </main>
     </div>

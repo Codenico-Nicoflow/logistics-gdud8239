@@ -26,7 +26,8 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-20 flex items-end justify-center bg-ink/40 p-4 sm:items-center"
+      // Padded by the safe areas, so a dialog never sits under the notch or the home bar.
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center"
       onMouseDown={(e) => {
         downOnBackdrop.current = e.target === e.currentTarget;
       }}
@@ -37,7 +38,9 @@ export function Modal({
       <div
         role={role}
         aria-modal="true"
-        className={`${className} rounded-panel border border-rule bg-card-raised shadow-lift`}
+        // Never taller than the screen, and scrollable: with the keyboard open a phone has very little
+        // height, and a form that cannot scroll leaves its buttons unreachable.
+        className={`${className} max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-panel border border-rule bg-card-raised shadow-lift`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -242,7 +245,7 @@ export function TextField({
         placeholder={placeholder}
         autoFocus={autoFocus}
         disabled={disabled}
-        className={`h-11 w-full rounded-ctl border bg-card-raised px-3 text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:cursor-not-allowed disabled:bg-card disabled:text-graphite ${
+        className={`h-11 w-full rounded-ctl border bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:cursor-not-allowed disabled:bg-card disabled:text-graphite ${
           error ? 'border-oxide' : 'border-rule-strong'
         } ${inputClassName}`}
       />
@@ -300,7 +303,7 @@ export function SearchField({
         }}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40"
+        className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40"
       />
       <Button variant="quiet" onClick={commit}>
         {he.common.search}
@@ -343,7 +346,7 @@ export function Select<T extends string>({
           value={value}
           onChange={(e) => onChange(e.target.value as T | '')}
           disabled={disabled}
-          className="h-11 w-full appearance-none rounded-ctl border border-rule-strong bg-card-raised px-3 pe-9 text-body shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:opacity-50"
+          className="h-11 w-full appearance-none rounded-ctl border border-rule-strong bg-card-raised px-3 pe-9 text-[16px] sm:text-body shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:opacity-50"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>

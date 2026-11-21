@@ -158,6 +158,8 @@ model User {
   invites             UserInvite[]         @relation("inviteFor")
   invitesCreated      UserInvite[]         @relation("inviteBy")
   securityEvents      SecurityEvent[]      @relation("eventFor")
+  passkeys            WebauthnCredential[]
+  webauthnChallenges  WebauthnChallenge[]
   importLogs          ImportLog[]
   signaturesIssued    Signature[]          @relation("signedBy")
   signaturesReturned  Signature[]          @relation("returnedBy")
@@ -901,4 +903,46 @@ model SecurityEvent {
   @@index([userId, at])
   @@index([at])
   @@map("security_events")
+}
+
+/// A passkey: the public half of a key pair whose private half never leaves the person's device
+/// (phone, laptop, security key) and is unlocked there by fingerprint, face or PIN. Nothing stored
+/// here can be used to log in — it can only check a signature made by the device.
+model WebauthnCredential {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  /// The authenticator's credential id, base64url.
+  credentialId String    @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  /// Signature counter; a device whose counter goes backwards has been cloned.
+  counter      Int       @default(0)
+  transports   String[]
+  /// What the person called it ("הטלפון שלי"), so a list of devices means something.
+  deviceName   String    @map("device_name")
+  /// `singleDevice` or `multiDevice` (synced through iCloud / Google Password Manager).
+  deviceType   String?   @map("device_type")
+  backedUp     Boolean   @default(false) @map("backed_up")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastUsedAt   DateTime? @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("webauthn_credentials")
+}
+
+/// The random value a device signs to prove it holds the key. Single use: deleted as soon as it is
+/// consumed, whether or not the signature checks out, and expires in minutes anyway.
+model WebauthnChallenge {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  /// `register` or `authenticate`.
+  purpose   String
+  challenge String
+  expiresAt DateTime @map("expires_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("webauthn_challenges")
 }

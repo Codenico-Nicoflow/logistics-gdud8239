@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   useCreateUserMutation,
   useDeleteUserMutation,
@@ -63,12 +63,120 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
     return rank(a) - rank(b);
   });
 
+
+  // A regular admin can look but not touch: a super-admin row has no edit/reset/deactivate/delete
+  // controls at all unless the viewer is a super-admin too — matches the server-side guard in
+  // UsersService exactly, so nobody sees a button that would just 400 anyway.
+  const canManage = (user: PublicUser): boolean => !user.isSuperAdmin || viewerIsSuperAdmin;
+
+  const nameOf = (user: PublicUser): ReactNode =>
+    user.isSuperAdmin ? (
+      <span className="inline-flex items-center gap-2">
+        <span aria-hidden className="animate-pulse text-lead" style={{ filter: 'drop-shadow(0 0 4px var(--brass-bright))' }}>
+          👑
+        </span>
+        <span
+          className="bg-[linear-gradient(90deg,var(--brass),var(--brass-bright),var(--brass))] bg-clip-text font-black tracking-wide text-transparent"
+          style={{ backgroundSize: '200% auto' }}
+        >
+          {user.displayName}
+        </span>
+      </span>
+    ) : (
+      user.displayName
+    );
+
+  const roleTag = (user: PublicUser): ReactNode =>
+    user.isSuperAdmin ? (
+      <Tag tone="brass">⚡ {he.users.superAdminTag} ⚡</Tag>
+    ) : user.username === 'shunem' ? (
+      <Tag tone="oxide">{he.users.shunemTag}</Tag>
+    ) : (
+      <Tag tone={user.role === 'admin' ? 'field' : 'neutral'}>{he.roles[user.role]}</Tag>
+    );
+
+  const isLocked = (user: PublicUser): boolean => !!user.lockedUntil && new Date(user.lockedUntil) > new Date();
+
+  const statusTags = (user: PublicUser): ReactNode => (
+    <>
+      {!user.isActive && <Tag>{he.users.inactive}</Tag>}
+      {user.isActive && !user.mustSetup && user.passkeyCount === 0 && <Tag>{he.users.noDevice}</Tag>}
+      {user.mustSetup && <Tag tone="brass">{he.users.pendingSetup}</Tag>}
+      {isLocked(user) && (
+        <span title={he.users.lockedHint(formatDateTime(user.lockedUntil as string))}>
+          <Tag tone="oxide">{he.users.locked}</Tag>
+        </span>
+      )}
+    </>
+  );
+
+  /** The same actions in both layouts: text links in the table, full-size buttons on a phone. */
+  const actionsOf = (user: PublicUser, layout: 'table' | 'phone'): ReactNode => {
+    if (!canManage(user)) return <span className="text-meta text-graphite">{he.users.superAdminProtected}</span>;
+
+    const items: { key: string; label: string; danger?: boolean; run: () => void }[] = [
+      { key: 'edit', label: he.users.edit, run: () => setEditing(user) },
+    ];
+    if (isLocked(user)) items.push({ key: 'unlock', label: he.users.unlock, danger: true, run: () => void unlock(user.id) });
+    if (user.id !== currentUserId && user.isActive) {
+      items.push({
+        key: 'link',
+        label: he.users.newSetupLink,
+        run: () =>
+          void issueLink(user.id).then((r) => {
+            if ('data' in r && r.data) setShownLink({ name: user.displayName, url: r.data.url, reset: true });
+            else if ('error' in r) toast.error({ title: he.toast.failed, detail: apiErrorMessage(r.error) ?? undefined });
+          }),
+      });
+    }
+    items.push({ key: 'log', label: he.users.securityLog, run: () => setLogFor(user) });
+    items.push({
+      key: 'active',
+      label: user.isActive ? he.users.deactivate : he.users.activate,
+      run: () => void update({ id: user.id, isActive: !user.isActive }),
+    });
+    if (user.id !== currentUserId) items.push({ key: 'delete', label: he.users.delete, danger: true, run: () => setDeleting(user) });
+
+    if (layout === 'phone') {
+      return (
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {items.map((i) => (
+            <Button key={i.key} variant="quiet" size="sm" onClick={i.run} className={i.danger ? 'text-oxide' : ''}>
+              {i.label}
+            </Button>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-wrap items-center gap-3">
+        {items.map((i) => (
+          <button
+            key={i.key}
+            onClick={i.run}
+            className={`text-meta font-semibold hover:underline ${i.danger ? 'text-oxide' : 'text-field-dark'}`}
+          >
+            {i.label}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-display font-bold">{he.users.title}</h1>
           <p className="mt-1 text-ink-soft">{he.users.subtitle}</p>
+          {data && (
+            <p className="mt-1 text-meta text-graphite">
+              {he.users.deviceSummary(
+                data.filter((u) => u.isActive && (u.passkeyCount ?? 0) > 0).length,
+                data.filter((u) => u.isActive).length,
+              )}
+            </p>
+          )}
         </div>
         <Button onClick={() => setAdding(true)}>{he.users.add}</Button>
       </div>
@@ -76,145 +184,56 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
       {shownLink && <SetupLinkPanel link={shownLink} onClose={() => setShownLink(null)} />}
 
       <Panel>
-        <TableScroll>
-          <table className="row-hover w-full">
-            <thead>
-              <tr>
-                <Th>{he.users.displayName}</Th>
-                <Th>{he.users.username}</Th>
-                <Th>{he.users.role}</Th>
-                <Th>{he.users.created}</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((user) => {
-                // A regular admin can look but not touch: a super-admin row
-                // has no edit/reset/deactivate/delete controls at all unless
-                // the viewer is a super-admin too — matches the server-side
-                // guard in UsersService exactly, so nobody sees a button
-                // that would just 400 anyway.
-                const canManage = !user.isSuperAdmin || viewerIsSuperAdmin;
-                return (
-                  <tr
-                    key={user.id}
-                    className={`${user.isActive ? '' : 'opacity-50'} ${
-                      user.isSuperAdmin ? 'relative' : ''
-                    }`}
-                  >
+        {/* Phone: a card per account, with the actions as real buttons. A five-column table with a row of
+            text links cannot be read or tapped at phone width. */}
+        <ul className="divide-y divide-rule sm:hidden">
+          {rows.map((user) => (
+            <li key={user.id} className={`space-y-2 px-4 py-3 ${user.isActive ? '' : 'opacity-50'}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-body font-semibold">{nameOf(user)}</div>
+                  <div className="text-meta text-graphite">{user.username}</div>
+                </div>
+                {roleTag(user)}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">{statusTags(user)}</div>
+              <div className="text-micro text-graphite">
+                {he.users.created} {formatDateTime(user.createdAt)}
+              </div>
+              {actionsOf(user, 'phone')}
+            </li>
+          ))}
+        </ul>
+
+        <div className="hidden sm:block">
+          <TableScroll>
+            <table className="row-hover w-full">
+              <thead>
+                <tr>
+                  <Th>{he.users.displayName}</Th>
+                  <Th>{he.users.username}</Th>
+                  <Th>{he.users.role}</Th>
+                  <Th>{he.users.created}</Th>
+                  <Th />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((user) => (
+                  <tr key={user.id} className={`${user.isActive ? '' : 'opacity-50'} ${user.isSuperAdmin ? 'relative' : ''}`}>
                     <Td className="font-semibold">
-                      {user.isSuperAdmin ? (
-                        <span className="inline-flex items-center gap-2">
-                          <span
-                            aria-hidden
-                            className="animate-pulse text-lead"
-                            style={{ filter: 'drop-shadow(0 0 4px var(--brass-bright))' }}
-                          >
-                            👑
-                          </span>
-                          <span
-                            className="bg-[linear-gradient(90deg,var(--brass),var(--brass-bright),var(--brass))] bg-clip-text font-black tracking-wide text-transparent"
-                            style={{ backgroundSize: '200% auto' }}
-                          >
-                            {user.displayName}
-                          </span>
-                        </span>
-                      ) : (
-                        user.displayName
-                      )}
-                      {!user.isActive && (
-                        <Tag>
-                          <span className="mx-1">{he.users.inactive}</span>
-                        </Tag>
-                      )}
-                      {user.mustSetup && (
-                        <span className="ms-2">
-                          <Tag tone="brass">{he.users.pendingSetup}</Tag>
-                        </span>
-                      )}
-                      {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
-                        <span title={he.users.lockedHint(formatDateTime(user.lockedUntil))} className="ms-2">
-                          <Tag tone="oxide">{he.users.locked}</Tag>
-                        </span>
-                      )}
+                      {nameOf(user)}
+                      <span className="ms-2 inline-flex flex-wrap items-center gap-1.5 align-middle">{statusTags(user)}</span>
                     </Td>
                     <Td className="text-meta text-graphite">{user.username}</Td>
-                    <Td>
-                      {user.isSuperAdmin ? (
-                        <Tag tone="brass">⚡ {he.users.superAdminTag} ⚡</Tag>
-                      ) : user.username === 'shunem' ? (
-                        <Tag tone="oxide">{he.users.shunemTag}</Tag>
-                      ) : (
-                        <Tag tone={user.role === 'admin' ? 'field' : 'neutral'}>
-                          {he.roles[user.role]}
-                        </Tag>
-                      )}
-                    </Td>
+                    <Td>{roleTag(user)}</Td>
                     <Td className="text-meta text-graphite">{formatDateTime(user.createdAt)}</Td>
-                    <Td>
-                      {canManage ? (
-                        <div className="flex flex-wrap items-center gap-3">
-                          <button
-                            onClick={() => setEditing(user)}
-                            className="text-meta font-semibold text-field-dark hover:underline"
-                          >
-                            {he.users.edit}
-                          </button>
-                          {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
-                            <button
-                              onClick={() => void unlock(user.id)}
-                              className="text-meta font-semibold text-oxide hover:underline"
-                            >
-                              {he.users.unlock}
-                            </button>
-                          )}
-                          {user.id !== currentUserId && user.isActive && (
-                            <button
-                              onClick={() =>
-                                void issueLink(user.id).then((r) => {
-                                  if ('data' in r && r.data) {
-                                    setShownLink({ name: user.displayName, url: r.data.url, reset: true });
-                                  } else if ('error' in r) {
-                                    toast.error({ title: he.toast.failed, detail: apiErrorMessage(r.error) ?? undefined });
-                                  }
-                                })
-                              }
-                              className="text-meta font-semibold text-field-dark hover:underline"
-                            >
-                              {he.users.newSetupLink}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setLogFor(user)}
-                            className="text-meta font-semibold text-field-dark hover:underline"
-                          >
-                            {he.users.securityLog}
-                          </button>
-                          <button
-                            onClick={() => void update({ id: user.id, isActive: !user.isActive })}
-                            className="text-meta font-semibold text-field-dark hover:underline"
-                          >
-                            {user.isActive ? he.users.deactivate : he.users.activate}
-                          </button>
-                          {user.id !== currentUserId && (
-                            <button
-                              onClick={() => setDeleting(user)}
-                              className="text-meta font-semibold text-oxide hover:underline"
-                            >
-                              {he.users.delete}
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-meta text-graphite">{he.users.superAdminProtected}</span>
-                      )}
-                    </Td>
+                    <Td>{actionsOf(user, 'table')}</Td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </TableScroll>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+        </div>
       </Panel>
 
       {adding && (

@@ -106,12 +106,12 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
       )}
 
       <Panel>
-        <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 px-4 py-4 lg:grid-cols-4">
           <SearchField
             value={q}
             onSearch={setQ}
             placeholder={he.soldiers.search}
-            className="sm:col-span-2 lg:col-span-2"
+            className="col-span-2"
           />
           {!scope && (
             <Select
@@ -123,6 +123,16 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
               ]}
             />
           )}
+          {/* Table headers sort on a desktop; on a phone there are none, so the same choice is offered here. */}
+          <Select
+            className="col-span-2 sm:hidden"
+            value={sort}
+            onChange={(v) => setSort(v === 'company' ? 'company' : 'name')}
+            options={[
+              { value: 'name', label: he.soldiers.sortByName },
+              { value: 'company', label: he.soldiers.sortByCompany },
+            ]}
+          />
           {/* One control rather than two checkboxes: holding something and
               holding nothing are opposites, and a pair of flags would let
               them be ticked together to mean nothing. */}
@@ -138,7 +148,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-2.5">
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 text-meta">
+            <label className="flex min-h-11 items-center gap-2 text-meta">
               <input
                 type="checkbox"
                 checked={incompleteOnly}
@@ -146,7 +156,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
               />
               {he.soldiers.incompleteFilter}
             </label>
-            <label className="flex items-center gap-2 text-meta">
+            <label className="flex min-h-11 items-center gap-2 text-meta">
               <input
                 type="checkbox"
                 checked={attachedOnly}
@@ -170,6 +180,63 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
           <EmptyState>{he.soldiers.none}</EmptyState>
         ) : (
           <>
+            {/* Phone: a card per soldier. Seven columns cannot fit a phone, and a table cut off inside its
+                card hides the very columns (מחויל, actions) people came to use. */}
+            <ul className="divide-y divide-rule sm:hidden">
+              {rows.map((s) => (
+                <li key={s.id} className={`space-y-2 px-4 py-3 ${s.isActive ? '' : 'opacity-50'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-body font-semibold">
+                        {s.firstName} {s.lastName}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {!s.isActive && <Tag>{he.soldiers.inactive}</Tag>}
+                        {s.isAttached && <Tag tone="brass">{he.soldiers.attached}</Tag>}
+                      </div>
+                    </div>
+                    <Tag tone="neutral">{he.companies[s.company]}</Tag>
+                  </div>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-meta">
+                    <dt className="text-graphite">{he.soldiers.personalNumber}</dt>
+                    <dd className={s.personalNumber ? 'serial' : 'font-semibold text-oxide'}>
+                      {s.personalNumber ?? he.soldiers.missing}
+                    </dd>
+                    <dt className="text-graphite">{he.soldiers.phone}</dt>
+                    <dd className={s.phone ? 'serial' : 'font-semibold text-oxide'}>
+                      {s.phone ? (
+                        <a href={`tel:${s.phone}`} className="inline-flex min-h-11 items-center text-field-dark underline-offset-2">
+                          {s.phone}
+                        </a>
+                      ) : (
+                        he.soldiers.missing
+                      )}
+                    </dd>
+                  </dl>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <EnlistedCell
+                      soldier={s}
+                      canEdit={canEditEnlistment}
+                      onRequestToggle={() => setConfirmingEnlist(s)}
+                    />
+                    <div className="flex gap-2">
+                      {canEditSoldier && (
+                        <Button variant="quiet" size="sm" onClick={() => setEditing(s)}>
+                          {he.soldiers.edit}
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button variant="quiet" size="sm" onClick={() => setDeleting(s)} className="text-oxide">
+                          {he.soldiers.delete}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden sm:block">
             <TableScroll>
               <table className="row-hover w-full">
                 <thead>
@@ -240,6 +307,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                 </tbody>
               </table>
             </TableScroll>
+            </div>
             {data && data.rows.length < data.total && (
               <div className="border-t border-rule px-4 py-3 text-center">
                 <Button
@@ -569,7 +637,7 @@ function EditSoldierDialog({
             />
             <TextField label={he.soldiers.phone} value={phone} onChange={setPhone} />
           </div>
-          <label className="flex items-center gap-2 text-meta">
+          <label className="flex min-h-11 items-center gap-2 text-meta">
             <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
             {he.soldiers.attachedHint}
           </label>

@@ -11,6 +11,8 @@ export const SecurityEventType = {
   INVITE_CREATED: 'INVITE_CREATED',
   INVITE_USED: 'INVITE_USED',
   PASSWORD_CHANGED: 'PASSWORD_CHANGED',
+  PASSKEY_ADDED: 'PASSKEY_ADDED',
+  PASSKEY_REMOVED: 'PASSKEY_REMOVED',
 } as const;
 export type SecurityEventType = (typeof SecurityEventType)[keyof typeof SecurityEventType];
 

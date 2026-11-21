@@ -31,7 +31,7 @@ export function ConfirmSoldier({
     <Panel
       title={he.issue.confirmSoldier}
       action={
-        <button onClick={onBack} className="text-meta font-semibold text-field hover:underline">
+        <button onClick={onBack} className="inline-flex min-h-10 items-center text-meta font-semibold text-field hover:underline">
           {he.issue.changeSoldier}
         </button>
       }

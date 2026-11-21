@@ -483,7 +483,7 @@ function ItemPicker({
                 {he.issue.addPicked(picked.length)}
               </Button>
               {picked.length > 0 && (
-                <button onClick={() => setPicked([])} className="text-meta font-semibold text-field hover:underline">
+                <button onClick={() => setPicked([])} className="inline-flex min-h-10 items-center px-1 text-meta font-semibold text-field hover:underline">
                   {he.issue.clearPicked}
                 </button>
               )}
@@ -718,14 +718,14 @@ function BasketRow({
                 else onPatch({ quantity: 1 });
                 setOptedIntoSerial((v) => !v);
               }}
-              className="text-meta font-semibold text-field-dark hover:underline"
+              className="inline-flex min-h-10 items-center text-meta font-semibold text-field-dark hover:underline"
             >
               {optedIntoSerial ? he.form1008.removeSerial : he.form1008.addSerial}
             </button>
           )}
           <button
             onClick={onRemove}
-            className="text-meta font-semibold text-oxide hover:underline"
+            className="inline-flex min-h-10 items-center px-1 text-meta font-semibold text-oxide hover:underline"
           >
             {he.form1008.remove}
           </button>
@@ -755,7 +755,7 @@ function BasketRow({
                     key={inst.id}
                     onClick={() => onPatch({ serial: inst.serial, quantity: 1 })}
                     title={inst.isPreviouslyHeld ? he.issue.previouslyHeldHint : undefined}
-                    className={`inline-flex items-center gap-1 rounded-ctl border px-2 py-1 text-meta ${
+                    className={`inline-flex min-h-10 items-center gap-1 rounded-ctl border px-3 text-meta ${
                       line.serial === inst.serial
                         ? 'border-brass bg-brass text-white'
                         : inst.isPreviouslyHeld

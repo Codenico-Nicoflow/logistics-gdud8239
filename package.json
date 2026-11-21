@@ -13,6 +13,7 @@
     "migrate": "npm run migrate --workspace=apps/api",
     "seed": "npm run seed --workspace=apps/api",
     "test": "npm run test --workspace=apps/api",
-    "restore": "bash scripts/restore-db.sh"
+    "restore": "bash scripts/restore-db.sh",
+    "user:invite": "npm run user:invite --workspace=apps/api --"
   }
 }

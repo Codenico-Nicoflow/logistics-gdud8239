@@ -4,7 +4,7 @@ import {
   useServicePeriodsQuery,
   useUpdateServicePeriodMutation,
 } from '../../lib/api';
-import { apiErrorMessage, Button, Panel, Select, Spinner, Tag, TextField } from '../../components/ui';
+import { apiErrorMessage, Button, Modal, Panel, Select, Spinner, Tag, TextField } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { AuthUser, ServicePeriod, ServicePeriodStatus } from '../../lib/types';
@@ -147,8 +147,8 @@ function EditPeriodDialog({ period, onClose }: { period: ServicePeriod; onClose:
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
-      <div className="w-full max-w-md rounded-panel bg-card-raised p-5 shadow-lift">
+    <Modal onClose={onClose}>
+      <div className="p-5">
         <h2 className="text-lead font-semibold">{he.servicePeriods.editPeriod}</h2>
         <div className="mt-3 space-y-3">
           <TextField label={he.servicePeriods.name} value={name} onChange={setName} autoFocus required />
@@ -183,7 +183,7 @@ function EditPeriodDialog({ period, onClose }: { period: ServicePeriod; onClose:
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -213,8 +213,8 @@ function CreatePeriodDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
-      <div className="w-full max-w-md rounded-panel bg-card-raised p-5 shadow-lift">
+    <Modal onClose={onClose}>
+      <div className="p-5">
         <h2 className="text-lead font-semibold">{he.servicePeriods.newPeriod}</h2>
         <div className="mt-3 space-y-3">
           <TextField label={he.servicePeriods.name} value={name} onChange={setName} autoFocus required />
@@ -249,6 +249,6 @@ function CreatePeriodDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

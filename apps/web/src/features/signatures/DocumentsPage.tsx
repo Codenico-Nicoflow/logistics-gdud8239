@@ -74,7 +74,10 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
     <div className="space-y-5">
       <h1 className="text-display font-bold">{he.documents.title}</h1>
 
-      <Panel>
+      {/* On a phone this is master/detail, one at a time: the list, and once a soldier is picked his
+          details take the screen (with a way back) instead of appearing far below the list. A desktop
+          shows both side by side as before. */}
+      <Panel className={selected ? 'hidden lg:block' : ''}>
         <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
           <SearchField
             value={q}
@@ -102,7 +105,7 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
-        <Panel>
+        <Panel className={selected ? 'hidden lg:block' : ''}>
           {isLoading ? (
             <Spinner />
           ) : (data?.rows.length ?? 0) === 0 ? (
@@ -146,9 +149,14 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
         </Panel>
 
         {selected ? (
-          <SoldierDetail key={selected.id} holder={selected} canEditForm={canEditForm} />
+          <div className="space-y-3">
+            <Button variant="quiet" onClick={() => setSelectedId(null)} className="w-full lg:hidden">
+              {he.documents.backToList}
+            </Button>
+            <SoldierDetail key={selected.id} holder={selected} canEditForm={canEditForm} />
+          </div>
         ) : (
-          <Panel>
+          <Panel className="hidden lg:block">
             <EmptyState>{he.documents.pickSoldier}</EmptyState>
           </Panel>
         )}

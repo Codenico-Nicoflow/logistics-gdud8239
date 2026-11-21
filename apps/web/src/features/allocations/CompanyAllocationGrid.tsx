@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   useAddGridItemMutation,
   useCompanyAllocationsQuery,
@@ -45,7 +45,8 @@ function EditableCell({
       autoFocus
       value={draft}
       onChange={(e) => onDraftChange(e.target.value)}
-      className="w-16 rounded-ctl border-2 border-field bg-card-raised px-2 py-1 text-center shadow-inset-field focus:outline-none"
+      inputMode="numeric"
+      className="h-11 w-20 rounded-ctl border-2 border-field bg-card-raised px-2 text-center shadow-inset-field focus:outline-none sm:h-auto sm:w-16 sm:py-1"
     />
   );
 }
@@ -83,6 +84,23 @@ export function CompanyAllocationGrid({
       <div className="px-4 py-3">
         <p className="text-meta text-graphite">{he.servicePeriods.companyGridHint}</p>
       </div>
+      {/* Phone: a card per item. Eight columns cannot fit, and cutting the grid off inside its card hid
+          most of the companies and the row actions. */}
+      <ul className="divide-y divide-rule sm:hidden">
+        {(rows ?? []).map((row) => (
+          <GridRow
+            key={row.itemId}
+            layout="card"
+            servicePeriodId={servicePeriodId}
+            row={row}
+            canEdit={canEdit}
+            isAdmin={isAdmin}
+            onRemove={() => void removeItem({ servicePeriodId, itemId: row.itemId })}
+          />
+        ))}
+      </ul>
+
+      <div className="hidden sm:block">
       <TableScroll>
         <table className="row-hover w-full">
           <thead>
@@ -102,6 +120,7 @@ export function CompanyAllocationGrid({
             {(rows ?? []).map((row) => (
               <GridRow
                 key={row.itemId}
+                layout="row"
                 servicePeriodId={servicePeriodId}
                 row={row}
                 canEdit={canEdit}
@@ -112,6 +131,7 @@ export function CompanyAllocationGrid({
           </tbody>
         </table>
       </TableScroll>
+      </div>
 
       {canEdit && (
         <div className="flex flex-wrap items-end gap-2 border-t border-rule px-4 py-3">
@@ -122,7 +142,7 @@ export function CompanyAllocationGrid({
               { value: '', label: he.servicePeriods.name },
               ...addable.map((i) => ({ value: i.id, label: i.name })),
             ]}
-            className="w-56"
+            className="w-full sm:w-56"
           />
           <Button
             disabled={!addingItemId || isAdding}
@@ -146,12 +166,15 @@ export function CompanyAllocationGrid({
  * its error visible rather than silently reverting.
  */
 function GridRow({
+  layout,
   servicePeriodId,
   row,
   canEdit,
   isAdmin,
   onRemove,
 }: {
+  /** `row` is a table row for a desktop; `card` is the same item laid out for a phone. */
+  layout: 'row' | 'card';
   servicePeriodId: string;
   row: CompanyAllocationRow;
   canEdit: boolean;
@@ -210,6 +233,97 @@ function GridRow({
     // Only close the row once every change actually landed — a cell with an
     // error stays open and visible instead of silently discarding the edit.
     if (Object.keys(nextErrorByCell).length === 0 && !nextOnHandError) setEditing(false);
+  }
+
+  if (layout === 'card') {
+    const fields: { key: string; label: string; node: ReactNode; note?: ReactNode }[] = [
+      {
+        key: 'onHand',
+        label: he.servicePeriods.onHand,
+        node: canEditOnHand ? (
+          <EditableCell value={row.onHand} draft={onHandDraft} editing={editing} max={row.realOnHand} onDraftChange={setOnHandDraft} />
+        ) : (
+          <span className="font-semibold">{row.onHand}</span>
+        ),
+        note: (
+          <>
+            {onHandError && <span className="block text-micro text-oxide">{onHandError}</span>}
+            {!editing && row.onHandOverride !== null && (
+              <span className="block text-micro text-graphite">{he.servicePeriods.onHandOverrideHint(row.realOnHand)}</span>
+            )}
+          </>
+        ),
+      },
+      ...COMPANIES.map((c) => ({
+        key: c,
+        label: he.companies[c],
+        node: canEdit ? (
+          <EditableCell
+            value={row.quantities[c]}
+            draft={draftByCompany[c]}
+            editing={editing}
+            onDraftChange={(next) => setDraftByCompany((m) => ({ ...m, [c]: next }))}
+          />
+        ) : (
+          <span className="font-semibold">{row.quantities[c]}</span>
+        ),
+        note: (
+          <>
+            {errorByCell[c] && <span className="block text-micro text-oxide">{errorByCell[c]}</span>}
+            <span className="block text-micro text-graphite">{he.servicePeriods.issuedOfPlanned(row.issued[c])}</span>
+            <span className={`block text-micro ${row.remaining[c] < 0 ? 'font-semibold text-oxide' : 'text-graphite'}`}>
+              {he.servicePeriods.remainingOfPlanned(row.remaining[c])}
+            </span>
+          </>
+        ),
+      })),
+    ];
+    return (
+      <li className={`space-y-3 px-4 py-3 ${editing ? 'bg-field-wash/40' : ''}`}>
+        <div className="flex items-start justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2 text-body font-semibold">
+            <CategoryDot category={row.item.category} />
+            {row.item.name}
+          </span>
+          <span className={`shrink-0 text-meta ${overCap ? 'font-semibold text-oxide' : 'text-graphite'}`}>
+            {he.servicePeriods.total}: <b className="text-body">{row.total}</b>
+          </span>
+        </div>
+        {overCap && <p className="text-meta text-oxide">{he.servicePeriods.capExceeded(row.onHand)}</p>}
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-3">
+          {fields.map((f) => (
+            <div key={f.key} className="min-w-0 rounded-ctl bg-card px-3 py-2">
+              <dt className="text-meta text-graphite">{f.label}</dt>
+              <dd className="mt-0.5 text-body">{f.node}</dd>
+              {f.note}
+            </div>
+          ))}
+        </dl>
+        {canEdit && (
+          <div className="grid grid-cols-2 gap-2">
+            {editing ? (
+              <>
+                <Button size="sm" onClick={() => void handleSave()} disabled={isSaving}>
+                  {isSaving ? he.common.saving : he.common.save}
+                </Button>
+                <Button variant="quiet" size="sm" onClick={() => setEditing(false)} disabled={isSaving}>
+                  {he.common.cancel}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="quiet" size="sm" onClick={startEditing}>
+                  {he.common.edit}
+                </Button>
+                <Button variant="quiet" size="sm" onClick={onRemove} className="text-oxide">
+                  {he.servicePeriods.removeItem}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </li>
+    );
   }
 
   return (
