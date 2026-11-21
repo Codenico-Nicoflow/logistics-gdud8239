@@ -14,7 +14,6 @@ export const he = {
     documents: 'חתימות',
     dailyMovements: 'דוח תנועות יומי',
     issue: 'ניפוק',
-    attention: 'דרוש טיפול',
     summary: 'מסכם',
     companies: 'פלוגות',
     allocations: 'הקצאות',
@@ -95,7 +94,6 @@ export const he = {
     signedOut: 'פריטים מנופקים',
     inArmory: 'בנשקיה',
     gaps: 'פערים',
-    needsAttention: 'דורשות טיפול',
     recentActivity: 'תנועות אחרונות',
     noActivity: 'לא נרשמו תנועות',
     byCompany: 'מנופק לפי פלוגה',
@@ -352,19 +350,6 @@ export const he = {
     partialHint: (max: number) => `עד ${max} יחידות`,
     notesLabel: 'הערה',
     action: 'זכה',
-  },
-
-  attention: {
-    title: 'דרוש טיפול',
-    subtitle: 'שורות שיובאו מהאקסל עם בעיה בנתונים',
-    none: 'אין שורות שדורשות טיפול',
-    row: 'שורה באקסל',
-    detail: 'הבעיה',
-    original: 'השורה המקורית',
-    fixSerial: 'השלם מסד',
-    fixSerialTitle: (item: string) => `השלמת מסד עבור ${item}`,
-    fixed: 'המסד הושלם',
-    byKind: 'לפי סוג',
   },
 
   companySplit: {

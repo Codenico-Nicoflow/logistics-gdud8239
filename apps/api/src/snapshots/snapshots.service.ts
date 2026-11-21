@@ -110,10 +110,7 @@ export class SnapshotsService {
     if (!snapshot) throw new NotFoundException('הגיבוי אינו קיים');
 
     try {
-      const [issued, flagged] = await Promise.all([
-        this.prisma.signature.count({ where: { returnedAt: null } }),
-        this.prisma.signature.count({ where: { needsAttention: true, returnedAt: null } }),
-      ]);
+      const issued = await this.prisma.signature.count({ where: { returnedAt: null } });
       const today = new Date().toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' });
 
       const slack = new WebClient(token);
@@ -123,8 +120,7 @@ export class SnapshotsService {
         filename: snapshot.filePath.split('/').pop() ?? 'logistics.xlsx',
         initial_comment:
           `דוח צל"מ יומי — ${today}\n` +
-          `חתימות פעילות: ${issued}\n` +
-          (flagged > 0 ? `דורשות טיפול: ${flagged}` : 'אין שורות שדורשות טיפול'),
+          `חתימות פעילות: ${issued}`,
       });
 
       await this.prisma.snapshot.update({

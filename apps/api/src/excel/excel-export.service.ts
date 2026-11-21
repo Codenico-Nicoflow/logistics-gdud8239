@@ -49,7 +49,6 @@ export class ExcelExportService {
     await this.addWeaponNames(wb);
     await this.addPriceList(wb);
     await this.addMovements(wb);
-    await this.addIssues(wb);
 
     return wb;
   }
@@ -112,7 +111,7 @@ export class ExcelExportService {
           s.soldier.phone ?? '',
           s.soldier.personalNumber ?? '',
           s.receiptNo ?? '',
-          s.needsAttention ? `דרוש טיפול: ${s.notes ?? 'חסר מידע'}` : (s.notes ?? ''),
+          s.notes ?? '',
         ]);
       }
     }
@@ -337,21 +336,5 @@ export class ExcelExportService {
       row.getCell(1).numFmt = 'dd/mm/yyyy hh:mm';
     }
     ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } };
-  }
-
-  /** `דרוש טיפול` — rows imported with a problem, so the gaps travel with the file. */
-  private async addIssues(wb: ExcelJS.Workbook): Promise<void> {
-    const ws = this.sheet(wb, SHEET.issues);
-    ws.columns = [{ width: 18 }, { width: 10 }, { width: 46 }, { width: 44 }, { width: 14 }];
-    this.styleHeader(ws.addRow(['סוג הבעיה', 'שורה באקסל', 'פירוט', 'השורה המקורית', 'מסד']));
-
-    const issues = await this.prisma.importIssue.findMany({
-      where: { resolvedAt: null },
-      orderBy: [{ kind: 'asc' }, { rowNumber: 'asc' }],
-    });
-    for (const i of issues) {
-      ws.addRow([i.kind, i.rowNumber, i.detail, i.rawRow, i.serial ?? '']);
-    }
-    ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 5 } };
   }
 }
