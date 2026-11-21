@@ -10,6 +10,7 @@ import { syncAuthorizedQty } from './sync-authorized-qty';
 import type { CreateItemDto } from './dto/create-item.dto';
 import type { UpdateItemDto } from './dto/update-item.dto';
 import type { CreateInstanceDto } from './dto/create-instance.dto';
+import { ITEM_ORDER } from '../common/item-order';
 
 @Injectable()
 export class ItemsService {
@@ -18,7 +19,7 @@ export class ItemsService {
   findAll(includeInactive = false): Promise<Item[]> {
     return this.prisma.item.findMany({
       where: includeInactive ? {} : { isActive: true },
-      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      orderBy: ITEM_ORDER,
     });
   }
 
@@ -282,21 +283,5 @@ export class ItemsService {
     await this.prisma.allocation.deleteMany({ where: { itemId: id } });
     await this.prisma.item.delete({ where: { id } });
     return { deleted: true };
-  }
-
-  /** Signatures imported with a known problem — powers the "דרוש טיפול" tab. */
-  async needsAttention() {
-    const [issues, signatures] = await Promise.all([
-      this.prisma.importIssue.findMany({
-        where: { resolvedAt: null },
-        orderBy: [{ kind: 'asc' }, { rowNumber: 'asc' }],
-      }),
-      this.prisma.signature.findMany({
-        where: { needsAttention: true, returnedAt: null },
-        include: { soldier: true, item: true, itemInstance: true },
-        orderBy: { signedAt: 'asc' },
-      }),
-    ]);
-    return { issues, signatures };
   }
 }

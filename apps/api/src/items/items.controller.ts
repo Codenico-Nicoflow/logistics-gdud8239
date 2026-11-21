@@ -24,14 +24,6 @@ export class ItemsController {
     return this.items.findAll(includeInactive === 'true');
   }
 
-  /** Rows imported with a data problem, for the "דרוש טיפול" tab — original
-   *  admin/logistics/viewer screens only, not the reserve-duty roles. */
-  @Get('needs-attention')
-  @Roles('admin', 'logistics', 'viewer')
-  needsAttention() {
-    return this.items.needsAttention();
-  }
-
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.items.findOne(id);

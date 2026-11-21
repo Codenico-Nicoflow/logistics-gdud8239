@@ -2,7 +2,6 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import {
   ReportsService,
-  type AllocationRow,
   type MatrixRow,
   type SummaryRow,
 } from './reports.service';
@@ -26,15 +25,11 @@ export class ReportsController {
     return this.reports.summary(date);
   }
 
+  // SAMGAD too: חלוקה לפלוגות (read-only holdings per company) is his view.
   @Get('companies')
-  @Roles('admin', 'logistics', 'viewer')
+  @Roles('admin', 'logistics', 'viewer', 'SAMGAD')
   companies(): Promise<MatrixRow[]> {
     return this.reports.companyMatrix();
   }
 
-  @Get('allocations')
-  @Roles('admin', 'logistics', 'viewer')
-  allocations(): Promise<AllocationRow[]> {
-    return this.reports.allocations();
-  }
 }

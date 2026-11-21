@@ -125,7 +125,6 @@ export type Signature = {
   notes: string | null;
   signedAt: string;
   returnedAt: string | null;
-  needsAttention: boolean;
   soldier: SoldierSummary;
   item: Item;
   itemInstance: ItemInstance | null;
@@ -147,7 +146,6 @@ export type SignatureHolder = {
   phone: string | null;
   company: Company;
   itemCount: number;
-  needsAttention: boolean;
   signatures: HolderSignature[];
   forms: { id: string; formNo: number; signedAt: string }[];
 };
@@ -239,33 +237,6 @@ export type Week = {
   returningPerDay: number[];
 };
 
-export type TodayMember = {
-  teamMemberId: string;
-  nickname: string;
-  gender: Gender;
-  status: AttendanceStatus | null;
-  note: string | null;
-};
-
-export type Today = {
-  date: string;
-  byStatus: { status: AttendanceStatus; members: TodayMember[] }[];
-  /** Nobody has filled this person's cell yet — not the same as absent. */
-  unmarked: TodayMember[];
-  present: number;
-  total: number;
-};
-
-export type LatestCount = {
-  session: {
-    id: string;
-    sessionDate: string;
-    shift: CountShift;
-    isClosed: boolean;
-    recordedBy: string | null;
-  } | null;
-};
-
 export type RecentCountSession = {
   id: string;
   sessionDate: string;
@@ -296,18 +267,13 @@ export type PublicUser = {
 };
 
 export type MatrixRow = {
+  itemId: string;
   itemName: string;
+  category: ItemCategory;
+  inSummary: boolean;
   byCompany: Record<Company, number>;
   total: number;
   inArmory: number;
-};
-
-export type AllocationRow = {
-  itemName: string;
-  targets: Record<Company, number>;
-  issued: Record<Company, number>;
-  remaining: Record<Company, number>;
-  totalTarget: number;
 };
 
 export type MovementRow = {
@@ -326,22 +292,6 @@ export type MovementRow = {
    *  serialized item, regardless of category. Drives the "הצג הכל / דוח
    *  צלם" toggle in the daily report. */
   routine: boolean;
-};
-
-export type ImportIssue = {
-  id: string;
-  kind: IssueKind;
-  rowNumber: number;
-  rawRow: string;
-  detail: string;
-  signatureId: string | null;
-  serial: string | null;
-  resolvedAt: string | null;
-};
-
-export type NeedsAttention = {
-  issues: ImportIssue[];
-  signatures: Signature[];
 };
 
 export type Snapshot = {

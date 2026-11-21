@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Company } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ITEM_ORDER } from '../common/item-order';
 
 export type SummaryRow = {
   itemName: string;
@@ -15,7 +16,11 @@ export type SummaryRow = {
 };
 
 export type MatrixRow = {
+  itemId: string;
   itemName: string;
+  category: string;
+  /** The catalog's `מופיע במסכם` flag — lets a screen limit itself to the daily list. */
+  inSummary: boolean;
   byCompany: Record<Company, number>;
   total: number;
   inArmory: number;
@@ -80,7 +85,7 @@ export class ReportsService {
     const [items, issuedRows, lines] = await Promise.all([
       this.prisma.item.findMany({
         where: { isActive: true, inSummary: true },
-        orderBy: { name: 'asc' },
+        orderBy: ITEM_ORDER,
       }),
       this.prisma.signature.groupBy({
         by: ['itemId'],
@@ -140,7 +145,7 @@ export class ReportsService {
 
     const perCompany = await this.issuedPerItemPerCompany();
 
-    const items = await this.prisma.item.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
+    const items = await this.prisma.item.findMany({ where: { isActive: true }, orderBy: ITEM_ORDER });
     const byItem = new Map<string, Record<Company, number>>();
     for (const r of perCompany) {
       const bucket = byItem.get(r.itemId) ?? emptyByCompany();
@@ -151,7 +156,10 @@ export class ReportsService {
     return items.map((item) => {
       const byCompany = byItem.get(item.id) ?? emptyByCompany();
       return {
+        itemId: item.id,
         itemName: item.name,
+        category: item.category,
+        inSummary: item.inSummary,
         byCompany,
         total: COMPANIES.reduce((sum, c) => sum + byCompany[c], 0),
         // Unissued stock, which is what the sheet's בנשקיה column means here.

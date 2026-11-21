@@ -26,9 +26,4 @@ export class QuerySignaturesDto extends PaginationDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   includeReturned?: boolean;
-
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  needsAttentionOnly?: boolean;
 }

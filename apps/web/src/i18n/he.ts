@@ -10,18 +10,14 @@ export const he = {
   },
 
   nav: {
-    dashboard: 'לוח בקרה',
     documents: 'חתימות',
     dailyMovements: 'דוח תנועות יומי',
     issue: 'ניפוק',
-    attention: 'דרוש טיפול',
     summary: 'מסכם',
-    companies: 'פלוגות',
-    allocations: 'הקצאות',
     servicePeriods: 'הקצאה לתקופת שרות',
+    companySplit: 'חלוקה לפלוגות',
     companyAllocation: 'חלוקה לפי חייל',
     counts: 'ספירת נשקיה',
-    movements: 'דוח תנועות',
     attendance: 'ימי יציאה',
     catalog: 'קטלוג פריטים',
     soldiers: 'חיילים',
@@ -87,40 +83,6 @@ export const he = {
     UNKNOWN_COMPANY: 'פלוגה לא מזוהה',
     MISSING_SOLDIER_NAME: 'חסר שם חייל',
     DUPLICATE_ROW: 'שורה כפולה',
-  },
-
-  dashboard: {
-    title: 'לוח בקרה',
-    signedOut: 'פריטים מנופקים',
-    inArmory: 'בנשקיה',
-    gaps: 'פערים',
-    needsAttention: 'דורשות טיפול',
-    recentActivity: 'תנועות אחרונות',
-    noActivity: 'לא נרשמו תנועות',
-    byCompany: 'מנופק לפי פלוגה',
-    topGaps: 'הפערים הגדולים',
-    noGaps: 'אין פערים במצבה',
-    uncounted: (n: number) => `${n} פריטים טרם נספרו`,
-    notCounted: 'טרם נספר',
-
-    whoIsHere: 'מי נמצא היום',
-    present: 'נוכחים',
-    unmarked: 'טרם סומנו',
-    noTeam: 'לא הוגדרו אנשי צוות',
-    fillAttendance: 'מילוי ימי יציאה',
-
-    lastCount: 'ספירת נשקיה אחרונה',
-    noCount: 'טרם בוצעה ספירה',
-    startCount: 'התחל ספירה',
-    countOpen: 'פתוחה',
-    countClosed: 'סגורה',
-    countedOf: (counted: number, total: number) => `${counted} מתוך ${total} פריטים נספרו`,
-    countedBy: (name: string) => `נספר ע"י ${name}`,
-    daysAgo: (n: number) =>
-      n === 0 ? 'היום' : n === 1 ? 'אתמול' : `לפני ${n} ימים`,
-    staleCount: 'הספירה אינה מהיום',
-    mismatchCount: (n: number) => `${n} פריטים אינם תואמים`,
-    allMatch: 'כל הפריטים שנספרו תואמים',
   },
 
   signatures: {
@@ -352,17 +314,25 @@ export const he = {
     action: 'זכה',
   },
 
-  attention: {
-    title: 'דרוש טיפול',
-    subtitle: 'שורות שיובאו מהאקסל עם בעיה בנתונים',
-    none: 'אין שורות שדורשות טיפול',
-    row: 'שורה באקסל',
-    detail: 'הבעיה',
-    original: 'השורה המקורית',
-    fixSerial: 'השלם מסד',
-    fixSerialTitle: (item: string) => `השלמת מסד עבור ${item}`,
-    fixed: 'המסד הושלם',
-    byKind: 'לפי סוג',
+  companySplit: {
+    title: 'חלוקה לפלוגות',
+    subtitle: 'תצוגה בלבד — מה יש כרגע בכל פלוגה, לפי החתימות הפתוחות של החיילים. אותם פריטים וסדר כמו במסכם.',
+    company: 'פלוגה',
+    percentHint: 'המספר הגדול הוא כמה יחידות ציוד יש כרגע אצל הפלוגה, מכל פריטי המסכם. "ניצול ההקצאה" הוא כמה ממה שהוקצה לפלוגה בתקופת השרות הפעילה כבר נופק לה בפועל — 100% אומר שהפלוגה מימשה את כל ההקצאה שלה. הוא סופר רק פריטים שנכללו בהקצאה, ולכן יכול להיות קטן מהמספר הגדול.',
+    heldLabel: 'יחידות ציוד אצל הפלוגה',
+    usage: 'ניצול ההקצאה',
+    noAllocation: 'אין הקצאה לתקופה הפעילה',
+    usedOf: (used: number, allocated: number) => `נופקו ${used} מתוך ${allocated} שהוקצו`,
+    overBy: (n: number) => `חריגה מההקצאה: ${n}`,
+    items: 'פריטים במסכם',
+    heldTotal: 'סה"כ אצל הפלוגות',
+    search: 'חיפוש פריט',
+    searchPlaceholder: 'שם פריט',
+    category: 'קטגוריה',
+    allCategories: 'כל הקטגוריות',
+    item: 'פריט',
+    rowTotal: 'סה"כ',
+    none: '—',
   },
 
   summary: {
@@ -386,22 +356,6 @@ export const he = {
     withGaps: (n: number) => `${n} פריטים עם פער`,
     noGaps: 'אין פערים',
     notFilled: '—',
-  },
-
-  companiesReport: {
-    title: 'פלוגות',
-    item: 'פריט',
-    total: 'סה"כ',
-    inArmory: 'בנשקיה',
-  },
-
-  allocations: {
-    title: 'הקצאות',
-    item: 'פריט',
-    target: 'הקצאה',
-    issued: 'נופק',
-    remaining: 'נשאר לחתום',
-    totalTarget: 'סה"כ',
   },
 
   // תקופות שרות — pre-assigning soldiers before a reserve-duty call-up.

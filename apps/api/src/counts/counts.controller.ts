@@ -15,12 +15,6 @@ export class CountsController {
 
   // ספירת נשקיה is restricted to admin/logistics only — this is the signed
   // daily count sheet, not a report viewers should be reading.
-  @Get('latest')
-  @Roles('admin', 'logistics')
-  latest() {
-    return this.counts.latest();
-  }
-
   @Get('recent')
   @Roles('admin', 'logistics')
   recent() {
