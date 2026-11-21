@@ -357,11 +357,17 @@ function DuplicateDialog({
 }
 
 /**
- * A dropdown of the whole catalog, filtered as you type, where several items
- * can be ticked and added in one go. Case does not matter ("m-4" finds
- * "M-4"). An item already on the list stays visible and tickable: a second
- * serialized unit is allowed (after a warning), only a non-serialized one is
- * greyed out because its quantity is edited on its existing row.
+ * Pick items from the whole catalog, filtered as you type, ticking as many as
+ * needed and adding them in one go. Case does not matter ("m-4" finds "M-4").
+ *
+ * A modal rather than a dropdown under the field: the field sits at the bottom
+ * of a long basket, so a dropdown's own add button landed below the visible
+ * area. Here the search is pinned at the top and the add button at the bottom,
+ * and only the list between them scrolls.
+ *
+ * An item already on the list stays tickable: a second serialized unit is
+ * allowed (after a warning). Only a non-serialized one is greyed out, since
+ * its quantity is edited on its existing row.
  */
 function ItemPicker({
   catalog,
@@ -375,16 +381,6 @@ function ItemPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
-  const root = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent): void {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
 
   const q = normalizeSearch(query);
   const results = useMemo(() => catalog.filter((i) => itemMatches(i, q)), [catalog, q]);
@@ -394,86 +390,111 @@ function ItemPicker({
     return counts;
   }, [lines]);
 
+  function close(): void {
+    setOpen(false);
+    setQuery('');
+    setPicked([]);
+  }
+
   function toggle(id: string): void {
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   }
 
   function commit(): void {
     const chosen = catalog.filter((i) => picked.includes(i.id));
-    setPicked([]);
-    setQuery('');
-    setOpen(false);
+    close();
     if (chosen.length > 0) onAdd(chosen);
   }
 
   return (
-    <div ref={root} className="relative" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
-      <input
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
+    <>
+      <button
         onClick={() => setOpen(true)}
-        placeholder={he.form1008.searchItem}
-        role="combobox"
-        aria-expanded={open}
-        aria-controls="item-picker-list"
-        className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-body"
-      />
+        className="flex h-11 w-full items-center rounded-ctl border border-rule-strong bg-card-raised px-3 text-start text-body text-graphite hover:border-field"
+      >
+        {he.form1008.searchItem}
+      </button>
+
       {open && (
-        <div className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-ctl border border-rule-strong bg-card-raised shadow-lg">
-          <ul id="item-picker-list" role="listbox" aria-multiselectable="true" className="max-h-72 overflow-y-auto">
-            {results.length === 0 && (
-              <li className="px-3 py-4 text-center text-meta text-graphite">{he.common.noResults}</li>
-            )}
-            {results.map((i) => {
-              const on = picked.includes(i.id);
-              const count = inBasket.get(i.id) ?? 0;
-              const blocked = count > 0 && !i.isSerialized;
-              return (
-                <li key={i.id} role="option" aria-selected={on} aria-disabled={blocked}>
-                  <button
-                    disabled={blocked}
-                    onClick={() => toggle(i.id)}
-                    className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                      on ? 'bg-field-wash' : 'hover:bg-card'
-                    }`}
-                  >
-                    <span
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] border-2 ${
-                        on ? 'border-field bg-field text-white' : 'border-rule-strong bg-card-raised'
+        <Modal onClose={close} className="flex max-h-[85dvh] w-full max-w-lg flex-col">
+          <div
+            className="flex min-h-0 flex-1 flex-col"
+            onKeyDown={(e) => e.key === 'Escape' && close()}
+          >
+            <header className="space-y-2 border-b border-rule px-4 py-3">
+              <h2 className="text-lead font-semibold">{he.form1008.addItem}</h2>
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={he.form1008.searchItem}
+                role="combobox"
+                aria-expanded="true"
+                aria-controls="item-picker-list"
+                className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-body"
+              />
+            </header>
+
+            <ul
+              id="item-picker-list"
+              role="listbox"
+              aria-multiselectable="true"
+              className="min-h-0 flex-1 overflow-y-auto"
+            >
+              {results.length === 0 && (
+                <li className="px-3 py-6 text-center text-meta text-graphite">{he.common.noResults}</li>
+              )}
+              {results.map((i) => {
+                const on = picked.includes(i.id);
+                const count = inBasket.get(i.id) ?? 0;
+                const blocked = count > 0 && !i.isSerialized;
+                return (
+                  <li key={i.id} role="option" aria-selected={on} aria-disabled={blocked}>
+                    <button
+                      disabled={blocked}
+                      onClick={() => toggle(i.id)}
+                      className={`flex w-full items-center gap-2.5 px-4 py-3 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                        on ? 'bg-field-wash' : 'hover:bg-card'
                       }`}
                     >
-                      {on && (
-                        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
-                          <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      )}
-                    </span>
-                    <CategoryDot category={i.category} />
-                    <span className="min-w-0 flex-1 truncate font-semibold">{i.name}</span>
-                    {count > 0 && <Tag tone="brass">{he.issue.inList(count)}</Tag>}
-                    {i.isSerialized && <Tag tone="brass">{he.signatures.serial}</Tag>}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="flex items-center gap-2 border-t border-rule bg-card px-3 py-2">
-            <Button size="sm" onClick={commit} disabled={picked.length === 0}>
-              {he.issue.addPicked(picked.length)}
-            </Button>
-            {picked.length > 0 && (
-              <button onClick={() => setPicked([])} className="text-meta font-semibold text-field hover:underline">
-                {he.issue.clearPicked}
-              </button>
-            )}
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] border-2 ${
+                          on ? 'border-field bg-field text-white' : 'border-rule-strong bg-card-raised'
+                        }`}
+                      >
+                        {on && (
+                          <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
+                            <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </span>
+                      <CategoryDot category={i.category} />
+                      <span className="min-w-0 flex-1 truncate font-semibold">{i.name}</span>
+                      {count > 0 && <Tag tone="brass">{he.issue.inList(count)}</Tag>}
+                      {i.isSerialized && <Tag tone="brass">{he.signatures.serial}</Tag>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <footer className="flex items-center gap-2 border-t border-rule bg-card px-4 py-3">
+              <Button onClick={commit} disabled={picked.length === 0}>
+                {he.issue.addPicked(picked.length)}
+              </Button>
+              {picked.length > 0 && (
+                <button onClick={() => setPicked([])} className="text-meta font-semibold text-field hover:underline">
+                  {he.issue.clearPicked}
+                </button>
+              )}
+              <Button variant="quiet" className="ms-auto" onClick={close}>
+                {he.common.cancel}
+              </Button>
+            </footer>
           </div>
-        </div>
+        </Modal>
       )}
-    </div>
+    </>
   );
 }
 

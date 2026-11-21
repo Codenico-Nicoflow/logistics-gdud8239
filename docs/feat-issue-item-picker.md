@@ -2,9 +2,12 @@
 
 Changes to adding items in ניפוק (the basket step; also used by "ערוך פריטים").
 
-## Dropdown, multi-select
-The item search is now a dropdown of the whole catalog, filtered as you type.
-Tick several items and add them in one go ("הוסף N נבחרים"). Items are added one
+## Picker modal, multi-select
+The item search opens a modal over the whole catalog, filtered as you type: search
+pinned at the top, only the list scrolls, add button always visible at the
+bottom. (It was first an inline dropdown, but under a long basket its add button
+fell below the visible area.) Tick several items and add them in one go
+("הוסף N נבחרים"). Items are added one
 by one, so a warning on one (not enlisted, over allocation, duplicate) is shown
 and answered before the next is added.
 
