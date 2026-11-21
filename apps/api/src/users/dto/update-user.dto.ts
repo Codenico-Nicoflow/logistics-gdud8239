@@ -24,4 +24,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   isSuperAdmin?: boolean;
+
+  /** Excuses the person from the authenticator step. Super-admin only — enforced in UsersService. */
+  @IsOptional()
+  @IsBoolean()
+  mfaExempt?: boolean;
 }

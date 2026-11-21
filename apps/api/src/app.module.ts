@@ -72,11 +72,10 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
         // --- Per user ---
         // Changing a password is a password-guessing oracle for anyone holding a stolen session.
         { name: 'account', ttl: 900_000, limit: 5, blockDuration: 900_000, skipIf: onlyForTier('account') },
-        // Adding a passkey is 2 requests, and a cancelled Face ID prompt still spends them, so a
-        // person fixing a failed enrol hit the 5-per-15-min `account` budget and sat blocked for
-        // 15 minutes. Needs a signed-in session plus a device check, so a wide budget is safe, and
-        // a short block clears quickly.
-        { name: 'device', ttl: 900_000, limit: perMinute('THROTTLE_DEVICE_PER_15MIN', 40), blockDuration: 60_000, skipIf: onlyForTier('device') },
+        // Setting up the authenticator app is 2+ requests and a mistyped code still spends them, so it
+        // must not share the 5-per-15-min `account` budget (that blocked people for 15 minutes while
+        // fixing a failed enrol). Needs a signed-in session, and wrong codes also feed the lockout.
+        { name: 'mfa', ttl: 900_000, limit: perMinute('THROTTLE_MFA_PER_15MIN', 40), blockDuration: 60_000, skipIf: onlyForTier('mfa') },
         // Whole-database reads and file downloads: slow to build, and exactly what a stolen
         // session would be used for. A person needs one or two a minute at most.
         { name: 'heavy', ttl: 60_000, limit: perMinute('THROTTLE_HEAVY_PER_MIN', 10), blockDuration: 0, skipIf: onlyForTier('heavy') },

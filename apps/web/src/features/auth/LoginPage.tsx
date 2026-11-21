@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useLoginMutation } from '../../lib/api';
 import { Button, TextField } from '../../components/ui';
-import { PasskeyStep } from './PasskeyStep';
+import { MfaStep } from './MfaStep';
 import { he } from '../../i18n/he';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [login, { isLoading, isError }] = useLoginMutation();
-  // Set when the password was right but a device confirmation is still owed.
-  const [pending, setPending] = useState<{ step: 'passkey' | 'enroll'; mfaToken: string } | null>(null);
+  // Set when the password was right but the authenticator step is still owed.
+  const [pending, setPending] = useState<{ step: 'totp' | 'enroll'; mfaToken: string } | null>(null);
 
   async function submit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -32,7 +32,7 @@ export function LoginPage() {
         </div>
 
         {pending ? (
-          <PasskeyStep step={pending.step} mfaToken={pending.mfaToken} onBack={() => setPending(null)} />
+          <MfaStep step={pending.step} mfaToken={pending.mfaToken} onBack={() => setPending(null)} />
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <TextField

@@ -214,12 +214,22 @@ export function TextField({
   error,
   className = '',
   inputClassName = '',
+  autoComplete,
+  inputMode,
+  maxLength,
+  dir,
 }: {
   label?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   type?: string;
+  /** e.g. `one-time-code`, so a phone offers the code from the authenticator or a text message. */
+  autoComplete?: string;
+  inputMode?: 'text' | 'numeric' | 'decimal' | 'tel' | 'email' | 'search' | 'url' | 'none';
+  maxLength?: number;
+  /** `ltr` for codes and keys, which must not be reordered inside a right-to-left page. */
+  dir?: 'ltr' | 'rtl';
   autoFocus?: boolean;
   required?: boolean;
   disabled?: boolean;
@@ -245,6 +255,10 @@ export function TextField({
         placeholder={placeholder}
         autoFocus={autoFocus}
         disabled={disabled}
+        autoComplete={autoComplete}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        dir={dir}
         className={`h-11 w-full rounded-ctl border bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:cursor-not-allowed disabled:bg-card disabled:text-graphite ${
           error ? 'border-oxide' : 'border-rule-strong'
         } ${inputClassName}`}

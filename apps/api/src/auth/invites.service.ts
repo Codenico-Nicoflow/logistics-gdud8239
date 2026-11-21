@@ -70,9 +70,9 @@ export class InvitesService {
         where: { id: invite.userId },
         data: { passwordHash, passwordChangedAt: new Date(), mustSetup: false, failedLoginCount: 0, lockedUntil: null },
       });
-      // A reset means a forgotten password or a lost device: the old passkeys go with it, so a thief
-      // holding the phone cannot use them, and the person enrols a new device.
-      if (invite.kind === 'RESET') await tx.webauthnCredential.deleteMany({ where: { userId: invite.userId } });
+      // A reset means a forgotten password or a lost phone: the authenticator app goes with it, so a
+      // thief holding the old phone cannot use it, and the person sets it up again.
+      if (invite.kind === 'RESET') await tx.userTotp.deleteMany({ where: { userId: invite.userId } });
       // Anything signed in under the old credentials ends here.
       await tx.refreshToken.updateMany({ where: { userId: invite.userId, revokedAt: null }, data: { revokedAt: new Date() } });
       return true;

@@ -153,13 +153,14 @@ model User {
   /// True from the moment an admin issues a setup link (new user, or a forgotten password / lost
   /// device) until it is used. While set, the account cannot log in.
   mustSetup         Boolean   @default(false) @map("must_setup")
+  /// A super-admin has excused this person from the authenticator step (even while it is required for everyone else).
+  mfaExempt         Boolean   @default(false) @map("mfa_exempt")
 
   refreshTokens       RefreshToken[]
   invites             UserInvite[]         @relation("inviteFor")
   invitesCreated      UserInvite[]         @relation("inviteBy")
   securityEvents      SecurityEvent[]      @relation("eventFor")
-  passkeys            WebauthnCredential[]
-  webauthnChallenges  WebauthnChallenge[]
+  totp                UserTotp?
   importLogs          ImportLog[]
   signaturesIssued    Signature[]          @relation("signedBy")
   signaturesReturned  Signature[]          @relation("returnedBy")
@@ -905,44 +906,42 @@ model SecurityEvent {
   @@map("security_events")
 }
 
-/// A passkey: the public half of a key pair whose private half never leaves the person's device
-/// (phone, laptop, security key) and is unlocked there by fingerprint, face or PIN. Nothing stored
-/// here can be used to log in — it can only check a signature made by the device.
-model WebauthnCredential {
-  id           String    @id @default(uuid())
-  userId       String    @map("user_id")
-  /// The authenticator's credential id, base64url.
-  credentialId String    @unique @map("credential_id")
-  publicKey    Bytes     @map("public_key")
-  /// Signature counter; a device whose counter goes backwards has been cloned.
-  counter      Int       @default(0)
-  transports   String[]
-  /// What the person called it ("הטלפון שלי"), so a list of devices means something.
-  deviceName   String    @map("device_name")
-  /// `singleDevice` or `multiDevice` (synced through iCloud / Google Password Manager).
-  deviceType   String?   @map("device_type")
-  backedUp     Boolean   @default(false) @map("backed_up")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastUsedAt   DateTime? @map("last_used_at")
+/// Authenticator-app (TOTP) second step. The secret is stored ENCRYPTED with a key that is not in the
+/// database, so a stolen database or backup cannot generate codes. `confirmedAt` stays null until the
+/// person has proved their app shows the right code; an unconfirmed secret never counts as enrolled.
+model UserTotp {
+  userId      String    @id @map("user_id")
+  secretEnc   String    @map("secret_enc")
+  confirmedAt DateTime? @map("confirmed_at")
+  /// The last 30-second step accepted, so a code (shoulder-surfed, or replayed) works only once.
+  lastStep    Int       @default(0) @map("last_step")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  backupCodes TotpBackupCode[]
 
-  @@index([userId])
-  @@map("webauthn_credentials")
+  @@map("user_totp")
 }
 
-/// The random value a device signs to prove it holds the key. Single use: deleted as soon as it is
-/// consumed, whether or not the signature checks out, and expires in minutes anyway.
-model WebauthnChallenge {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  /// `register` or `authenticate`.
-  purpose   String
-  challenge String
-  expiresAt DateTime @map("expires_at")
+/// One-time recovery codes for a lost phone. Stored as a hash; shown to the person once.
+model TotpBackupCode {
+  id       String    @id @default(uuid())
+  userId   String    @map("user_id")
+  codeHash String    @map("code_hash")
+  usedAt   DateTime? @map("used_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totp UserTotp @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
-  @@index([userId, purpose])
-  @@map("webauthn_challenges")
+  @@unique([userId, codeHash])
+  @@map("totp_backup_codes")
+}
+
+/// Small key/value switches an admin flips in the UI (instead of a redeploy), e.g. `mfa.enforced`.
+model AppSetting {
+  key             String   @id
+  value           String
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  updatedByUserId String?  @map("updated_by_user_id")
+
+  @@map("app_settings")
 }

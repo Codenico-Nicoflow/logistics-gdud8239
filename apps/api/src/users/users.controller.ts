@@ -49,6 +49,14 @@ export class UsersController {
     return this.users.securityEvents(id, take);
   }
 
+  /** Wipes the person's authenticator app (lost phone, no backup codes) and ends their sessions. */
+  @Tier('account')
+  @Post(':id/mfa-reset')
+  @HttpCode(204)
+  resetMfa(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser): Promise<void> {
+    return this.users.resetMfa(id, actor.id);
+  }
+
   /** A fresh one-time setup link: forgotten password, lost device, or a link that expired. */
   @Tier('account')
   @Post(':id/setup-link')

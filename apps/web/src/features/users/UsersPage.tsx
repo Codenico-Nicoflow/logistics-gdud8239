@@ -3,6 +3,9 @@ import {
   useCreateUserMutation,
   useDeleteUserMutation,
   useIssueSetupLinkMutation,
+  useMfaOverviewQuery,
+  useResetUserMfaMutation,
+  useSetMfaEnforcedMutation,
   useSecurityEventsQuery,
   useUnlockUserMutation,
   useUpdateUserMutation,
@@ -44,6 +47,8 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
   const [issueLink] = useIssueSetupLinkMutation();
   const [logFor, setLogFor] = useState<PublicUser | null>(null);
   const [unlock] = useUnlockUserMutation();
+  const [resetMfa, { isLoading: isResettingMfa }] = useResetUserMfaMutation();
+  const [resettingMfa, setResettingMfa] = useState<PublicUser | null>(null);
   const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
   const toast = useToast();
   // The one-time setup link, shown until it is copied: the server never returns it again.
@@ -100,7 +105,8 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
   const statusTags = (user: PublicUser): ReactNode => (
     <>
       {!user.isActive && <Tag>{he.users.inactive}</Tag>}
-      {user.isActive && !user.mustSetup && user.passkeyCount === 0 && <Tag>{he.users.noDevice}</Tag>}
+      {user.isActive && !user.mustSetup && !user.mfaEnabled && !user.mfaExempt && <Tag>{he.users.noApp}</Tag>}
+      {user.isActive && user.mfaExempt && <Tag tone="brass">{he.users.exemptTag}</Tag>}
       {user.mustSetup && <Tag tone="brass">{he.users.pendingSetup}</Tag>}
       {isLocked(user) && (
         <span title={he.users.lockedHint(formatDateTime(user.lockedUntil as string))}>
@@ -128,6 +134,22 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
             else if ('error' in r) toast.error({ title: he.toast.failed, detail: apiErrorMessage(r.error) ?? undefined });
           }),
       });
+    }
+    // Excusing someone from the second step, and wiping a lost phone's app, are security decisions:
+    // the first is the super-admin's alone (the server enforces it too).
+    if (viewerIsSuperAdmin) {
+      items.push({
+        key: 'exempt',
+        label: user.mfaExempt ? he.users.unexempt : he.users.exempt,
+        run: () =>
+          void update({ id: user.id, mfaExempt: !user.mfaExempt }).then((r) => {
+            if ('error' in r) toast.error({ title: he.toast.failed, detail: apiErrorMessage(r.error) ?? undefined });
+            else toast.success({ title: he.users.mfaExemptToast });
+          }),
+      });
+    }
+    if (user.mfaEnabled && user.id !== currentUserId) {
+      items.push({ key: 'mfa-reset', label: he.users.resetMfa, danger: true, run: () => setResettingMfa(user) });
     }
     items.push({ key: 'log', label: he.users.securityLog, run: () => setLogFor(user) });
     items.push({
@@ -169,19 +191,29 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
         <div>
           <h1 className="text-display font-bold">{he.users.title}</h1>
           <p className="mt-1 text-ink-soft">{he.users.subtitle}</p>
-          {data && (
-            <p className="mt-1 text-meta text-graphite">
-              {he.users.deviceSummary(
-                data.filter((u) => u.isActive && (u.passkeyCount ?? 0) > 0).length,
-                data.filter((u) => u.isActive).length,
-              )}
-            </p>
-          )}
         </div>
         <Button onClick={() => setAdding(true)}>{he.users.add}</Button>
       </div>
 
+      <MfaPanel isSuperAdmin={viewerIsSuperAdmin} />
+
       {shownLink && <SetupLinkPanel link={shownLink} onClose={() => setShownLink(null)} />}
+
+      {resettingMfa && (
+        <ConfirmDialog
+          title={he.users.resetMfaTitle(resettingMfa.displayName)}
+          body={he.users.resetMfaBody}
+          action={he.users.resetMfaAction}
+          busy={isResettingMfa}
+          onCancel={() => setResettingMfa(null)}
+          onConfirm={async () => {
+            const result = await resetMfa(resettingMfa.id);
+            if ('error' in result) toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+            else toast.success({ title: he.users.mfaResetToast });
+            setResettingMfa(null);
+          }}
+        />
+      )}
 
       <Panel>
         {/* Phone: a card per account, with the actions as real buttons. A five-column table with a row of
@@ -587,5 +619,101 @@ function SecurityLogDialog({ user, onClose }: { user: PublicUser; onClose: () =>
         </Button>
       </div>
     </Modal>
+  );
+}
+
+function ConfirmDialog({
+  title,
+  body,
+  action,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  body: string;
+  action: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <h2 className="text-lead font-semibold">{title}</h2>
+        <p className="text-meta text-ink-soft">{body}</p>
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Button variant="danger" onClick={onConfirm} disabled={busy}>
+            {action}
+          </Button>
+          <Button variant="quiet" onClick={onCancel} disabled={busy}>
+            {he.security.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * The authenticator-app policy: how many people have it, and — for the super-admin only — the switch
+ * that makes it required of everyone. Per-person exemptions are in each row's actions.
+ */
+function MfaPanel({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+  const { data } = useMfaOverviewQuery();
+  const [setEnforced, { isLoading }] = useSetMfaEnforcedMutation();
+  const [confirming, setConfirming] = useState(false);
+  const toast = useToast();
+
+  if (!data) return null;
+
+  async function apply(enforced: boolean): Promise<void> {
+    const result = await setEnforced({ enforced });
+    if ('error' in result) toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+    else toast.success({ title: enforced ? he.security.enforcedToast : he.security.optionalToast });
+    setConfirming(false);
+  }
+
+  const missing = data.active - data.enrolled - data.exempt;
+
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-4">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lead font-semibold">{he.security.adminTitle}</h2>
+            <Tag tone={data.enforced ? 'field' : 'neutral'}>{data.enforced ? he.security.adminEnforced : he.security.adminOptional}</Tag>
+          </div>
+          <p className="text-meta text-graphite">
+            {he.security.adminSummary(data.enrolled, data.active)}
+            {data.exempt > 0 && ` · ${he.security.adminExempt(data.exempt)}`}
+          </p>
+          <p className="text-meta text-ink-soft">{data.enforced ? he.security.adminEnforceHintOn : he.security.adminEnforceHintOff}</p>
+        </div>
+        {isSuperAdmin ? (
+          data.enforced ? (
+            <Button variant="quiet" onClick={() => void apply(false)} disabled={isLoading} className="w-full sm:w-auto">
+              {he.security.adminEnforceOff}
+            </Button>
+          ) : (
+            <Button onClick={() => setConfirming(true)} disabled={isLoading} className="w-full sm:w-auto">
+              {he.security.adminEnforceOn}
+            </Button>
+          )
+        ) : (
+          <span className="text-meta text-graphite">{he.security.needSuper}</span>
+        )}
+      </div>
+      {confirming && (
+        <ConfirmDialog
+          title={he.security.adminEnforceConfirmTitle}
+          body={he.security.adminEnforceConfirmBody(Math.max(missing, 0))}
+          action={he.security.adminEnforceOnAction}
+          busy={isLoading}
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => void apply(true)}
+        />
+      )}
+    </Panel>
   );
 }

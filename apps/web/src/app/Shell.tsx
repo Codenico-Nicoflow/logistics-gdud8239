@@ -147,7 +147,7 @@ function NamingIcon() {
     </svg>
   );
 }
-function DevicesIcon() {
+function SecurityIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
       <path d="M10 2.5 4 5v4.5c0 3.6 2.5 6.3 6 8 3.5-1.7 6-4.4 6-8V5l-6-2.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
@@ -245,7 +245,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
   },
   {
     heading: he.nav.myAccount,
-    items: [{ to: '/devices', label: he.nav.devices, icon: <DevicesIcon /> }],
+    items: [{ to: '/security', label: he.nav.security, icon: <SecurityIcon /> }],
   },
 ];
 
