@@ -8,6 +8,9 @@ export type JwtPayload = {
   companyScope: Company | null;
   /** Issued-at (seconds), set by the JWT library. */
   iat?: number;
+  /** Issued-at in milliseconds. `iat` rounds down to the second, which cannot tell a token issued just
+   *  before a password change from one issued just after it. */
+  iatMs?: number;
 };
 
 /** The authenticated user as attached to the request by the JWT guard. */

@@ -280,6 +280,20 @@ export type PublicUser = {
   /** Set while the account is locked after too many wrong passwords. */
   lockedUntil?: string | null;
   lastLoginAt?: string | null;
+  /** A setup link is outstanding: the account cannot log in until its owner opens it. */
+  mustSetup?: boolean;
+};
+
+/** The one-time link an admin hands to a person; the server returns it exactly once. */
+export type SetupLink = { url: string; expiresAt: string };
+
+export type SecurityEventRow = {
+  id: string;
+  at: string;
+  type: string;
+  ip: string | null;
+  detail: string | null;
+  actorUserId: string | null;
 };
 
 export type MatrixRow = {

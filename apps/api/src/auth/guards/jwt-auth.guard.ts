@@ -55,7 +55,8 @@ export class JwtAuthGuard implements CanActivate {
     }
     // A password change or reset ends sessions at once: a token issued before it is refused,
     // instead of staying valid until its 15 minutes run out.
-    if (user.passwordChangedAt && (payload.iat ?? 0) * 1000 < user.passwordChangedAt.getTime()) {
+    const issuedAt = payload.iatMs ?? (payload.iat ?? 0) * 1000;
+    if (user.passwordChangedAt && issuedAt < user.passwordChangedAt.getTime()) {
       throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
     }
 

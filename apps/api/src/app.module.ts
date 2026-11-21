@@ -23,6 +23,7 @@ import { ExcelModule } from './excel/excel.module';
 import { SnapshotsModule } from './snapshots/snapshots.module';
 import { IfsunModule } from './ifsun/ifsun.module';
 import { DbBackupsModule } from './db-backups/db-backups.module';
+import { SecurityEventsModule } from './security-events/security-events.module';
 import { AppController } from './app.controller';
 import { ipTracker, onlyForTier, perMinute, trackerOf } from './common/throttle-tiers';
 import { RejectNullBytesPipe } from './common/pipes';
@@ -82,6 +83,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    SecurityEventsModule,
     AuthModule,
     UsersModule,
     ReportsModule,

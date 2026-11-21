@@ -41,6 +41,8 @@ import type {
   IssueBundleLine,
   AvailableInstance,
   SignatureHolder,
+  SetupLink,
+  SecurityEventRow,
 } from './types';
 
 /**
@@ -475,8 +477,8 @@ export const api = createApi({
       providesTags: ['Users'],
     }),
     createUser: build.mutation<
-      PublicUser & { generatedPassword?: string },
-      { username: string; displayName: string; role: string; companyScope?: Company; password?: string }
+      PublicUser & { setup: SetupLink },
+      { username: string; displayName: string; role: string; companyScope?: Company }
     >({
       query: (body) => ({ url: '/users', method: 'POST', body }),
       invalidatesTags: ['Users'],
@@ -495,8 +497,21 @@ export const api = createApi({
       query: ({ id, ...body }) => ({ url: `/users/${id}`, method: 'PATCH', body }),
       invalidatesTags: ['Users'],
     }),
-    resetPassword: build.mutation<{ password: string }, string>({
-      query: (id) => ({ url: `/users/${id}/reset-password`, method: 'POST' }),
+    // A forgotten password or a lost device: a fresh one-time link. Ends the person's sessions now.
+    issueSetupLink: build.mutation<SetupLink, string>({
+      query: (id) => ({ url: `/users/${id}/setup-link`, method: 'POST' }),
+      invalidatesTags: ['Users'],
+    }),
+    securityEvents: build.query<SecurityEventRow[], string>({
+      query: (id) => `/users/${id}/security-events?take=50`,
+    }),
+    // The public setup page: who the link is for, then the person's own choice of password.
+    setupInfo: build.query<{ username: string; displayName: string; kind: 'INVITE' | 'RESET' }, string>({
+      query: (token) => `/auth/setup/${encodeURIComponent(token)}`,
+    }),
+    completeSetup: build.mutation<{ user: AuthUser }, { token: string; password: string }>({
+      query: ({ token, ...body }) => ({ url: `/auth/setup/${encodeURIComponent(token)}`, method: 'POST', body }),
+      invalidatesTags: ['Auth'],
     }),
     unlockUser: build.mutation<void, string>({
       query: (id) => ({ url: `/users/${id}/unlock`, method: 'POST' }),
@@ -711,7 +726,10 @@ export const {
   useUsersQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
-  useResetPasswordMutation,
+  useIssueSetupLinkMutation,
+  useSecurityEventsQuery,
+  useSetupInfoQuery,
+  useCompleteSetupMutation,
   useUnlockUserMutation,
   useDeleteUserMutation,
   useServicePeriodsQuery,

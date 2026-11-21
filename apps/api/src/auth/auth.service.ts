@@ -1,9 +1,11 @@
-import { HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
+import { checkPassword } from './password-policy';
 import { Cron } from '@nestjs/schedule';
 import {
   BCRYPT_ROUNDS,
@@ -61,6 +63,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly events: SecurityEventsService,
   ) {}
 
   /**
@@ -80,10 +83,20 @@ export class AuthService {
     const hash = user?.passwordHash ?? '$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
     const matches = await bcrypt.compare(password, hash);
 
-    if (!user || !user.isActive || locked || !matches) {
+    // An account still waiting for its owner to choose a password (or with a setup link outstanding
+    // after a reset) cannot log in: there is nothing valid to log in with.
+    const awaitingSetup = !!user && (!user.passwordHash || user.mustSetup);
+
+    if (!user || !user.isActive || locked || awaitingSetup || !matches) {
       // The id, never the typed username: people mistype passwords into that field.
       if (ip) this.noteIpFailure(ip);
-      if (user && user.isActive && !locked) await this.recordFailure(user.id, user.failedLoginCount);
+      if (user && user.isActive && !locked && !awaitingSetup) {
+        const lockedUntil = await this.recordFailure(user.id, user.failedLoginCount);
+        await this.events.record(SecurityEventType.LOGIN_FAILED, { userId: user.id, ip });
+        if (lockedUntil) {
+          await this.events.record(SecurityEventType.ACCOUNT_LOCKED, { userId: user.id, ip, detail: `until ${lockedUntil.toISOString()}` });
+        }
+      }
       this.logger.warn(
         user
           ? `Failed login for user ${user.id}${locked ? ' (locked)' : ''}`
@@ -96,6 +109,7 @@ export class AuthService {
       where: { id: user.id },
       data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
     });
+    await this.events.record(SecurityEventType.LOGIN_SUCCESS, { userId: user.id, ip });
 
     return {
       id: user.id,
@@ -139,7 +153,7 @@ export class AuthService {
   }
 
   /** Counts the failure and, past the threshold, locks the account for a growing time. */
-  private async recordFailure(userId: string, previousCount: number): Promise<void> {
+  private async recordFailure(userId: string, previousCount: number): Promise<Date | null> {
     const count = previousCount + 1;
     const over = count - LOCKOUT_AFTER_FAILURES;
     const lockedUntil =
@@ -150,6 +164,7 @@ export class AuthService {
       where: { id: userId },
       data: { failedLoginCount: { increment: 1 }, ...(lockedUntil ? { lockedUntil } : {}) },
     });
+    return lockedUntil ?? null;
   }
 
   /**
@@ -170,11 +185,18 @@ export class AuthService {
       },
     });
     if (count > 0) this.logger.log(`Pruned ${count} old refresh tokens`);
+
+    // Used or long-expired setup links are dead weight, and account events are kept for over a year.
+    await this.prisma.userInvite.deleteMany({
+      where: { OR: [{ usedAt: { lt: new Date(Date.now() - 30 * day) } }, { expiresAt: { lt: new Date(Date.now() - 30 * day) } }] },
+    });
+    await this.prisma.securityEvent.deleteMany({ where: { at: { lt: new Date(Date.now() - 400 * day) } } });
   }
 
   /** Admin unlock: clears the counter and the lock. */
-  async unlock(userId: string): Promise<void> {
+  async unlock(userId: string, actorUserId?: string): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: { failedLoginCount: 0, lockedUntil: null } });
+    await this.events.record(SecurityEventType.ACCOUNT_UNLOCKED, { userId, actorUserId });
   }
 
   async issueTokens(user: AuthUser, session: SessionContext = {}): Promise<TokenPair> {
@@ -183,6 +205,7 @@ export class AuthService {
       username: user.username,
       role: user.role,
       companyScope: user.companyScope,
+      iatMs: Date.now(),
     };
 
     const accessToken = await this.jwt.signAsync(accessPayload, {
@@ -287,8 +310,11 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('המשתמש אינו קיים');
 
-    const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+    const matches = user.passwordHash ? await bcrypt.compare(currentPassword, user.passwordHash) : false;
     if (!matches) throw new UnauthorizedException('הסיסמה הנוכחית שגויה');
+
+    const problem = checkPassword(newPassword, { username: user.username, displayName: user.displayName });
+    if (problem) throw new BadRequestException(problem);
 
     await this.prisma.$transaction([
       this.prisma.user.update({
@@ -300,9 +326,7 @@ export class AuthService {
         data: { revokedAt: new Date() },
       }),
     ]);
+    await this.events.record(SecurityEventType.PASSWORD_CHANGED, { userId, actorUserId: userId });
   }
 
-  static generatePassword(): string {
-    return randomBytes(12).toString('base64url');
-  }
 }

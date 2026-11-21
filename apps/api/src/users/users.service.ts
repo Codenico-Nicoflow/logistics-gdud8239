@@ -5,10 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
-import { BCRYPT_ROUNDS } from '../auth/auth.constants';
+import { InvitesService } from '../auth/invites.service';
+import { normalizeOrigin } from '../common/origin-check.middleware';
+import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 
@@ -23,7 +25,12 @@ export type PublicUser = {
   isSuperAdmin: boolean;
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
+  /** A setup link is outstanding: the account cannot log in until its owner uses it. */
+  mustSetup: boolean;
 };
+
+/** The one-time link, returned exactly once when it is created. */
+export type SetupLink = { url: string; expiresAt: Date };
 
 const PUBLIC_FIELDS = {
   id: true,
@@ -36,6 +43,7 @@ const PUBLIC_FIELDS = {
   isSuperAdmin: true,
   lockedUntil: true,
   lastLoginAt: true,
+  mustSetup: true,
 } as const;
 
 @Injectable()
@@ -43,7 +51,15 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
+    private readonly invites: InvitesService,
+    private readonly events: SecurityEventsService,
+    private readonly config: ConfigService,
   ) {}
+
+  private linkFor(token: string, expiresAt: Date): SetupLink {
+    const origin = normalizeOrigin(this.config.get<string>('WEB_ORIGIN') ?? 'http://localhost:5173');
+    return { url: `${origin}/setup/${token}`, expiresAt };
+  }
 
   findAll(): Promise<PublicUser[]> {
     return this.prisma.user.findMany({
@@ -52,11 +68,11 @@ export class UsersService {
     });
   }
 
-  /** Returns the generated password exactly once when the caller did not supply one. */
-  async create(
-    dto: CreateUserDto,
-    actingUserId: string,
-  ): Promise<PublicUser & { generatedPassword?: string }> {
+  /**
+   * Creates an account with NO password. The admin gets a one-time setup link to hand over; the
+   * person opens it and chooses their own password, so nobody else ever knows it.
+   */
+  async create(dto: CreateUserDto, actingUserId: string): Promise<PublicUser & { setup: SetupLink }> {
     const existing = await this.prisma.user.findUnique({ where: { username: dto.username } });
     if (existing) throw new ConflictException('שם המשתמש כבר קיים');
 
@@ -73,22 +89,21 @@ export class UsersService {
       throw new BadRequestException('סגן מפקד פלוגה חייב להיות משויך לפלוגה');
     }
 
-    const generated = dto.password ? undefined : AuthService.generatePassword();
-    const password = dto.password ?? generated;
-    if (!password) throw new BadRequestException('נדרשת סיסמה');
-
     const user = await this.prisma.user.create({
       data: {
         username: dto.username,
         displayName: dto.displayName,
         role: dto.role,
         companyScope: dto.companyScope ?? null,
-        passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
+        passwordHash: null,
+        mustSetup: true,
       },
       select: PUBLIC_FIELDS,
     });
-
-    return generated ? { ...user, generatedPassword: generated } : user;
+    const { token, expiresAt } = await this.invites.create(user.id, 'INVITE', actingUserId);
+    await this.events.record(SecurityEventType.USER_CREATED, { userId: user.id, actorUserId: actingUserId, detail: dto.role });
+    await this.events.record(SecurityEventType.INVITE_CREATED, { userId: user.id, actorUserId: actingUserId, detail: 'INVITE' });
+    return { ...user, setup: this.linkFor(token, expiresAt) };
   }
 
   async update(id: string, dto: UpdateUserDto, actingUserId: string): Promise<PublicUser> {
@@ -164,37 +179,47 @@ export class UsersService {
     return updated;
   }
 
-  /** Lifts a lock after wrong passwords — the account's owner, not an attacker, is who usually needs it. */
-  async unlock(id: string): Promise<void> {
+  /** Recent account events for the admin's security log. */
+  async securityEvents(id: string, take?: number) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('המשתמש אינו קיים');
-    await this.auth.unlock(id);
+    return this.events.recent(id, take);
   }
 
-  /** Admin password reset. Returns the new password once and ends every session. */
-  async resetPassword(id: string, actingUserId: string): Promise<{ password: string }> {
+  /** Lifts a lock after wrong passwords — the account's owner, not an attacker, is who usually needs it. */
+  async unlock(id: string, actingUserId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('המשתמש אינו קיים');
+    await this.auth.unlock(id, actingUserId);
+  }
+
+  /**
+   * Replaces "reset the password": a forgotten password or a lost device gets a fresh setup link.
+   * Issuing it ends the person's sessions at once and stops the old password from working until the
+   * link is used — so if the reason is a stolen phone, the thief is out immediately.
+   */
+  async issueSetupLink(id: string, actingUserId: string): Promise<SetupLink> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('המשתמש אינו קיים');
+    if (!user.isActive) throw new BadRequestException('החשבון מושבת. יש להפעיל אותו לפני שליחת קישור');
+    if (id === actingUserId) throw new BadRequestException('לא ניתן לשלוח קישור הגדרה לחשבון שלך');
 
     if (user.isSuperAdmin) {
       const actor = await this.prisma.user.findUnique({ where: { id: actingUserId } });
       if (!actor?.isSuperAdmin) {
-        throw new BadRequestException('אין הרשאה לאפס סיסמה לחשבון סופר-מנהל');
+        throw new BadRequestException('אין הרשאה לשלוח קישור הגדרה לחשבון סופר-מנהל');
       }
     }
 
-    const password = AuthService.generatePassword();
     await this.prisma.user.update({
       where: { id },
-      data: {
-        passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
-        passwordChangedAt: new Date(),
-        failedLoginCount: 0,
-        lockedUntil: null,
-      },
+      // `passwordChangedAt` ends access tokens already issued; the refresh tokens go just below.
+      data: { mustSetup: true, passwordChangedAt: new Date(), failedLoginCount: 0, lockedUntil: null },
     });
     await this.auth.revokeAllForUser(id);
-    return { password };
+    const { token, expiresAt } = await this.invites.create(id, user.passwordHash ? 'RESET' : 'INVITE', actingUserId);
+    await this.events.record(SecurityEventType.INVITE_CREATED, { userId: id, actorUserId: actingUserId, detail: 'RESET' });
+    return this.linkFor(token, expiresAt);
   }
 
   /**

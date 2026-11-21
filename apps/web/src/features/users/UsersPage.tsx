@@ -2,7 +2,8 @@ import { useState } from 'react';
 import {
   useCreateUserMutation,
   useDeleteUserMutation,
-  useResetPasswordMutation,
+  useIssueSetupLinkMutation,
+  useSecurityEventsQuery,
   useUnlockUserMutation,
   useUpdateUserMutation,
   useUsersQuery,
@@ -40,13 +41,13 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
   const [editing, setEditing] = useState<PublicUser | null>(null);
   const [deleting, setDeleting] = useState<PublicUser | null>(null);
   const [update] = useUpdateUserMutation();
-  const [reset] = useResetPasswordMutation();
+  const [issueLink] = useIssueSetupLinkMutation();
+  const [logFor, setLogFor] = useState<PublicUser | null>(null);
   const [unlock] = useUnlockUserMutation();
   const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
   const toast = useToast();
-  const [shownPassword, setShownPassword] = useState<{ name: string; password: string } | null>(
-    null,
-  );
+  // The one-time setup link, shown until it is copied: the server never returns it again.
+  const [shownLink, setShownLink] = useState<{ name: string; url: string; reset: boolean } | null>(null);
 
   if (isLoading) return <Spinner />;
 
@@ -72,20 +73,7 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
         <Button onClick={() => setAdding(true)}>{he.users.add}</Button>
       </div>
 
-      {shownPassword && (
-        <Panel>
-          <div className="px-4 py-3">
-            <p className="font-semibold">{shownPassword.name}</p>
-            <p className="mt-1 text-meta text-oxide">{he.users.passwordOnce}</p>
-            <code className="mt-2 block rounded-ctl bg-brass-wash px-3 py-2 text-head font-bold tracking-wide">
-              {shownPassword.password}
-            </code>
-            <Button variant="quiet" size="sm" onClick={() => setShownPassword(null)} className="mt-3">
-              {he.common.close}
-            </Button>
-          </div>
-        </Panel>
-      )}
+      {shownLink && <SetupLinkPanel link={shownLink} onClose={() => setShownLink(null)} />}
 
       <Panel>
         <TableScroll>
@@ -139,6 +127,11 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
                           <span className="mx-1">{he.users.inactive}</span>
                         </Tag>
                       )}
+                      {user.mustSetup && (
+                        <span className="ms-2">
+                          <Tag tone="brass">{he.users.pendingSetup}</Tag>
+                        </span>
+                      )}
                       {user.lockedUntil && new Date(user.lockedUntil) > new Date() && (
                         <span title={he.users.lockedHint(formatDateTime(user.lockedUntil))} className="ms-2">
                           <Tag tone="oxide">{he.users.locked}</Tag>
@@ -175,20 +168,27 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
                               {he.users.unlock}
                             </button>
                           )}
+                          {user.id !== currentUserId && user.isActive && (
+                            <button
+                              onClick={() =>
+                                void issueLink(user.id).then((r) => {
+                                  if ('data' in r && r.data) {
+                                    setShownLink({ name: user.displayName, url: r.data.url, reset: true });
+                                  } else if ('error' in r) {
+                                    toast.error({ title: he.toast.failed, detail: apiErrorMessage(r.error) ?? undefined });
+                                  }
+                                })
+                              }
+                              className="text-meta font-semibold text-field-dark hover:underline"
+                            >
+                              {he.users.newSetupLink}
+                            </button>
+                          )}
                           <button
-                            onClick={() =>
-                              void reset(user.id).then((r) => {
-                                if (r.data) {
-                                  setShownPassword({
-                                    name: user.displayName,
-                                    password: r.data.password,
-                                  });
-                                }
-                              })
-                            }
+                            onClick={() => setLogFor(user)}
                             className="text-meta font-semibold text-field-dark hover:underline"
                           >
-                            {he.users.resetPassword}
+                            {he.users.securityLog}
                           </button>
                           <button
                             onClick={() => void update({ id: user.id, isActive: !user.isActive })}
@@ -221,9 +221,10 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
         <AddUserDialog
           viewerIsShunem={currentUser?.username === 'shunem'}
           onClose={() => setAdding(false)}
-          onCreated={(name, password) => setShownPassword({ name, password })}
+          onCreated={(name, url) => setShownLink({ name, url, reset: false })}
         />
       )}
+      {logFor && <SecurityLogDialog user={logFor} onClose={() => setLogFor(null)} />}
       {editing && (
         <EditUserDialog
           user={editing}
@@ -396,20 +397,16 @@ function AddUserDialog({
 }: {
   viewerIsShunem: boolean;
   onClose: () => void;
-  onCreated: (name: string, password: string) => void;
+  onCreated: (name: string, url: string) => void;
 }) {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<Role>('logistics');
   const [companyScope, setCompanyScope] = useState<Company | ''>('');
-  const [password, setPassword] = useState('');
   const [create, { isLoading, error }] = useCreateUserMutation();
   const toast = useToast();
 
   const needsCompanyScope = COMPANY_SCOPED_ROLES.includes(role);
-  // The API itself enforces this minimum; checking it here too means the
-  // button disables before a round-trip rather than after a rejected one.
-  const passwordTooShort = password.trim().length > 0 && password.trim().length < 6;
 
   async function submit(): Promise<void> {
     const result = await create({
@@ -417,13 +414,11 @@ function AddUserDialog({
       displayName: displayName.trim(),
       role,
       ...(needsCompanyScope && companyScope ? { companyScope } : {}),
-      ...(password.trim() ? { password: password.trim() } : {}),
     });
     if (result.data) {
-      // Deliberately no success toast: the generated/given password is shown
-      // in a panel that must stay until it is copied, and a toast announcing
-      // the same thing would pull attention away from the one-time secret.
-      onCreated(result.data.displayName, result.data.generatedPassword ?? password.trim());
+      // Deliberately no success toast: the setup link is shown in a panel that must stay until it
+      // is copied, and a toast announcing the same thing would pull attention from the one-time link.
+      onCreated(result.data.displayName, result.data.setup.url);
       onClose();
     } else {
       toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
@@ -470,13 +465,7 @@ function AddUserDialog({
               ]}
             />
           )}
-          <TextField
-            label={he.users.password}
-            value={password}
-            onChange={setPassword}
-            hint={he.users.passwordHint}
-            error={passwordTooShort ? he.users.passwordTooShort : undefined}
-          />
+          <p className="text-meta text-graphite">{he.users.createHint}</p>
           {apiErrorMessage(error) && (
             <p className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
               {apiErrorMessage(error)}
@@ -489,7 +478,6 @@ function AddUserDialog({
                 isLoading ||
                 !username.trim() ||
                 !displayName.trim() ||
-                passwordTooShort ||
                 (viewerIsShunem && role === 'admin')
               }
             >
@@ -500,6 +488,85 @@ function AddUserDialog({
             </Button>
           </div>
         </div>
+    </Modal>
+  );
+}
+
+/**
+ * The link only exists in this panel: the server stores a hash and cannot show it again. It stays
+ * until the admin closes it, with a copy button because the next step is pasting it into a chat.
+ */
+function SetupLinkPanel({
+  link,
+  onClose,
+}: {
+  link: { name: string; url: string; reset: boolean };
+  onClose: () => void;
+}) {
+  const toast = useToast();
+
+  async function copy(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(link.url);
+      toast.success({ title: he.users.linkCopied });
+    } catch {
+      // Clipboard access can be refused (insecure context, permissions): the link is still selectable below.
+    }
+  }
+
+  return (
+    <Panel>
+      <div className="space-y-2 px-4 py-3">
+        <p className="font-semibold">{he.users.setupLinkTitle(link.name)}</p>
+        <p className="text-meta text-oxide">{he.users.setupLinkOnce}</p>
+        {link.reset && <p className="text-meta text-ink-soft">{he.users.setupLinkResetNote}</p>}
+        <input
+          readOnly
+          value={link.url}
+          dir="ltr"
+          onFocus={(e) => e.currentTarget.select()}
+          className="block w-full rounded-ctl border border-rule-strong bg-brass-wash px-3 py-2 text-meta"
+        />
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={() => void copy()}>
+            {he.users.copyLink}
+          </Button>
+          <Button variant="quiet" size="sm" onClick={onClose}>
+            {he.common.close}
+          </Button>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function SecurityLogDialog({ user, onClose }: { user: PublicUser; onClose: () => void }) {
+  const { data, isLoading } = useSecurityEventsQuery(user.id);
+  return (
+    <Modal onClose={onClose} className="max-h-[85dvh] w-full max-w-lg overflow-y-auto">
+      <div className="space-y-3 px-5 py-5">
+        <h2 className="text-lead font-semibold">{he.users.securityLogTitle(user.displayName)}</h2>
+        {isLoading ? (
+          <Spinner />
+        ) : (data ?? []).length === 0 ? (
+          <p className="text-meta text-graphite">{he.users.securityLogEmpty}</p>
+        ) : (
+          <ul className="divide-y divide-rule">
+            {(data ?? []).map((e) => (
+              <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                <span className="font-semibold">{he.users.eventTypes[e.type] ?? e.type}</span>
+                <span className="text-micro text-graphite">
+                  {formatDateTime(e.at)}
+                  {e.ip && <span className="serial ms-2">{e.ip}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Button variant="quiet" onClick={onClose}>
+          {he.common.close}
+        </Button>
+      </div>
     </Modal>
   );
 }
