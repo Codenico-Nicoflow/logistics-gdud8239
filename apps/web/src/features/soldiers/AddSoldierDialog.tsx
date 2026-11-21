@@ -24,18 +24,15 @@ import { COMPANIES, type Company, type NewSoldier, type SoldierSummary } from '.
 export function AddSoldierDialog({
   onClose,
   onCreated,
-  lockedCompany,
 }: {
   onClose: () => void;
   onCreated: (soldier: SoldierSummary) => void;
-  /** A user scoped to one company can only add to it. */
-  lockedCompany?: Company;
 }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [personalNumber, setPersonalNumber] = useState('');
   const [phone, setPhone] = useState('');
-  const [company, setCompany] = useState<Company>(lockedCompany ?? 'A');
+  const [company, setCompany] = useState<Company>('A');
   const [isAttached, setIsAttached] = useState(false);
   const [duplicates, setDuplicates] = useState<SoldierSummary[] | null>(null);
 
@@ -113,7 +110,6 @@ export function AddSoldierDialog({
           <Select
             label={he.issue.company}
             value={company}
-            disabled={lockedCompany !== undefined}
             onChange={(v) => v && setCompany(v as Company)}
             options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
           />

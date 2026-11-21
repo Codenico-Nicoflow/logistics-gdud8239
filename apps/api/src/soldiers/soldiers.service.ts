@@ -223,7 +223,9 @@ export class SoldiersService {
   }
 
   async create(dto: CreateSoldierDto, scope: Company | null = null) {
-    assertCompanyAllowed(dto.company, scope);
+    // The roster itself is the battalion's, not a company's: a company-scoped user
+    // maintains his own soldiers' details but neither adds nor deletes soldiers.
+    if (scope) throw new ForbiddenException('אין לך הרשאה להוסיף חיילים');
     if (dto.personalNumber) {
       const existing = await this.prisma.soldier.findUnique({
         where: { personalNumber: dto.personalNumber },
@@ -298,6 +300,7 @@ export class SoldiersService {
    * deactivating is the right tool for someone who really served and left.
    */
   async remove(id: string, scope: Company | null = null): Promise<void> {
+    if (scope) throw new ForbiddenException('אין לך הרשאה למחוק חיילים');
     const soldier = await this.prisma.soldier.findUnique({ where: { id } });
     if (!soldier) throw new NotFoundException('החייל אינו קיים');
     assertInScope(soldier, scope);
