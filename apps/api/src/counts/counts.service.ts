@@ -6,6 +6,7 @@ import { addDaysIso } from '../common/israel-date';
 import type { AuthUser } from '../auth/auth.types';
 import type { SaveCountDto } from './dto/save-count.dto';
 import { ITEM_ORDER } from '../common/item-order';
+import { reopenOps } from './reopen-ops';
 
 /**
  * The מסכם date whose figure a count verifies. A night is the evening of day D
@@ -15,6 +16,8 @@ import { ITEM_ORDER } from '../common/item-order';
 export function figureDateFor(sessionDate: string, shift: CountShift): string {
   return shift === 'MORNING' ? addDaysIso(sessionDate, -1) : sessionDate;
 }
+
+const FIGURE_ORDER = ITEM_ORDER.map((o) => ({ item: o }));
 
 export type CountSheetRow = {
   itemId: string;
@@ -54,6 +57,8 @@ export class CountsService {
       isClosed: boolean;
       /** The most recent admin cancellation of a closed count, if there was one. */
       lastReopen: { at: Date; by: string; reason: string } | null;
+      /** מסכם was changed after this open count was last saved — the signers may be looking at stale numbers. */
+      figuresChangedAfterStart: boolean;
     } | null;
     rows: CountSheetRow[];
     signers: {
@@ -70,12 +75,17 @@ export class CountsService {
     const date = new Date(sessionDate);
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
 
-    const [items, nashkiyaByItem, session] = await Promise.all([
+    const figureDay = figureDateFor(sessionDate, shift);
+    const [items, nashkiyaByItem, lastFigureEdit, session] = await Promise.all([
       this.prisma.item.findMany({
         where: { isActive: true, inSummary: true },
         orderBy: ITEM_ORDER,
       }),
-      this.mesakem.nashkiyaFor(figureDateFor(sessionDate, shift)),
+      this.mesakem.nashkiyaFor(figureDay),
+      this.prisma.dailySummaryLine.aggregate({
+        where: { sessionDate: new Date(figureDay) },
+        _max: { updatedAt: true },
+      }),
       this.prisma.countSession.findUnique({
         where: { sessionDate_shift: { sessionDate: date, shift } },
         include: {
@@ -88,19 +98,22 @@ export class CountsService {
       }),
     ]);
 
-    const rows: CountSheetRow[] = items.map((item) => ({
+    const live: CountSheetRow[] = items.map((item) => ({
       itemId: item.id,
       itemName: item.name,
       category: item.category,
       nashkiyaQty: nashkiyaByItem.get(item.id) ?? null,
     }));
+    const rows = session?.isClosed ? await this.signedRows(session.id, live) : live;
+    const changedAt = lastFigureEdit._max.updatedAt;
 
     return {
-      figureDate: figureDateFor(sessionDate, shift),
+      figureDate: figureDay,
       session: session
         ? {
             id: session.id,
             isClosed: session.isClosed,
+            figuresChangedAfterStart: !session.isClosed && !!changedAt && changedAt > session.recordedAt,
             lastReopen: session.reopens[0]
               ? {
                   at: session.reopens[0].reopenedAt,
@@ -195,12 +208,13 @@ export class CountsService {
       this.mesakem.nashkiyaFor(figureDateFor(session.sessionDate.toISOString().slice(0, 10), session.shift)),
     ]);
 
-    const rows: CountSheetRow[] = items.map((item) => ({
+    const live: CountSheetRow[] = items.map((item) => ({
       itemId: item.id,
       itemName: item.name,
       category: item.category,
       nashkiyaQty: nashkiyaByItem.get(item.id) ?? null,
     }));
+    const rows = session.isClosed ? await this.signedRows(session.id, live) : live;
 
     return {
       session: {
@@ -243,11 +257,46 @@ export class CountsService {
       throw new BadRequestException('יש למלא שם, מ.א., דרגה ולהחתים את שני הצדדים לפני סגירת הספירה');
     }
 
-    const updated = await this.prisma.countSession.update({
-      where: { id },
-      data: { isClosed: true },
-    });
+    // Freeze the figures being signed: a later מסכם correction must not
+    // rewrite a sheet two people have already signed.
+    const day = figureDateFor(session.sessionDate.toISOString().slice(0, 10), session.shift);
+    const [items, figures] = await Promise.all([
+      this.prisma.item.findMany({ where: { isActive: true, inSummary: true } }),
+      this.mesakem.nashkiyaFor(day),
+    ]);
+    const [, , updated] = await this.prisma.$transaction([
+      this.prisma.countSessionFigure.deleteMany({ where: { countSessionId: id } }),
+      this.prisma.countSessionFigure.createMany({
+        data: items.map((item) => ({
+          countSessionId: id,
+          itemId: item.id,
+          itemName: item.name,
+          category: item.category,
+          nashkiyaQty: figures.get(item.id) ?? null,
+        })),
+      }),
+      this.prisma.countSession.update({ where: { id }, data: { isClosed: true } }),
+    ]);
     return { id: updated.id, isClosed: updated.isClosed };
+  }
+
+  /**
+   * What a closed count signed. Counts closed before figures were frozen have
+   * none stored, so they fall back to the live numbers rather than showing an
+   * empty sheet.
+   */
+  private async signedRows(sessionId: string, fallback: CountSheetRow[]): Promise<CountSheetRow[]> {
+    const stored = await this.prisma.countSessionFigure.findMany({
+      where: { countSessionId: sessionId },
+      orderBy: FIGURE_ORDER,
+    });
+    if (stored.length === 0) return fallback;
+    return stored.map((f) => ({
+      itemId: f.itemId,
+      itemName: f.itemName,
+      category: f.category,
+      nashkiyaQty: f.nashkiyaQty,
+    }));
   }
 
   /**
@@ -263,15 +312,7 @@ export class CountsService {
     if (!session) throw new NotFoundException('הספירה אינה קיימת');
     if (!session.isClosed) throw new BadRequestException('הספירה אינה סגורה');
 
-    await this.prisma.$transaction([
-      this.prisma.countSessionReopen.create({
-        data: { countSessionId: id, reopenedByUserId: actor.id, reason: reason.trim() },
-      }),
-      this.prisma.countSession.update({
-        where: { id },
-        data: { isClosed: false, responsibleSignatureImage: null, officerSignatureImage: null },
-      }),
-    ]);
+    await this.prisma.$transaction(reopenOps(this.prisma, id, actor.id, reason.trim()));
     return { id, isClosed: false };
   }
 

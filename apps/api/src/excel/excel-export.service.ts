@@ -193,6 +193,14 @@ export class ExcelExportService {
       this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
       this.mesakem.nashkiyaFor(eveningDay),
     ]);
+    // A signed evening count keeps the figures it signed, even if מסכם was corrected later.
+    const signedFigures = eveningRow?.isClosed
+      ? await this.prisma.countSessionFigure.findMany({ where: { countSessionId: eveningRow.id } })
+      : [];
+    const figureFor = (itemId: string): number | undefined =>
+      signedFigures.length > 0
+        ? (signedFigures.find((f) => f.itemId === itemId)?.nashkiyaQty ?? undefined)
+        : nashkiya.get(itemId);
     type Session = NonNullable<typeof eveningRow>;
     const evening = eveningRow ?? undefined;
     const morning = morningRow ?? undefined;
@@ -215,7 +223,7 @@ export class ExcelExportService {
 
     const header = addHeaderRow(ws, ['צל"מ', 'קטגוריה', `בנשקייה (מסכם ${short(eveningDay)})`]);
     items.forEach((item, i) => {
-      const qty = nashkiya.get(item.id);
+      const qty = figureFor(item.id);
       const row = addBodyRow(ws, [item.name, CATEGORY_HE[item.category], qty ?? '—'], i, [2, 3]);
       row.getCell(1).font = BOLD;
       pill(row.getCell(2), CATEGORY_TONE[item.category] ?? 'graphite');

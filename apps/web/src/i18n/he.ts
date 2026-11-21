@@ -348,6 +348,23 @@ export const he = {
     withGaps: (n: number) => `${n} פריטים עם פער`,
     noGaps: 'אין פערים',
     notFilled: '—',
+    signedNote: (shifts: string) =>
+      `על המסכם הזה כבר חתומה ${shifts}. שינוי מספר ידרוש סיבה ויפתח אותה מחדש לחתימה.`,
+    shiftEvening: 'ספירת הערב',
+    shiftMorning: 'ספירת הבוקר',
+    finishTitle: 'לסיים את היום ולשלוח?',
+    finishBody: (date: string, filled: number, total: number) =>
+      `המסכם של ${date} יישלח ל-Slack עם ${filled} מתוך ${total} פריטים שמולאו.`,
+    finishMissing: (n: number) => `${n} פריטים לא מולאו — הם יישלחו ריקים.`,
+    finishResend: 'המסכם של היום כבר נשלח. הוא יישלח שוב וייסומן כ"מתוקן".',
+    finishAction: 'סיים ושלח',
+    correctionTitle: 'לתקן מסכם אחרי חתימה?',
+    correctionBody: (shifts: string) =>
+      `${shifts} כבר חתומה על המספרים האלה. השמירה תפתח אותה מחדש: החתימות יימחקו וצריך לחתום שוב על המספרים המתוקנים. הפעולה נרשמת עם שמך והסיבה.`,
+    correctionReason: 'סיבה (חובה)',
+    correctionPlaceholder: 'למשל: ניפוק חירום ב-19:30',
+    correctionAction: 'תקן ופתח את הספירה',
+    countsReopened: 'הספירה נפתחה מחדש — יש לחתום שוב',
   },
 
   // תקופות שרות — pre-assigning soldiers before a reserve-duty call-up.
@@ -494,6 +511,7 @@ export const he = {
     needsBothSignatures: 'יש למלא שם, מ.א., דרגה ולהחתים את שני הצדדים לפני סגירת הספירה',
     reopenHint: 'ספירה סגורה — לא ניתן לערוך. ניתן להדפיס בלבד.',
     recentTitle: 'ספירות קודמות',
+    figuresChanged: 'המסכם עודכן מאז שנשמרה הספירה — בדוק שהמספרים בטבלה עדכניים לפני החתימה',
     figureNote: (day: string, morning: boolean) =>
       morning
         ? `ספירת הבוקר חותמת על המספר שהוזן במסכם בסוף יום ${day}`

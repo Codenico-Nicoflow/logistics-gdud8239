@@ -242,8 +242,12 @@ export const api = createApi({
       providesTags: ['Mesakem'],
     }),
     saveMesakem: build.mutation<
-      { saved: number },
-      { sessionDate: string; lines: { itemId: string; nashkiyaQty: number }[] }
+      { saved: number; reopened: number },
+      {
+        sessionDate: string;
+        lines: { itemId: string; nashkiyaQty: number }[];
+        correctionReason?: string;
+      }
     >({
       query: (body) => ({ url: '/mesakem', method: 'POST', body }),
       invalidatesTags: ['Mesakem', 'Reports', 'Counts'],

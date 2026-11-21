@@ -316,3 +316,114 @@ describe('deleting a backup', () => {
     expect(await prisma.dbBackup.count({ where: { id: db.id } })).toBe(0);
   });
 });
+
+describe('correcting מסכם around a count', () => {
+  const SIGNERS = {
+    responsibleName: 'ישראל ישראלי',
+    responsiblePn: '1234567',
+    responsibleRank: 'רס"ל',
+    responsibleSignatureImage: PNG,
+    officerName: 'משה כהן',
+    officerPn: '7654321',
+    officerRank: 'סגן',
+    officerSignatureImage: PNG,
+  };
+  let itemId: string;
+
+  const saveMesakem = (qty: number, correctionReason?: string) =>
+    request(app.getHttpServer())
+      .post('/api/mesakem')
+      .set('Cookie', staffJar)
+      .send({ sessionDate: DAY, lines: [{ itemId, nashkiyaQty: qty }], ...(correctionReason ? { correctionReason } : {}) });
+  const sheet = (date: string, shift: 'EVENING' | 'MORNING') =>
+    request(app.getHttpServer()).get('/api/counts/sheet').query({ date, shift }).set('Cookie', staffJar).expect(200);
+  const figure = (b: { rows: { itemId: string; nashkiyaQty: number | null }[] }) =>
+    b.rows.find((r) => r.itemId === itemId)?.nashkiyaQty;
+
+  async function signAndClose(date: string, shift: 'EVENING' | 'MORNING'): Promise<string> {
+    const saved = await request(app.getHttpServer())
+      .post('/api/counts')
+      .set('Cookie', staffJar)
+      .send({ sessionDate: date, shift, ...SIGNERS })
+      .expect(201);
+    await request(app.getHttpServer()).post(`/api/counts/${saved.body.id}/close`).set('Cookie', staffJar).expect(201);
+    return saved.body.id as string;
+  }
+
+  async function fresh(): Promise<void> {
+    await cleanup();
+    const item = await prisma.item.create({ data: { name: ITEM, category: 'GEAR', isSerialized: false, authorizedQty: 5 } });
+    itemId = item.id;
+    await saveMesakem(7).expect(201);
+  }
+
+  it('a closed count keeps the figure it signed even if מסכם changes underneath it', async () => {
+    await fresh();
+    await signAndClose(DAY, 'EVENING');
+    const staff = await prisma.user.findUniqueOrThrow({ where: { username: STAFF.username } });
+    await prisma.dailySummaryLine.update({
+      where: { sessionDate_itemId: { sessionDate: new Date(DAY), itemId } },
+      data: { nashkiyaQty: 99, updatedByUserId: staff.id },
+    });
+    expect(figure((await sheet(DAY, 'EVENING')).body)).toBe(7);
+  });
+
+  it('editing מסכם after a signed count needs a reason, then reopens it for re-signing', async () => {
+    await fresh();
+    const id = await signAndClose(DAY, 'EVENING');
+
+    const refused = await saveMesakem(6).expect(409);
+    expect(refused.body.message).toContain('סיבה');
+    expect((await prisma.countSession.findUniqueOrThrow({ where: { id } })).isClosed).toBe(true);
+
+    const ok = await saveMesakem(6, 'ניפוק חירום ב-19:30').expect(201);
+    expect(ok.body.reopened).toBe(1);
+    const after = await prisma.countSession.findUniqueOrThrow({ where: { id } });
+    expect(after.isClosed).toBe(false);
+    expect(after.responsibleSignatureImage).toBeNull();
+    expect(after.officerSignatureImage).toBeNull();
+    const log = await prisma.countSessionReopen.findMany({ where: { countSessionId: id } });
+    expect(log[0]?.reason).toContain('ניפוק חירום ב-19:30');
+
+    // Re-signing freezes the corrected number.
+    await signAndClose(DAY, 'EVENING');
+    expect(figure((await sheet(DAY, 'EVENING')).body)).toBe(6);
+  });
+
+  it('saving the same figures again does not touch a signed count', async () => {
+    await fresh();
+    const id = await signAndClose(DAY, 'EVENING');
+    await saveMesakem(7).expect(201);
+    expect((await prisma.countSession.findUniqueOrThrow({ where: { id } })).isClosed).toBe(true);
+  });
+
+  it('the morning count after it signs the same figure, so a correction reopens both', async () => {
+    await fresh();
+    const evening = await signAndClose(DAY, 'EVENING');
+    const morning = await signAndClose(NEXT, 'MORNING');
+    expect(figure((await sheet(NEXT, 'MORNING')).body)).toBe(7);
+
+    const ok = await saveMesakem(5, 'תיקון אחרי ספירה').expect(201);
+    expect(ok.body.reopened).toBe(2);
+    for (const id of [evening, morning]) {
+      expect((await prisma.countSession.findUniqueOrThrow({ where: { id } })).isClosed).toBe(false);
+    }
+  });
+
+  it('while a count is still open, editing מסכם just flows through and flags the change', async () => {
+    await fresh();
+    await request(app.getHttpServer())
+      .post('/api/counts')
+      .set('Cookie', staffJar)
+      .send({ sessionDate: DAY, shift: 'EVENING', ...SIGNERS })
+      .expect(201);
+    expect((await sheet(DAY, 'EVENING')).body.session.figuresChangedAfterStart).toBe(false);
+
+    await new Promise((r) => setTimeout(r, 30));
+    const ok = await saveMesakem(4).expect(201); // no reason needed: nothing is signed yet
+    expect(ok.body.reopened).toBe(0);
+    const open = (await sheet(DAY, 'EVENING')).body;
+    expect(figure(open)).toBe(4);
+    expect(open.session.figuresChangedAfterStart).toBe(true);
+  });
+});
