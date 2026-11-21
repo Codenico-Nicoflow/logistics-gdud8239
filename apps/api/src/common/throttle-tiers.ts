@@ -13,7 +13,8 @@ export type ThrottleTier =
   | 'login' // login attempts, per IP
   | 'loginHour' // the hourly cap on the same
   | 'authIp' // other anonymous auth routes (refresh, logout), per IP
-  | 'account' // password / credential changes, per user
+  | 'account' // password changes, per user
+  | 'device' // adding / removing a passkey, per user
   | 'heavy' // whole-database exports, file downloads, posts to Slack, per user
   | 'print' // single-document print pages, per user (many in a row on a signing day)
   | 'heavyCreate'; // routes that spawn pg_dump or build a workbook, per user

@@ -103,14 +103,14 @@ export class WebauthnController {
     return this.webauthn.list(user.id);
   }
 
-  @Tier('account')
+  @Tier('device')
   @Post('passkeys/register/options')
   @HttpCode(HttpStatus.OK)
   addOptions(@CurrentUser() user: AuthUser): Promise<PublicKeyCredentialCreationOptionsJSON> {
     return this.webauthn.registrationOptions(user.id);
   }
 
-  @Tier('account')
+  @Tier('device')
   @Post('passkeys/register/verify')
   @HttpCode(HttpStatus.OK)
   async addVerify(@CurrentUser() user: AuthUser, @Body() dto: RegisterVerifyDto): Promise<PasskeySummary> {
@@ -118,7 +118,7 @@ export class WebauthnController {
     return this.webauthn.finishRegistration(user.id, dto.response, dto.deviceName ?? '');
   }
 
-  @Tier('account')
+  @Tier('device')
   @Delete('passkeys/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<void> {
