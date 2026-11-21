@@ -145,19 +145,19 @@ export function IfsunPage() {
               })}
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-            <TextField label={he.ifsun.fromDate} value={from} onChange={filter(setFrom)} type="date" />
-            <TextField label={he.ifsun.toDate} value={to} onChange={filter(setTo)} type="date" />
-            <Select
-              label={he.ifsun.status}
-              value={status}
-              onChange={filter(setStatus)}
-              options={[
-                { value: '', label: he.common.all },
-                { value: 'STORED', label: he.ifsun.statuses.STORED },
-                { value: 'COLLECTED', label: he.ifsun.statuses.COLLECTED },
-                { value: 'CREDITED', label: he.ifsun.statuses.CREDITED },
-              ]}
-            />
+              <TextField label={he.ifsun.fromDate} value={from} onChange={filter(setFrom)} type="date" />
+              <TextField label={he.ifsun.toDate} value={to} onChange={filter(setTo)} type="date" />
+              <Select
+                label={he.ifsun.status}
+                value={status}
+                onChange={filter(setStatus)}
+                options={[
+                  { value: '', label: he.common.all },
+                  { value: 'STORED', label: he.ifsun.statuses.STORED },
+                  { value: 'COLLECTED', label: he.ifsun.statuses.COLLECTED },
+                  { value: 'CREDITED', label: he.ifsun.statuses.CREDITED },
+                ]}
+              />
             </div>
           </div>
         )}
