@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Company, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateSoldierDto } from './dto/create-soldier.dto';
@@ -54,14 +60,30 @@ export type SoldierSummary = {
   isEnlisted: boolean | null;
 };
 
+/**
+ * A user with a `companyScope` (the סגן מפקד פלוגה) sees and edits only his own
+ * company's soldiers. Another company's soldier reads as "does not exist", not
+ * "forbidden", so the roster cannot be probed by id.
+ */
+function assertInScope(soldier: { company: Company }, scope: Company | null): void {
+  if (scope && soldier.company !== scope) throw new NotFoundException('החייל אינו קיים');
+}
+
+function assertCompanyAllowed(company: Company | undefined, scope: Company | null): void {
+  if (scope && company !== undefined && company !== scope) {
+    throw new ForbiddenException('אין לך הרשאה לנהל חיילים מפלוגה אחרת');
+  }
+}
+
 @Injectable()
 export class SoldiersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(query: QuerySoldiersDto): Promise<Paginated<SoldierSummary>> {
+  async findAll(query: QuerySoldiersDto, scope: Company | null = null): Promise<Paginated<SoldierSummary>> {
     const where: Prisma.SoldierWhereInput = {
       ...(query.includeInactive ? {} : { isActive: true }),
-      ...(query.company ? { company: query.company } : {}),
+      // The scope wins over whatever company the client asked for.
+      ...(scope ? { company: scope } : query.company ? { company: query.company } : {}),
       ...(query.withOpenSignatures ? { signatures: { some: { returnedAt: null } } } : {}),
       ...(query.holding === 'with' ? { signatures: { some: { returnedAt: null } } } : {}),
       // `none` rather than counting: a soldier who returned everything holds
@@ -119,9 +141,14 @@ export class SoldiersService {
   }
 
   /** שלישות toggles whether a soldier is מחויל for the currently active תקופת שרות. */
-  async setEnlisted(soldierId: string, enlisted: boolean): Promise<{ isEnlisted: boolean }> {
+  async setEnlisted(
+    soldierId: string,
+    enlisted: boolean,
+    scope: Company | null = null,
+  ): Promise<{ isEnlisted: boolean }> {
     const soldier = await this.prisma.soldier.findUnique({ where: { id: soldierId } });
     if (!soldier) throw new NotFoundException('החייל אינו קיים');
+    assertInScope(soldier, scope);
 
     const activePeriod = await this.prisma.servicePeriod.findFirst({ where: { status: 'ACTIVE' } });
     if (!activePeriod) throw new BadRequestException('אין תקופת שרות פעילה');
@@ -146,7 +173,7 @@ export class SoldiersService {
    * step can warn before a weapon basket is even built, not just rely on
    * the 1008 submit rejecting it server-side.
    */
-  async findOne(id: string) {
+  async findOne(id: string, scope: Company | null = null) {
     const activePeriod = await findOperationalServicePeriod(this.prisma);
     const soldier = await this.prisma.soldier.findUnique({
       where: { id },
@@ -160,6 +187,7 @@ export class SoldiersService {
       },
     });
     if (!soldier) throw new NotFoundException('החייל אינו קיים');
+    assertInScope(soldier, scope);
     const { enlistments, ...rest } = soldier;
     return { ...rest, isEnlisted: activePeriod ? enlistments.length > 0 : null };
   }
@@ -168,7 +196,8 @@ export class SoldiersService {
    * Flags likely duplicates rather than blocking: the same first and last name
    * in the same company is common enough to be real, but worth warning about.
    */
-  async findPossibleDuplicates(dto: CreateSoldierDto): Promise<SoldierSummary[]> {
+  async findPossibleDuplicates(dto: CreateSoldierDto, scope: Company | null = null): Promise<SoldierSummary[]> {
+    assertCompanyAllowed(dto.company, scope);
     const matches = await this.prisma.soldier.findMany({
       where: {
         isActive: true,
@@ -193,7 +222,8 @@ export class SoldiersService {
     }));
   }
 
-  async create(dto: CreateSoldierDto) {
+  async create(dto: CreateSoldierDto, scope: Company | null = null) {
+    assertCompanyAllowed(dto.company, scope);
     if (dto.personalNumber) {
       const existing = await this.prisma.soldier.findUnique({
         where: { personalNumber: dto.personalNumber },
@@ -219,12 +249,14 @@ export class SoldiersService {
     });
   }
 
-  async update(id: string, dto: UpdateSoldierDto) {
+  async update(id: string, dto: UpdateSoldierDto, scope: Company | null = null) {
     const soldier = await this.prisma.soldier.findUnique({
       where: { id },
       include: { _count: { select: { signatures: { where: { returnedAt: null } } } } },
     });
     if (!soldier) throw new NotFoundException('החייל אינו קיים');
+    assertInScope(soldier, scope);
+    assertCompanyAllowed(dto.company, scope);
 
     // Deactivating someone who still holds equipment would hide that equipment
     // from every report, so the items must be returned first.
@@ -265,9 +297,10 @@ export class SoldiersService {
    * fails with a clear message instead of silently erasing audit trail —
    * deactivating is the right tool for someone who really served and left.
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, scope: Company | null = null): Promise<void> {
     const soldier = await this.prisma.soldier.findUnique({ where: { id } });
     if (!soldier) throw new NotFoundException('החייל אינו קיים');
+    assertInScope(soldier, scope);
 
     try {
       await this.prisma.soldier.delete({ where: { id } });

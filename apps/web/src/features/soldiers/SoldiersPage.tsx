@@ -37,7 +37,10 @@ const PAGE_SIZE = 50;
  */
 export function SoldiersPage({ user }: { user: AuthUser }) {
   const [q, setQ] = useState('');
-  const [company, setCompany] = useState<Company | ''>('');
+  // A user scoped to one company (סגן מפקד פלוגה) only ever sees that company; the server
+  // enforces it, the UI just does not offer a filter that cannot widen anything.
+  const scope = user.companyScope;
+  const [company, setCompany] = useState<Company | ''>(scope ?? '');
   const [holding, setHolding] = useState<'' | 'with' | 'without'>('');
   const [incompleteOnly, setIncompleteOnly] = useState(false);
   const [sort, setSort] = useState<'name' | 'company'>('name');
@@ -79,6 +82,24 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
         {canEditSoldier && <Button onClick={() => setAdding(true)}>{he.soldiers.add}</Button>}
       </div>
 
+      {scope && (
+        <div className="flex items-center gap-4 rounded-panel border border-field/30 bg-field-wash px-4 py-3.5">
+          <span
+            aria-hidden="true"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-field text-title font-bold text-white"
+          >
+            {he.companies[scope]}
+          </span>
+          <div className="min-w-0">
+            <p className="text-lead font-semibold text-field-dark">{he.soldiers.scopeTitle(he.companies[scope])}</p>
+            <p className="text-meta text-ink-soft">
+              {he.soldiers.scopeHint}
+              {data && ` · ${he.soldiers.scopeCount(data.total)}`}
+            </p>
+          </div>
+        </div>
+      )}
+
       <Panel>
         <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
           <SearchField
@@ -87,14 +108,16 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
             placeholder={he.soldiers.search}
             className="sm:col-span-2 lg:col-span-2"
           />
-          <Select
-            value={company}
-            onChange={setCompany}
-            options={[
-              { value: '', label: he.soldiers.allCompanies },
-              ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
-            ]}
-          />
+          {!scope && (
+            <Select
+              value={company}
+              onChange={setCompany}
+              options={[
+                { value: '', label: he.soldiers.allCompanies },
+                ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
+              ]}
+            />
+          )}
           {/* One control rather than two checkboxes: holding something and
               holding nothing are opposites, and a pair of flags would let
               them be ticked together to mean nothing. */}
@@ -221,9 +244,15 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
       </Panel>
 
       {adding && (
-        <AddSoldierDialog onClose={() => setAdding(false)} onCreated={() => setAdding(false)} />
+        <AddSoldierDialog
+          onClose={() => setAdding(false)}
+          onCreated={() => setAdding(false)}
+          lockedCompany={scope ?? undefined}
+        />
       )}
-      {editing && <EditSoldierDialog soldier={editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <EditSoldierDialog soldier={editing} lockedCompany={scope ?? undefined} onClose={() => setEditing(null)} />
+      )}
       {confirmingEnlist && (
         <ConfirmEnlistDialog
           soldier={confirmingEnlist}
@@ -459,9 +488,11 @@ function ConfirmDeleteDialog({
 
 function EditSoldierDialog({
   soldier,
+  lockedCompany,
   onClose,
 }: {
   soldier: SoldierSummary;
+  lockedCompany?: Company;
   onClose: () => void;
 }) {
   const [firstName, setFirstName] = useState(soldier.firstName);
@@ -517,6 +548,7 @@ function EditSoldierDialog({
           <Select
             label={he.soldiers.company}
             value={company}
+            disabled={lockedCompany !== undefined}
             onChange={(v) => v && setCompany(v as Company)}
             options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
           />
