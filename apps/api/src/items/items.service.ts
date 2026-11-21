@@ -280,7 +280,6 @@ export class ItemsService {
         `לא ניתן למחוק את הפריט: ${check.reasons.join(', ')}. ניתן להשבית אותו במקום.`,
       );
     }
-    await this.prisma.allocation.deleteMany({ where: { itemId: id } });
     await this.prisma.item.delete({ where: { id } });
     return { deleted: true };
   }

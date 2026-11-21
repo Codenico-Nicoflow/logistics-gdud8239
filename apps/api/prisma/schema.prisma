@@ -271,7 +271,6 @@ model Item {
 
   instances          ItemInstance[]
   signatures         Signature[]
-  allocations        Allocation[]
   countLines         CountLine[]
   countFigures       CountSessionFigure[]
   dailySummaryLines  DailySummaryLine[]
@@ -462,18 +461,6 @@ model Movement {
 }
 
 // ---------- manual inputs ----------
-
-model Allocation {
-  id        String  @id @default(uuid())
-  itemId    String  @map("item_id")
-  company   Company
-  targetQty Int     @default(0) @map("target_qty")
-
-  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
-
-  @@unique([itemId, company])
-  @@map("allocations")
-}
 
 // ---------- תקופת שרות (reserve-duty call-ups) ----------
 
