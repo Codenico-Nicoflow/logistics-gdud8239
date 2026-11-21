@@ -10,7 +10,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SkipThrottle } from '@nestjs/throttler';
+import { Tier } from '../common/throttle-tiers';
+import { Roles } from './decorators/roles.decorator';
 import type { CookieOptions, Request, Response } from 'express';
 import { AuthService, type TokenPair } from './auth.service';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './auth.constants';
@@ -27,13 +28,9 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
-  /**
-   * Tight limit: this is the one route where guessing is the attack. Only the
-   * named `login` bucket applies — leaving the `default` bucket active too would
-   * make both counters decrement and lock the route after a single attempt.
-   */
+  /** Tight per-IP limits (see the `login` tiers): this is the one route where guessing is the attack. */
   @Public()
-  @SkipThrottle({ default: true })
+  @Tier('login', 'loginHour')
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -41,7 +38,7 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ user: AuthUser }> {
-    const user = await this.auth.validateCredentials(dto.username, dto.password);
+    const user = await this.auth.validateCredentials(dto.username, dto.password, request.ip);
     const tokens = await this.auth.issueTokens(user, {
       userAgent: request.headers['user-agent'],
       ip: request.ip,
@@ -51,6 +48,7 @@ export class AuthController {
   }
 
   @Public()
+  @Tier('authIp')
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
@@ -73,6 +71,7 @@ export class AuthController {
   // whatever cookie is sitting in the browser, not to prove you're still
   // authenticated.
   @Public()
+  @Tier('authIp')
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
@@ -85,11 +84,29 @@ export class AuthController {
     return { ok: true };
   }
 
+  /**
+   * TEMPORARY, admin only: shows what the API sees of the connection, so the number of proxy
+   * hops (Vercel, then Render) can be read once on production and set as TRUST_PROXY_HOPS.
+   * Remove after that — see docs/fix-platform-hardening-and-throttling.md.
+   */
+  @Roles('admin')
+  @Get('debug-ip')
+  debugIp(@Req() request: Request): Record<string, unknown> {
+    return {
+      ip: request.ip,
+      ips: request.ips,
+      xForwardedFor: request.headers['x-forwarded-for'] ?? null,
+      remoteAddress: request.socket.remoteAddress ?? null,
+      trustProxyHops: this.config.get<string>('TRUST_PROXY_HOPS') ?? '0',
+    };
+  }
+
   @Get('me')
   me(@CurrentUser() user: AuthUser): { user: AuthUser } {
     return { user };
   }
 
+  @Tier('account')
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   async changePassword(
@@ -116,7 +133,9 @@ export class AuthController {
     return {
       httpOnly: true,
       secure: this.config.get<string>('COOKIE_SECURE') === 'true',
-      sameSite: 'lax',
+      // Strict: every call is first-party (the SPA and /api share the Vercel origin), so
+      // the cookie never has a reason to travel on a cross-site request.
+      sameSite: 'strict',
       path: '/',
       expires,
     };
@@ -141,7 +160,7 @@ export class AuthController {
     const base: CookieOptions = {
       httpOnly: true,
       secure: this.config.get<string>('COOKIE_SECURE') === 'true',
-      sameSite: 'lax',
+      sameSite: 'strict',
       path: '/',
     };
     response.clearCookie(ACCESS_COOKIE, base);

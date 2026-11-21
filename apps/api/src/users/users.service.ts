@@ -21,6 +21,8 @@ export type PublicUser = {
   isActive: boolean;
   createdAt: Date;
   isSuperAdmin: boolean;
+  lockedUntil: Date | null;
+  lastLoginAt: Date | null;
 };
 
 const PUBLIC_FIELDS = {
@@ -32,6 +34,8 @@ const PUBLIC_FIELDS = {
   isActive: true,
   createdAt: true,
   isSuperAdmin: true,
+  lockedUntil: true,
+  lastLoginAt: true,
 } as const;
 
 @Injectable()
@@ -155,6 +159,13 @@ export class UsersService {
     return updated;
   }
 
+  /** Lifts a lock after wrong passwords — the account's owner, not an attacker, is who usually needs it. */
+  async unlock(id: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('המשתמש אינו קיים');
+    await this.auth.unlock(id);
+  }
+
   /** Admin password reset. Returns the new password once and ends every session. */
   async resetPassword(id: string, actingUserId: string): Promise<{ password: string }> {
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -170,7 +181,12 @@ export class UsersService {
     const password = AuthService.generatePassword();
     await this.prisma.user.update({
       where: { id },
-      data: { passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS) },
+      data: {
+        passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
+        passwordChangedAt: new Date(),
+        failedLoginCount: 0,
+        lockedUntil: null,
+      },
     });
     await this.auth.revokeAllForUser(id);
     return { password };

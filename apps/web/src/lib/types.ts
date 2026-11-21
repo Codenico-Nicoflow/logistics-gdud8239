@@ -277,6 +277,9 @@ export type PublicUser = {
   isActive: boolean;
   createdAt: string;
   isSuperAdmin: boolean;
+  /** Set while the account is locked after too many wrong passwords. */
+  lockedUntil?: string | null;
+  lastLoginAt?: string | null;
 };
 
 export type MatrixRow = {

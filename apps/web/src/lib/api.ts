@@ -498,6 +498,10 @@ export const api = createApi({
     resetPassword: build.mutation<{ password: string }, string>({
       query: (id) => ({ url: `/users/${id}/reset-password`, method: 'POST' }),
     }),
+    unlockUser: build.mutation<void, string>({
+      query: (id) => ({ url: `/users/${id}/unlock`, method: 'POST' }),
+      invalidatesTags: ['Users'],
+    }),
     deleteUser: build.mutation<void, string>({
       query: (id) => ({ url: `/users/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Users'],
@@ -708,6 +712,7 @@ export const {
   useCreateUserMutation,
   useUpdateUserMutation,
   useResetPasswordMutation,
+  useUnlockUserMutation,
   useDeleteUserMutation,
   useServicePeriodsQuery,
   useActiveServicePeriodQuery,

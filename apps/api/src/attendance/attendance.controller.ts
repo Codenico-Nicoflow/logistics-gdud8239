@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { israelToday } from '../common/israel-date';
@@ -63,6 +64,7 @@ export class AttendanceController {
   }
 
   /** Posts the chosen week (default: this one) to the ימי יציאה Slack channel as a PDF. */
+  @Tier('heavy')
   @Post('send-week')
   @Roles('admin')
   sendWeek(@Body() dto: SendWeekDto, @CurrentUser() user: AuthUser) {

@@ -1,3 +1,4 @@
+import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -36,6 +37,7 @@ export class IssueFormsController {
    * lays out correctly without bundling a font and a bidi engine; the
    * browser's own print dialog produces the PDF.
    */
+  @Tier('print')
   @Get(':id/print')
   async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const form = await this.forms.findOne(id);
