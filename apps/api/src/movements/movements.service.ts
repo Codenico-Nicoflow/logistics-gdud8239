@@ -131,11 +131,17 @@ export class MovementsService {
    * and to re-filter in Excel than N sheets would be.
    */
   async exportDaily(query: QueryMovementsDto): Promise<Buffer> {
-    const rows = await this.findAllForExport(query);
-
     const wb = new ExcelJS.Workbook();
     wb.creator = 'מערכת לוגיסטיקה';
     wb.created = new Date();
+    await this.addMovementsSheet(wb, query);
+    const data = await wb.xlsx.writeBuffer();
+    return Buffer.from(data);
+  }
+
+  /** Adds the styled תנועות sheet — shared by the standalone file and the full workbook. */
+  async addMovementsSheet(wb: ExcelJS.Workbook, query: QueryMovementsDto): Promise<void> {
+    const rows = await this.findAllForExport(query);
 
     const COLS = 8;
     const ws = createSheet(wb, 'דוח תנועות יומי', [11, 11, 24, 11, 22, 16, 9, 20]);
@@ -230,8 +236,6 @@ export class MovementsService {
       [2, 7],
     );
     finalizeSheet(ws, header, COLS, 'דוח תנועות · מערכת הלוגיסטיקה של גדוד 8239');
-    const data = await wb.xlsx.writeBuffer();
-    return Buffer.from(data);
   }
 
   private toRow(m: {

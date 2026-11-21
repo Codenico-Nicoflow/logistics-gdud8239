@@ -76,15 +76,6 @@ export const he = {
     RETURN: 'זיכוי',
   },
 
-  issueKinds: {
-    MISSING_SERIAL: 'חסר מסד',
-    DUPLICATE_SERIAL: 'מסד כפול',
-    UNKNOWN_ITEM: 'פריט לא מזוהה',
-    UNKNOWN_COMPANY: 'פלוגה לא מזוהה',
-    MISSING_SOLDIER_NAME: 'חסר שם חייל',
-    DUPLICATE_ROW: 'שורה כפולה',
-  },
-
   signatures: {
     title: 'זיכוי ציוד',
     search: 'חיפוש לפי שם, מ.א. או מסד',
@@ -141,7 +132,6 @@ export const he = {
     userUpdated: 'המשתמש עודכן',
     formUpdated: 'הטופס עודכן',
     snapshotCreated: 'הגיבוי נוצר',
-    imported: 'הייבוא הושלם',
     summaryChanged: 'המסכם עודכן',
     failed: 'הפעולה נכשלה',
     viewSoldier: 'הצג את החייל',
@@ -444,7 +434,7 @@ export const he = {
 
   backups: {
     title: 'גיבויים',
-    subtitle: 'גיבוי יומי נשמר ב-18:00 ונשלח לסלאק',
+    subtitle: 'גיבוי מלא של מסד הנתונים נשמר מדי יום ונשלח לסלאק',
     created: 'נוצר',
     kind: 'סוג',
     rows: 'חתימות',
@@ -462,21 +452,8 @@ export const he = {
       manual: 'ידני',
     },
     exportExcel: 'ייצוא לאקסל',
-    importExcel: 'יבוא מאקסל',
-    importTitle: 'יבוא נתונים מאקסל',
-    importWarning:
-      'היבוא מחליף את כל נתוני החתימות בקובץ. דוח התנועות נשמר, וגיבוי נוצר אוטומטית לפני היבוא.',
-    chooseFile: 'בחר קובץ',
-    previewTitle: 'תצוגה מקדימה',
-    previewRows: 'שורות בקובץ',
-    previewSoldiers: 'חיילים',
-    previewSignatures: 'חתימות',
-    previewIssues: 'ממצאים',
-    confirmImport: 'אשר יבוא',
-    importing: 'מייבא…',
-    importedDetail: (signatures: number, soldiers: number) =>
-      `${signatures} חתימות · ${soldiers} חיילים`,
-    imported: (n: number) => `יובאו ${n} חתימות`,
+    snapshotTitle: 'קובץ אקסל יומי',
+    snapshotSubtitle: 'עותק קריא של הנתונים העסקיים, לצפייה בלבד — אי אפשר לשחזר ממנו',
     dbBackupTitle: 'גיבוי מסד נתונים מלא',
     dbBackupSubtitle:
       'גיבוי מלא של כל המערכת — חיילים, הקצאות, חתימות, דוחות, הכל — נשמר מדי יום ב-18:05 ונשלח לסלאק',
