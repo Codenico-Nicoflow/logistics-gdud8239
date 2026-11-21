@@ -11,6 +11,8 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ExcelExportService } from '../src/excel/excel-export.service';
+import { israelToday } from '../src/common/israel-date';
 
 const ADMIN = { username: 'e2e_att_admin', password: 'e2e-att-admin-123' };
 const NICK = 'E2E-חבר-צוות';
@@ -27,7 +29,7 @@ beforeAll(async () => {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   await app.init();
   prisma = app.get(PrismaService);
-  await prisma.teamMember.deleteMany({ where: { nickname: NICK } });
+  await prisma.teamMember.deleteMany({ where: { nickname: { startsWith: NICK } } });
   await prisma.user.deleteMany({ where: { username: ADMIN.username } });
   await prisma.user.create({
     data: {
@@ -42,7 +44,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma?.teamMember.deleteMany({ where: { nickname: NICK } });
+  await prisma?.teamMember.deleteMany({ where: { nickname: { startsWith: NICK } } });
   await prisma?.user.deleteMany({ where: { username: ADMIN.username } });
   await app?.close();
 });
@@ -81,5 +83,36 @@ describe('removing a team member', () => {
 
     const week = (await request(app.getHttpServer()).get('/api/attendance/week?date=2031-03-04').set('Cookie', jar)).body;
     expect(week.rows.find((r: { nickname: string }) => r.nickname === NICK).isActive).toBe(false);
+  });
+
+  it('is in the Excel backup, with the status and a removed person marked', async () => {
+    const member = (
+      await request(app.getHttpServer())
+        .post('/api/attendance/members')
+        .set('Cookie', jar)
+        .send({ nickname: `${NICK}-אקסל`, gender: 'M' })
+        .expect(201)
+    ).body;
+    await request(app.getHttpServer())
+      .post('/api/attendance/cells')
+      .set('Cookie', jar)
+      .send({ cells: [{ teamMemberId: member.id, date: israelToday(), status: 'GIMELIM' }] })
+      .expect(201);
+
+    const wb = await app.get(ExcelExportService).build();
+    const cells: string[] = [];
+    wb.getWorksheet('ימי יציאה')?.eachRow((row) => row.eachCell((c) => cells.push(String(c.value ?? ''))));
+    expect(cells).toContain(`${NICK}-אקסל`);
+    expect(cells).toContain('גימלים');
+
+    await request(app.getHttpServer())
+      .patch(`/api/attendance/members/${member.id}`)
+      .set('Cookie', jar)
+      .send({ isActive: false })
+      .expect(200);
+    const after = await app.get(ExcelExportService).build();
+    const cellsAfter: string[] = [];
+    after.getWorksheet('ימי יציאה')?.eachRow((row) => row.eachCell((c) => cellsAfter.push(String(c.value ?? ''))));
+    expect(cellsAfter).toContain(`${NICK}-אקסל (הוסר)`);
   });
 });

@@ -5,6 +5,7 @@ import { ReportsService } from '../reports/reports.service';
 import { MovementsService } from '../movements/movements.service';
 import { MesakemService } from '../mesakem/mesakem.service';
 import { AllocationsService } from '../allocations/allocations.service';
+import { AttendanceService } from '../attendance/attendance.service';
 import { ITEM_ORDER } from '../common/item-order';
 import { addDaysIso, israelToday } from '../common/israel-date';
 import { CATEGORY_HE, COMPANY_HE, COMPANY_ORDER } from './excel.constants';
@@ -31,6 +32,7 @@ const SHEET = {
   count: 'ספירת נשקיה',
   signatures: 'חתימות',
   ifsun: 'אפסון',
+  attendance: 'ימי יציאה',
   companies: 'חלוקה לפלוגות',
   soldiers: 'חלוקה לפי חייל',
   movements: 'דוח תנועות יומי',
@@ -79,6 +81,7 @@ export class ExcelExportService {
     private readonly movements: MovementsService,
     private readonly mesakem: MesakemService,
     private readonly allocations: AllocationsService,
+    private readonly attendance: AttendanceService,
   ) {}
 
   async build(): Promise<ExcelJS.Workbook> {
@@ -95,6 +98,7 @@ export class ExcelExportService {
     await this.addCount(wb);
     const held = await this.addSignatures(wb);
     await this.addIfsun(wb);
+    await this.addAttendance(wb);
     await this.addCompanies(wb);
     await this.addSoldiers(wb);
     await this.movements.addMovementsSheet(wb, {});
@@ -143,6 +147,7 @@ export class ExcelExportService {
       [SHEET.count, 'הספירה שנחתמה בערב ובבוקר, עם החתימות'],
       [SHEET.signatures, 'כל הציוד החתום כרגע, לפי פלוגה וחייל'],
       [SHEET.ifsun, 'כל האפסונים: מי הפקיד ומי לקח, ומתי'],
+      [SHEET.attendance, 'ימי יציאה של הצוות: ארבעה שבועות אחורה ושבועיים קדימה'],
       [SHEET.companies, 'מה יש בכל פלוגה, וכמה מההקצאה נוצל'],
       [SHEET.soldiers, 'ההקצאה לכל חייל מול מה שנופק לו'],
       [SHEET.movements, 'כל הניפוקים והזיכויים, לפי יום'],
@@ -371,6 +376,61 @@ export class ExcelExportService {
     }
     finalizeSheet(ws, header, COLS, FOOTER);
     return { units, soldiers: soldierIds.size };
+  }
+
+  // ---------- ימי יציאה ----------
+
+  /**
+   * The team's weekly ימי יציאה grid — four weeks back through two ahead, one band
+   * per week. A person removed from the list still appears in the weeks where they
+   * have entries, exactly as on the screen.
+   */
+  private async addAttendance(wb: ExcelJS.Workbook): Promise<void> {
+    const COLS = 8;
+    const STATUS_HE = {
+      PRESENT: 'נוכח',
+      LEAVING: 'יציאה',
+      RETURNING: 'חזרה',
+      ON_LEAVE: 'חופש',
+      GIMELIM: 'גימלים',
+      CLOSED_ORDER: 'צו סגור',
+      OTHER: 'אחר',
+    } as const;
+    const TONE_OF = { PRESENT: 'field', RETURNING: 'sky', LEAVING: 'brass' } as const;
+    const DAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+
+    const today = israelToday();
+    const weeks = await Promise.all([-4, -3, -2, -1, 0, 1, 2].map((k) => this.attendance.week(addDaysIso(today, k * 7))));
+
+    const ws = createSheet(wb, SHEET.attendance, [18, 11, 11, 11, 11, 11, 11, 11]);
+    addTitleBlock(ws, COLS, 'ימי יציאה', `ארבעה שבועות אחורה, שבועיים קדימה   ·   הופק ${generatedAtLabel()}`);
+    const header = addHeaderRow(ws, ['חבר צוות', ...DAYS]);
+
+    let index = 0;
+    for (const week of weeks) {
+      const first = week.dates[0] as string;
+      const last = week.dates[6] as string;
+      const marker = first <= today && today <= last ? '   ·   השבוע' : '';
+      addBandRow(ws, COLS, `${dayLabel(first)}  –  ${dayLabel(last)}${marker}`);
+      for (const row of week.rows) {
+        const cells = row.cells.map((c) => (c.status ? STATUS_HE[c.status] : ''));
+        const out = addBodyRow(
+          ws,
+          [row.isActive ? row.nickname : `${row.nickname} (הוסר)`, ...cells],
+          index++,
+          [2, 3, 4, 5, 6, 7, 8],
+        );
+        row.cells.forEach((c, i) => {
+          const tone = c.status ? (TONE_OF as Record<string, 'field' | 'sky' | 'brass'>)[c.status] : undefined;
+          if (tone) pill(out.getCell(i + 2), tone);
+        });
+      }
+      if (week.rows.length === 0) {
+        const empty = addBodyRow(ws, ['אין חברי צוות', '', '', '', '', '', '', ''], 0);
+        ws.mergeCells(empty.number, 1, empty.number, COLS);
+      }
+    }
+    finalizeSheet(ws, header, COLS, FOOTER);
   }
 
   // ---------- אפסון ----------
