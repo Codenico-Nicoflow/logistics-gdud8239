@@ -40,6 +40,12 @@ export class QuerySoldiersDto extends PaginationDto {
   @IsBoolean()
   incompleteOnly?: boolean;
 
+  /** Only מסופחים — soldiers enlisted for a specific תעסוקה rather than the unit's own. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  attachedOnly?: boolean;
+
   /** `name` (default) sorts by last/first name; `company` groups by פלוגה first. */
   @IsOptional()
   @IsIn(['name', 'company'], { message: 'מיון לא חוקי' })

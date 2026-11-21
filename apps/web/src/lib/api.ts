@@ -129,6 +129,7 @@ export const api = createApi({
         withOpenSignatures?: boolean;
         holding?: 'with' | 'without';
         incompleteOnly?: boolean;
+        attachedOnly?: boolean;
         sort?: 'name' | 'company';
       }
     >({

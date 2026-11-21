@@ -43,6 +43,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
   const [company, setCompany] = useState<Company | ''>(scope ?? '');
   const [holding, setHolding] = useState<'' | 'with' | 'without'>('');
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [attachedOnly, setAttachedOnly] = useState(false);
   const [sort, setSort] = useState<'name' | 'company'>('name');
   const [take, setTake] = useState(PAGE_SIZE);
   const [adding, setAdding] = useState(false);
@@ -66,6 +67,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
     ...(company ? { company } : {}),
     ...(holding ? { holding } : {}),
     ...(incompleteOnly ? { incompleteOnly: true } : {}),
+    ...(attachedOnly ? { attachedOnly: true } : {}),
     sort,
     take,
   });
@@ -140,6 +142,14 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                 onChange={(e) => setIncompleteOnly(e.target.checked)}
               />
               {he.soldiers.incompleteFilter}
+            </label>
+            <label className="flex items-center gap-2 text-meta">
+              <input
+                type="checkbox"
+                checked={attachedOnly}
+                onChange={(e) => setAttachedOnly(e.target.checked)}
+              />
+              {he.soldiers.attachedFilter}
             </label>
           </div>
           {data && (

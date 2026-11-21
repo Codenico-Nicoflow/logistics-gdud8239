@@ -233,6 +233,7 @@ export const he = {
     showInactive: 'כלול לא פעילים',
     inactive: 'לא פעיל',
     attached: 'מסופח',
+    attachedFilter: 'מסופחים בלבד',
     attachedHint: 'מסופח — חייל שמשרת בגדוד זמנית, למשל לתעסוקה מסוימת',
     nothing: '—',
     edit: 'עריכה',

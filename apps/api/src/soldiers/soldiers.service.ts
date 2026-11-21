@@ -92,6 +92,7 @@ export class SoldiersService {
       // Filtered here rather than in the page, so the count reflects the whole
       // roster: a cleanup list that only searches the rows already loaded
       // hides most of the work it exists to surface.
+      ...(query.attachedOnly ? { isAttached: true } : {}),
       ...(query.incompleteOnly
         ? { OR: [{ personalNumber: null }, { phone: null }] }
         : {}),
