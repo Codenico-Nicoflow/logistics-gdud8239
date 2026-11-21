@@ -4,7 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Company, Prisma, type Signature } from '@prisma/client';
+import { Company, Prisma, type Item, type ItemInstance, type Signature, type Soldier } from '@prisma/client';
+import { storedQtyForSignature } from '../ifsun/stored-qty';
 import { PrismaService } from '../prisma/prisma.service';
 import { syncAuthorizedQty } from '../items/sync-authorized-qty';
 import { findOperationalServicePeriod } from '../common/active-service-period';
@@ -101,7 +102,12 @@ export class SignaturesService {
     const [rows, total] = await Promise.all([
       this.prisma.signature.findMany({
         where,
-        include: { soldier: true, item: true, itemInstance: true },
+        include: {
+          soldier: true,
+          item: true,
+          itemInstance: true,
+          ifsunRecords: { where: { status: 'STORED' }, select: { id: true, quantity: true, storedAt: true } },
+        },
         orderBy: [{ signedAt: 'desc' }],
         skip: query.skip ?? 0,
         take: query.take ?? 50,
@@ -136,7 +142,11 @@ export class SignaturesService {
         include: {
           signatures: {
             where: { returnedAt: null },
-            include: { item: true, itemInstance: true },
+            include: {
+              item: true,
+              itemInstance: true,
+              ifsunRecords: { where: { status: 'STORED' }, select: { id: true, quantity: true, storedAt: true } },
+            },
             orderBy: [{ signedAt: 'desc' }],
           },
           issueForms: {
@@ -380,7 +390,13 @@ export class SignaturesService {
     }
 
     const isSerialized = signature.itemInstanceId !== null;
-    const returnQty = dto.quantity ?? signature.quantity;
+    const stored = await storedQtyForSignature(this.prisma, signature.id);
+    const returnQty = dto.quantity ?? signature.quantity - stored;
+    if (stored > 0 && (returnQty < 1 || returnQty > signature.quantity - stored)) {
+      // Crediting a stored unit here would leave the אפסון record pointing at nothing;
+      // it is credited from the אפסון screen, which closes the record too.
+      throw new BadRequestException('הפריט מאופסן — יש לזכות אותו ממסך האפסון');
+    }
 
     if (isSerialized && returnQty !== 1) {
       throw new BadRequestException('פריט מסד מזוכה ביחידה אחת');
@@ -391,38 +407,62 @@ export class SignaturesService {
       );
     }
 
-    const isPartial = !isSerialized && returnQty < signature.quantity;
+    return this.prisma.$transaction((tx) => this.applyReturn(tx, signature, returnQty, dto.notes ?? null, actor));
+  }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = isPartial
-        ? await tx.signature.update({
-            where: { id: signature.id },
-            data: { quantity: { decrement: returnQty } },
-          })
-        : await tx.signature.update({
-            where: { id: signature.id },
-            data: { returnedAt: new Date(), returnedByUserId: actor.id },
-          });
-
-      await tx.movement.create({
-        data: {
-          action: 'RETURN',
-          soldierId: signature.soldierId,
-          soldierNameSnapshot: `${signature.soldier.firstName} ${signature.soldier.lastName}`,
-          companySnapshot: signature.soldier.company,
-          itemId: signature.itemId,
-          itemNameSnapshot: signature.item.name,
-          serialSnapshot: signature.itemInstance?.serial ?? null,
-          quantity: returnQty,
-          receiptNo: signature.receiptNo,
-          performedByUserId: actor.id,
-          performedByNameSnapshot: actor.displayName,
-          notes: dto.notes ?? null,
-          signatureId: signature.id,
-        },
-      });
-
-      return updated;
+  /** זיכוי from inside another transaction (the אפסון screen's credit) — same rules, same movement row. */
+  async returnInTx(
+    tx: Prisma.TransactionClient,
+    signatureId: string,
+    quantity: number,
+    notes: string,
+    actor: AuthUser,
+  ): Promise<Signature> {
+    const signature = await tx.signature.findUnique({
+      where: { id: signatureId },
+      include: { soldier: true, item: true, itemInstance: true },
     });
+    if (!signature || signature.returnedAt) throw new NotFoundException('החתימה אינה פעילה');
+    return this.applyReturn(tx, signature, quantity, notes, actor);
+  }
+
+  private async applyReturn(
+    tx: Prisma.TransactionClient,
+    signature: Signature & { soldier: Soldier; item: Item; itemInstance: ItemInstance | null },
+    returnQty: number,
+    notes: string | null,
+    actor: AuthUser,
+  ): Promise<Signature> {
+    const isSerialized = signature.itemInstanceId !== null;
+    const isPartial = !isSerialized && returnQty < signature.quantity;
+    const updated = isPartial
+      ? await tx.signature.update({
+          where: { id: signature.id },
+          data: { quantity: { decrement: returnQty } },
+        })
+      : await tx.signature.update({
+          where: { id: signature.id },
+          data: { returnedAt: new Date(), returnedByUserId: actor.id },
+        });
+
+    await tx.movement.create({
+      data: {
+        action: 'RETURN',
+        soldierId: signature.soldierId,
+        soldierNameSnapshot: `${signature.soldier.firstName} ${signature.soldier.lastName}`,
+        companySnapshot: signature.soldier.company,
+        itemId: signature.itemId,
+        itemNameSnapshot: signature.item.name,
+        serialSnapshot: signature.itemInstance?.serial ?? null,
+        quantity: returnQty,
+        receiptNo: signature.receiptNo,
+        performedByUserId: actor.id,
+        performedByNameSnapshot: actor.displayName,
+        notes,
+        signatureId: signature.id,
+      },
+    });
+
+    return updated;
   }
 }

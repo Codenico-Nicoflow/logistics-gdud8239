@@ -21,6 +21,7 @@ import { MesakemModule } from './mesakem/mesakem.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { ExcelModule } from './excel/excel.module';
 import { SnapshotsModule } from './snapshots/snapshots.module';
+import { IfsunModule } from './ifsun/ifsun.module';
 import { DbBackupsModule } from './db-backups/db-backups.module';
 import { AppController } from './app.controller';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -89,6 +90,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     PermissionsModule,
     IntakeModule,
     MovementsModule,
+    IfsunModule,
     CountsModule,
     MesakemModule,
     AttendanceModule,

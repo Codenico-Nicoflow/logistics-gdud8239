@@ -153,6 +153,8 @@ export function DailyMovementsPage() {
               { value: '', label: he.movements.allActions },
               { value: 'ISSUE', label: he.actions.ISSUE },
               { value: 'RETURN', label: he.actions.RETURN },
+              { value: 'STORE', label: he.actions.STORE },
+              { value: 'COLLECT', label: he.actions.COLLECT },
             ]}
           />
           <Select

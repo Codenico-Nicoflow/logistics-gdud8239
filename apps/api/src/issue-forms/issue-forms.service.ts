@@ -302,6 +302,14 @@ export class IssueFormsService {
       throw new BadRequestException('אותו מסד מופיע יותר מפעם אחת בטופס');
     }
 
+    // Editing rewrites what he holds, including returning dropped lines. A stored
+    // item is on the armory shelf under its own record; letting a form edit close
+    // the signature would orphan that record and break the count.
+    const storedNow = await this.prisma.ifsunRecord.count({ where: { soldierId: soldier.id, status: 'STORED' } });
+    if (storedNow > 0) {
+      throw new ConflictException('לחייל יש פריטים מאופסנים — יש לקחת או לזכות אותם ממסך האפסון לפני עריכת הטופס');
+    }
+
     const supersedeNote = `מחליף טופס 1008 מספר ${original.formNo} (${new Date().toLocaleDateString('he-IL')})`;
     const notes = dto.notes ? `${supersedeNote} — ${dto.notes}` : supersedeNote;
 

@@ -18,7 +18,7 @@ import {
   pill,
 } from '../excel/excel-theme';
 
-const ACTION_HE: Record<string, string> = { ISSUE: 'ניפוק', RETURN: 'זיכוי' };
+const ACTION_HE: Record<string, string> = { ISSUE: 'ניפוק', RETURN: 'זיכוי', STORE: 'אופסן', COLLECT: 'נלקח מאפסון' };
 const COMPANY_HE: Record<string, string> = {
   A: 'א',
   B: 'ב',

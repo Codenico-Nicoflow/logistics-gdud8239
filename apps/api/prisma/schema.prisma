@@ -61,8 +61,19 @@ enum InstanceStatus {
 }
 
 enum MovementAction {
-  ISSUE  @map("ניפוק")
-  RETURN @map("זיכוי")
+  ISSUE   @map("ניפוק")
+  RETURN  @map("זיכוי")
+  /// אפסון: the soldier leaves an item in the armory. His signature stays open.
+  STORE   @map("אופסן")
+  /// He takes it back out of the armory.
+  COLLECT @map("נלקח מאפסון")
+}
+
+enum IfsunStatus {
+  STORED    @map("מאופסן")
+  COLLECTED @map("נלקח")
+  /// He never came back for it: the signature was credited and the item is the armory's again.
+  CREDITED  @map("זוכה")
 }
 
 enum CountShift {
@@ -313,6 +324,7 @@ model Signature {
   itemInstance ItemInstance? @relation(fields: [itemInstanceId], references: [id])
   signedBy     User          @relation("signedBy", fields: [signedByUserId], references: [id])
   returnedBy   User?         @relation("returnedBy", fields: [returnedByUserId], references: [id])
+  ifsunRecords IfsunRecord[]
 
   @@index([soldierId])
   @@index([itemId])
@@ -782,4 +794,41 @@ model CountSessionDeletion {
   deletedAt       DateTime   @default(now()) @map("deleted_at")
 
   @@map("count_session_deletions")
+}
+
+/// אפסון — a soldier leaves an item in the armory instead of taking it home.
+///
+/// The signature stays open (it is still his), but the item is physically on
+/// the shelf, so the nightly ספירה and the מסכם must count it as present and
+/// not as "out with a soldier". That is the whole reason this is a table of its
+/// own rather than a flag on the signature: a soldier can store and collect the
+/// same weapon many times, and each stint is history worth keeping.
+///
+/// Names and serial are snapshotted, like movements, so the record still reads
+/// correctly after a soldier or item is renamed.
+model IfsunRecord {
+  id                  String      @id @default(uuid())
+  signatureId         String      @map("signature_id")
+  soldierId           String      @map("soldier_id")
+  soldierNameSnapshot String      @map("soldier_name_snapshot")
+  companySnapshot     Company?    @map("company_snapshot")
+  itemId              String      @map("item_id")
+  itemNameSnapshot    String      @map("item_name_snapshot")
+  serialSnapshot      String?     @map("serial_snapshot")
+  quantity            Int         @default(1)
+  status              IfsunStatus @default(STORED)
+  notes               String?
+  storedAt            DateTime    @default(now()) @map("stored_at")
+  storedByUserId      String      @map("stored_by_user_id")
+  storedByName        String      @map("stored_by_name")
+  closedAt            DateTime?   @map("closed_at")
+  closedByName        String?     @map("closed_by_name")
+  closeNotes          String?     @map("close_notes")
+
+  signature Signature @relation(fields: [signatureId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([signatureId])
+  @@index([soldierId])
+  @@map("ifsun_records")
 }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Company } from '@prisma/client';
+import { storedQtyByItem } from '../ifsun/stored-qty';
 import { PrismaService } from '../prisma/prisma.service';
 import { ITEM_ORDER } from '../common/item-order';
 
@@ -74,7 +75,7 @@ export class ReportsService {
   async summary(sessionDate?: string): Promise<SummaryRow[]> {
     const date = sessionDate ? new Date(sessionDate) : new Date();
 
-    const [items, issuedRows, lines] = await Promise.all([
+    const [items, issuedRows, lines, storedByItem] = await Promise.all([
       this.prisma.item.findMany({
         where: { isActive: true, inSummary: true },
         orderBy: ITEM_ORDER,
@@ -85,13 +86,15 @@ export class ReportsService {
         _sum: { quantity: true },
       }),
       this.prisma.dailySummaryLine.findMany({ where: { sessionDate: date } }),
+      storedQtyByItem(this.prisma),
     ]);
 
     const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
     const nashkiyaByItem = new Map(lines.map((l) => [l.itemId, l.nashkiyaQty]));
 
     return items.map((item) => {
-      const issued = issuedByItem.get(item.id) ?? 0;
+      // Stored units are on the shelf, not out with a soldier (see ifsun/stored-qty.ts).
+      const issued = (issuedByItem.get(item.id) ?? 0) - (storedByItem.get(item.id) ?? 0);
       const inArmory = nashkiyaByItem.get(item.id) ?? null;
       return {
         itemName: item.name,

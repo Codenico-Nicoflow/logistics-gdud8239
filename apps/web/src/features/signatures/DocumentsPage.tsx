@@ -20,6 +20,7 @@ import {
   Select,
   Serial,
   Spinner,
+  Tag,
   TableScroll,
   Td,
   Th,
@@ -27,6 +28,7 @@ import {
   formatDateTime,
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
+import { StoreDialog, type StorableSignature } from '../ifsun/StoreDialog';
 import { he } from '../../i18n/he';
 import {
   COMPANIES,
@@ -154,6 +156,10 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
   );
 }
 
+function storedQty(s: { ifsunRecords?: { quantity: number }[] }): number {
+  return (s.ifsunRecords ?? []).reduce((n, r) => n + r.quantity, 0);
+}
+
 function SoldierDetail({
   holder,
   canEditForm,
@@ -164,6 +170,7 @@ function SoldierDetail({
   const [tab, setTab] = useState<'items' | 'form'>('items');
   const [reissuing, setReissuing] = useState(false);
   const [confirmingReturnAll, setConfirmingReturnAll] = useState(false);
+  const [storing, setStoring] = useState<StorableSignature | null>(null);
   // Fetched once up here, not inside the "form" tab — the "ערוך פריטים
   // וחתום מחדש" action lives on the "פריטים מוחזקים" tab (it's an action on
   // what he's holding, not on the document itself) but still needs the
@@ -220,9 +227,28 @@ function SoldierDetail({
                     <span className="font-semibold">{s.item.name}</span>
                     {s.itemInstance && <Serial value={s.itemInstance.serial} />}
                     {s.quantity > 1 && <span className="text-meta text-graphite">×{s.quantity}</span>}
+                    {storedQty(s) > 0 && <Tag tone="brass">{he.ifsun.storedQty(storedQty(s))}</Tag>}
                   </span>
-                  <span className="whitespace-nowrap text-meta text-graphite">
-                    {formatDateTime(s.signedAt)}
+                  <span className="flex items-center gap-3">
+                    <span className="whitespace-nowrap text-meta text-graphite">
+                      {formatDateTime(s.signedAt)}
+                    </span>
+                    {canEditForm && storedQty(s) < s.quantity && (
+                      <Button
+                        variant="quiet"
+                        size="sm"
+                        onClick={() =>
+                          setStoring({
+                            id: s.id,
+                            itemName: s.item.name,
+                            quantity: s.quantity,
+                            serial: s.itemInstance?.serial ?? null,
+                          })
+                        }
+                      >
+                        {he.ifsun.storeAction}
+                      </Button>
+                    )}
                   </span>
                 </li>
               ))}
@@ -235,6 +261,13 @@ function SoldierDetail({
 
       {reissuing && latestForm && (
         <ReissueDialog original={latestForm} onClose={() => setReissuing(false)} />
+      )}
+      {storing && (
+        <StoreDialog
+          signature={storing}
+          soldierName={`${holder.firstName} ${holder.lastName}`}
+          onClose={() => setStoring(null)}
+        />
       )}
       {confirmingReturnAll && (
         <ReturnAllDialog holder={holder} onClose={() => setConfirmingReturnAll(false)} />

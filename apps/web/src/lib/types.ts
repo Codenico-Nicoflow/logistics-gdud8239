@@ -5,7 +5,8 @@ export type Company = 'A' | 'B' | 'C' | 'SUPPORT' | 'HQ';
 export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR' | 'AMMO';
 export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED' | 'IN_REPAIR';
 /** דוח תנועות holds weapon movements only: an item given out, or taken back. */
-export type MovementAction = 'ISSUE' | 'RETURN';
+export type MovementAction = 'ISSUE' | 'RETURN' | 'STORE' | 'COLLECT';
+export type IfsunStatus = 'STORED' | 'COLLECTED' | 'CREDITED';
 export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
 export type DbBackupKind = 'daily' | 'manual';
 export const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
@@ -124,6 +125,8 @@ export type Signature = {
   soldier: SoldierSummary;
   item: Item;
   itemInstance: ItemInstance | null;
+  /** Open אפסון records — non-empty means the item is signed to him but sits in the armory. */
+  ifsunRecords?: { id: string; quantity: number; storedAt: string }[];
 };
 
 /** One line of what a soldier currently holds, as `holders` nests it — same
@@ -163,6 +166,8 @@ export type MesakemRow = {
   itemName: string;
   category: ItemCategory;
   issued: number;
+  /** Units on the shelf under אפסון — counted in בנשקייה, not in מנופק. */
+  stored?: number;
   authorizedQty: number;
   nashkiyaQty: number | null;
   gap: number | null;
@@ -437,4 +442,24 @@ export type IntakeResult = {
   serialsCreated: number;
   serialsSkipped: number;
   bulkItemsUpdated: number;
+};
+
+/** `GET /ifsun` — one stay of an item in the armory under a soldier's name. */
+export type IfsunRecord = {
+  id: string;
+  signatureId: string;
+  soldierId: string;
+  soldierNameSnapshot: string;
+  companySnapshot: Company | null;
+  itemId: string;
+  itemNameSnapshot: string;
+  serialSnapshot: string | null;
+  quantity: number;
+  status: IfsunStatus;
+  notes: string | null;
+  storedAt: string;
+  storedByName: string;
+  closedAt: string | null;
+  closedByName: string | null;
+  closeNotes: string | null;
 };

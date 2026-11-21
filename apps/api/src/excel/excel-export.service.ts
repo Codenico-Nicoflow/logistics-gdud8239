@@ -30,6 +30,7 @@ const SHEET = {
   summary: 'מסכם',
   count: 'ספירת נשקיה',
   signatures: 'חתימות',
+  ifsun: 'אפסון',
   companies: 'חלוקה לפלוגות',
   soldiers: 'חלוקה לפי חייל',
   movements: 'דוח תנועות יומי',
@@ -93,6 +94,7 @@ export class ExcelExportService {
     await this.mesakem.addSheet(wb, day);
     await this.addCount(wb);
     const held = await this.addSignatures(wb);
+    await this.addIfsun(wb);
     await this.addCompanies(wb);
     await this.addSoldiers(wb);
     await this.movements.addMovementsSheet(wb, {});
@@ -140,6 +142,7 @@ export class ExcelExportService {
       [SHEET.summary, 'בנשקייה היומי מול מצבה ומנופק, והפער לכל פריט'],
       [SHEET.count, 'הספירה שנחתמה בערב ובבוקר, עם החתימות'],
       [SHEET.signatures, 'כל הציוד החתום כרגע, לפי פלוגה וחייל'],
+      [SHEET.ifsun, 'ציוד שחתום על חייל ומאופסן בנשקייה כרגע'],
       [SHEET.companies, 'מה יש בכל פלוגה, וכמה מההקצאה נוצל'],
       [SHEET.soldiers, 'ההקצאה לכל חייל מול מה שנופק לו'],
       [SHEET.movements, 'כל הניפוקים והזיכויים, לפי יום'],
@@ -295,7 +298,12 @@ export class ExcelExportService {
     const [signatures, items] = await Promise.all([
       this.prisma.signature.findMany({
         where: { returnedAt: null },
-        include: { soldier: true, item: true, itemInstance: true },
+        include: {
+          soldier: true,
+          item: true,
+          itemInstance: true,
+          ifsunRecords: { where: { status: 'STORED' }, select: { quantity: true } },
+        },
       }),
       this.prisma.item.findMany({ orderBy: ITEM_ORDER, select: { id: true } }),
     ]);
@@ -312,15 +320,15 @@ export class ExcelExportService {
     const units = signatures.reduce((sum, s) => sum + s.quantity, 0);
     const soldierIds = new Set(signatures.map((s) => s.soldierId));
 
-    const COLS = 6;
-    const ws = createSheet(wb, SHEET.signatures, [20, 12, 22, 13, 8, 16]);
+    const COLS = 7;
+    const ws = createSheet(wb, SHEET.signatures, [20, 12, 22, 13, 8, 16, 14]);
     addTitleBlock(ws, COLS, 'חתימות', `כל הציוד החתום כרגע   ·   הופק ${generatedAtLabel()}`);
     addKpiRow(ws, COLS, [
       { label: 'יחידות חתומות', value: units, tone: 'field' },
       { label: 'חיילים', value: soldierIds.size, tone: 'sky' },
       { label: 'סוגי ציוד', value: new Set(signatures.map((s) => s.itemId)).size, tone: 'brass' },
     ]);
-    const header = addHeaderRow(ws, ['חייל', 'מ.א.', 'צל"מ', 'מסד', 'כמות', 'נחתם']);
+    const header = addHeaderRow(ws, ['חייל', 'מ.א.', 'צל"מ', 'מסד', 'כמות', 'נחתם', 'אפסון']);
 
     let index = 0;
     for (const c of COMPANY_ORDER) {
@@ -345,9 +353,12 @@ export class ExcelExportService {
             s.itemInstance?.serial ?? '',
             s.quantity,
             dateTimeLabel(s.signedAt),
+            // A stored item is still signed but sits in the armory — flagged so the sheet
+            // does not read as if the soldier were carrying it.
+            s.ifsunRecords.length > 0 ? `מאופסן ${s.ifsunRecords.reduce((n, r) => n + r.quantity, 0)}` : '',
           ],
           index++,
-          [2, 4, 5, 6],
+          [2, 4, 5, 6, 7],
         );
         if (first) row.getCell(1).font = BOLD;
         if (s.itemInstance) mono(row.getCell(4));
@@ -355,11 +366,40 @@ export class ExcelExportService {
       }
     }
     if (signatures.length === 0) {
-      const row = addBodyRow(ws, ['אין ציוד חתום כרגע', '', '', '', '', ''], 0);
+      const row = addBodyRow(ws, ['אין ציוד חתום כרגע', '', '', '', '', '', ''], 0);
       ws.mergeCells(row.number, 1, row.number, COLS);
     }
     finalizeSheet(ws, header, COLS, FOOTER);
     return { units, soldiers: soldierIds.size };
+  }
+
+  // ---------- אפסון ----------
+
+  /** What is on the armory shelf under a soldier's name right now — the full history stays in the database backup. */
+  private async addIfsun(wb: ExcelJS.Workbook): Promise<void> {
+    const rows = await this.prisma.ifsunRecord.findMany({ where: { status: 'STORED' }, orderBy: { storedAt: 'asc' } });
+    const COLS = 6;
+    const ws = createSheet(wb, SHEET.ifsun, [20, 22, 13, 8, 16, 18]);
+    addTitleBlock(ws, COLS, 'אפסון', `ציוד שחתום על חיילים ונמצא בנשקייה   ·   הופק ${generatedAtLabel()}`);
+    addKpiRow(ws, COLS, [
+      { label: 'יחידות מאופסנות', value: rows.reduce((n, r) => n + r.quantity, 0), tone: 'brass' },
+      { label: 'חיילים', value: new Set(rows.map((r) => r.soldierId)).size, tone: 'sky' },
+    ]);
+    const header = addHeaderRow(ws, ['חייל', 'צל"מ', 'מסד', 'כמות', 'אופסן', 'אופסן ע"י']);
+    rows.forEach((r, i) => {
+      const row = addBodyRow(
+        ws,
+        [r.soldierNameSnapshot, r.itemNameSnapshot, r.serialSnapshot ?? '', r.quantity, dateTimeLabel(r.storedAt), r.storedByName],
+        i,
+        [3, 4, 5],
+      );
+      if (r.serialSnapshot) mono(row.getCell(3));
+    });
+    if (rows.length === 0) {
+      const row = addBodyRow(ws, ['אין ציוד מאופסן כרגע', '', '', '', '', ''], 0);
+      ws.mergeCells(row.number, 1, row.number, COLS);
+    }
+    finalizeSheet(ws, header, COLS, FOOTER);
   }
 
   // ---------- חלוקה לפלוגות ----------
