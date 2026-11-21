@@ -48,6 +48,7 @@ export type SoldierSummary = {
   phone: string | null;
   company: Company;
   isActive: boolean;
+  isAttached: boolean;
   openSignatureCount: number;
   /** מחויל לתקופת השרות הפעילה. `null` when there is no active service period at all. */
   isEnlisted: boolean | null;
@@ -109,6 +110,7 @@ export class SoldiersService {
         phone: s.phone,
         company: s.company,
         isActive: s.isActive,
+        isAttached: s.isAttached,
         openSignatureCount: s._count.signatures,
         isEnlisted: activePeriod ? s.enlistments.length > 0 : null,
       })),
@@ -185,6 +187,7 @@ export class SoldiersService {
       phone: s.phone,
       company: s.company,
       isActive: s.isActive,
+      isAttached: s.isAttached,
       openSignatureCount: s._count.signatures,
       isEnlisted: null,
     }));
@@ -211,6 +214,7 @@ export class SoldiersService {
         company: dto.company,
         receiptNo: dto.receiptNo ?? null,
         notes: dto.notes ?? null,
+        isAttached: dto.isAttached ?? false,
       },
     });
   }
@@ -248,6 +252,7 @@ export class SoldiersService {
         ...(dto.receiptNo !== undefined ? { receiptNo: dto.receiptNo } : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.isAttached !== undefined ? { isAttached: dto.isAttached } : {}),
       },
     });
   }

@@ -156,6 +156,11 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                     <tr key={s.id} className={s.isActive ? undefined : 'opacity-50'}>
                       <Td className="font-semibold">
                         {s.firstName} {s.lastName}
+                        {s.isAttached && (
+                          <Tag tone="brass">
+                            <span className="mx-1">{he.soldiers.attached}</span>
+                          </Tag>
+                        )}
                         {!s.isActive && (
                           <Tag>
                             <span className="mx-1">{he.soldiers.inactive}</span>
@@ -471,6 +476,7 @@ function EditSoldierDialog({
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
   const [phone, setPhone] = useState(soldier.phone ?? '');
   const [company, setCompany] = useState<Company>(soldier.company);
+  const [isAttached, setIsAttached] = useState(soldier.isAttached);
   const [update, { isLoading, error }] = useUpdateSoldierMutation();
   const toast = useToast();
 
@@ -480,6 +486,7 @@ function EditSoldierDialog({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       company,
+      isAttached,
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
     });
@@ -528,6 +535,10 @@ function EditSoldierDialog({
             />
             <TextField label={he.soldiers.phone} value={phone} onChange={setPhone} />
           </div>
+          <label className="flex items-center gap-2 text-meta">
+            <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
+            {he.soldiers.attachedHint}
+          </label>
 
           {message && (
             <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">

@@ -157,6 +157,8 @@ export const he = {
     withoutItemsOnly: 'רק מי שאינו מחזיק פריטים',
     showInactive: 'כלול לא פעילים',
     inactive: 'לא פעיל',
+    attached: 'מסופח',
+    attachedHint: 'מסופח — חייל שמשרת בגדוד זמנית, למשל לתעסוקה מסוימת',
     nothing: '—',
     edit: 'עריכה',
     editTitle: (name: string) => `עריכת ${name}`,
