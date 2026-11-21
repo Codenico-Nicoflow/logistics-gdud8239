@@ -8,14 +8,6 @@ export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED' | 'IN_REPAIR';
 export type MovementAction = 'ISSUE' | 'RETURN';
 export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
 export type DbBackupKind = 'daily' | 'manual';
-export type IssueKind =
-  | 'MISSING_SERIAL'
-  | 'DUPLICATE_SERIAL'
-  | 'UNKNOWN_ITEM'
-  | 'UNKNOWN_COMPANY'
-  | 'MISSING_SOLDIER_NAME'
-  | 'DUPLICATE_ROW';
-
 export const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
 
 export type AuthUser = {

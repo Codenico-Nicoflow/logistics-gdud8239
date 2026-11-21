@@ -26,14 +26,6 @@ export type MatrixRow = {
   inArmory: number;
 };
 
-export type AllocationRow = {
-  itemName: string;
-  targets: Record<Company, number>;
-  issued: Record<Company, number>;
-  remaining: Record<Company, number>;
-  totalTarget: number;
-};
-
 const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
 
 /**
@@ -165,38 +157,6 @@ export class ReportsService {
         // Unissued stock, which is what the sheet's בנשקיה column means here.
         // The counted figure lives in the מסכם report, where it is entered.
         inArmory: Math.max(item.authorizedQty - (totals.get(item.id) ?? 0), 0),
-      };
-    });
-  }
-
-  /** The `הקצאות` sheet: targets vs issued, with `נשאר לחתום` computed. */
-  async allocations(): Promise<AllocationRow[]> {
-    const allocations = await this.prisma.allocation.findMany({ include: { item: true } });
-    const perCompany = await this.issuedPerItemPerCompany();
-    const issuedByItem = new Map<string, Record<Company, number>>();
-    for (const r of perCompany) {
-      const bucket = issuedByItem.get(r.itemId) ?? emptyByCompany();
-      bucket[r.company] = r.qty;
-      issuedByItem.set(r.itemId, bucket);
-    }
-
-    const grouped = new Map<string, { itemName: string; targets: Record<Company, number> }>();
-    for (const a of allocations) {
-      const entry = grouped.get(a.itemId) ?? { itemName: a.item.name, targets: emptyByCompany() };
-      entry.targets[a.company] = a.targetQty;
-      grouped.set(a.itemId, entry);
-    }
-
-    return [...grouped.entries()].map(([itemId, { itemName, targets }]) => {
-      const issued = issuedByItem.get(itemId) ?? emptyByCompany();
-      const remaining = emptyByCompany();
-      for (const c of COMPANIES) remaining[c] = targets[c] - issued[c];
-      return {
-        itemName,
-        targets,
-        issued,
-        remaining,
-        totalTarget: COMPANIES.reduce((sum, c) => sum + targets[c], 0),
       };
     });
   }

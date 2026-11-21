@@ -76,15 +76,6 @@ export const he = {
     RETURN: 'זיכוי',
   },
 
-  issueKinds: {
-    MISSING_SERIAL: 'חסר מסד',
-    DUPLICATE_SERIAL: 'מסד כפול',
-    UNKNOWN_ITEM: 'פריט לא מזוהה',
-    UNKNOWN_COMPANY: 'פלוגה לא מזוהה',
-    MISSING_SOLDIER_NAME: 'חסר שם חייל',
-    DUPLICATE_ROW: 'שורה כפולה',
-  },
-
   signatures: {
     title: 'זיכוי ציוד',
     search: 'חיפוש לפי שם, מ.א. או מסד',

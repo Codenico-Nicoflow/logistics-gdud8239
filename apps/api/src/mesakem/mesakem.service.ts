@@ -8,6 +8,7 @@ import type { AuthUser } from '../auth/auth.types';
 import type { ItemCategory } from '@prisma/client';
 import { CATEGORY_HE } from '../excel/excel.constants';
 import {
+  CATEGORY_TONE,
   PALETTE,
   addBodyRow,
   addHeaderRow,
@@ -20,15 +21,6 @@ import {
   pill,
   type Tone,
 } from '../excel/excel-theme';
-
-const CATEGORY_TONE: Record<string, Tone> = {
-  WEAPON: 'field',
-  OPTICS: 'sky',
-  DRONE: 'violet',
-  ACCESSORY: 'brass',
-  GEAR: 'graphite',
-  AMMO: 'oxide',
-};
 
 export type MesakemRow = {
   itemId: string;
@@ -123,12 +115,20 @@ export class MesakemService {
   }
 
   private async buildWorkbook(sessionDate: string): Promise<{ wb: ExcelJS.Workbook; date: Date }> {
-    const date = this.parseDate(sessionDate);
-    const { rows } = await this.sheet(sessionDate);
-
     const wb = new ExcelJS.Workbook();
     wb.creator = 'מערכת לוגיסטיקה';
     wb.created = new Date();
+    const date = await this.addSheet(wb, sessionDate);
+    return { wb, date };
+  }
+
+  /**
+   * Adds the styled מסכם sheet to a workbook — used by the standalone daily
+   * file and by the full workbook, so the two can never drift apart.
+   */
+  async addSheet(wb: ExcelJS.Workbook, sessionDate: string): Promise<Date> {
+    const date = this.parseDate(sessionDate);
+    const { rows } = await this.sheet(sessionDate);
 
     const COLS = 6;
     const ws = createSheet(wb, 'מסכם', [26, 13, 12, 13, 13, 14]);
@@ -186,7 +186,7 @@ export class MesakemService {
     );
     finalizeSheet(ws, header, COLS, 'מסכם יומי · מערכת הלוגיסטיקה של גדוד 8239');
 
-    return { wb, date };
+    return date;
   }
 
   async exportExcel(sessionDate: string): Promise<{ buffer: Buffer; fileName: string }> {
