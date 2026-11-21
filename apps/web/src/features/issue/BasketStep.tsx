@@ -10,10 +10,13 @@ import {
 } from '../../lib/api';
 import { Button, CategoryDot, Modal, Panel, Serial, Tag, TextField } from '../../components/ui';
 import { he } from '../../i18n/he';
+import { itemMatches, normalizeSearch } from '../../lib/search';
 import type { Item, SoldierSummary } from '../../lib/types';
 
 /** One row of the handover, as it is being assembled on screen. */
 export type BasketLine = {
+  /** Identifies the row, not the item: the same serialized item can appear on more than one line (two M-4s, each with its own מסד). */
+  id: string;
   item: Item;
   quantity: number;
   serial: string;
@@ -29,6 +32,18 @@ export type BasketLine = {
  *   in that same list for the operator to tick on their own.
  */
 type AddMode = 'full' | 'entitlement';
+
+type AddRequest = { item: Item; mode: AddMode; quantity?: number };
+
+/** A pause in adding an item that needs the operator's yes before it continues. */
+type Prompt =
+  | { kind: 'notEnlisted'; item: Item }
+  | { kind: 'duplicate'; item: Item; existing: BasketLine[] }
+  | { kind: 'overAllocation'; item: Item };
+
+export function newLine(item: Item, quantity: number, serial = '', lineNotes = ''): BasketLine {
+  return { id: crypto.randomUUID(), item, quantity, serial, lineNotes };
+}
 
 /**
  * Step 3 — what is going out.
@@ -51,11 +66,15 @@ export function BasketStep({
 }) {
   const items = useItemsQuery();
   const entitlement = useSoldierEntitlementQuery(soldier.id);
-  const [itemQuery, setItemQuery] = useState('');
-  const [overAllocationPick, setOverAllocationPick] = useState<
-    { item: Item; mode: AddMode; quantity?: number } | null
-  >(null);
-  const [notEnlistedBlock, setNotEnlistedBlock] = useState<Item | null>(null);
+  // Adding can pause for a confirmation (not enlisted, already on the list,
+  // over the company's allocation). `ask` turns that pause into a promise so a
+  // multi-select add can walk its items one by one and wait at each warning.
+  const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const answer = useRef<((ok: boolean) => void) | null>(null);
+  // Lines as of the latest add: several items are added in a row before React
+  // re-renders, so each one must build on the previous result, not on the prop.
+  const latest = useRef(lines);
+  latest.current = lines;
   const [fetchBundle] = useLazyIssueBundleQuery();
   const [fetchPairings] = useLazyItemPairingsQuery();
 
@@ -73,16 +92,6 @@ export function BasketStep({
     [items.data],
   );
 
-  const matches = useMemo(() => {
-    const q = itemQuery.trim();
-    if (!q) return [];
-    const taken = new Set(lines.map((l) => l.item.id));
-    return catalog
-      .filter((i) => i.name.includes(q) || i.aliases.some((a) => a.includes(q)))
-      .filter((i) => !taken.has(i.id))
-      .slice(0, 8);
-  }, [catalog, itemQuery, lines]);
-
   /** Remaining headroom for this soldier's company on this item, or `null`
    *  when there's nothing to check against (no active period, or the item
    *  isn't on its grid at all). */
@@ -92,13 +101,27 @@ export function BasketStep({
     return row.remaining[soldier.company];
   }
 
-  async function reallyAddItem(item: Item, mode: AddMode, quantity?: number): Promise<void> {
-    const base: BasketLine = { item, quantity: quantity ?? item.defaultQty, serial: '', lineNotes: '' };
-    setItemQuery('');
+  function ask(next: Prompt): Promise<boolean> {
+    return new Promise((resolve) => {
+      answer.current = resolve;
+      setPrompt(next);
+    });
+  }
+
+  function resolvePrompt(ok: boolean): void {
+    answer.current?.(ok);
+    answer.current = null;
+    setPrompt(null);
+  }
+
+  /** The lines to add for one item: the row itself plus whatever rides along with it. */
+  async function build(req: AddRequest, current: BasketLine[]): Promise<BasketLine[]> {
+    const { item, mode, quantity } = req;
+    const base = newLine(item, quantity ?? item.defaultQty);
 
     let extra: { item: Item; quantity: number }[] = [];
     if (mode === 'full') {
-      // Added via the search box: the full bundle rides along — standard
+      // Added via the picker: the full bundle rides along — standard
       // load always, plus anything the soldier's own חלוקה לפי חייל makes
       // him eligible for (מטולון, מכפל, שחמ, …), plus hard pairings chained
       // off whichever of those got included (מטולון → M-203). The server
@@ -122,44 +145,82 @@ export function BasketStep({
       extra = [...(bundleResult.data ?? []), ...(pairingResult.data ?? [])];
     }
 
-    const taken = new Set([item.id, ...lines.map((l) => l.item.id)]);
-    const extraLines: BasketLine[] = extra
+    const taken = new Set(current.map((l) => l.item.id));
+    taken.add(item.id);
+    const extraLines = extra
       .filter((b) => !taken.has(b.item.id))
-      .map((b) => ({ item: b.item, quantity: b.quantity, serial: '', lineNotes: '' }));
+      .map((b) => newLine(b.item, b.quantity));
+    return [...current, base, ...extraLines];
+  }
 
-    onChange([...lines, base, ...extraLines]);
+  /** Adds items one by one, stopping at each warning for the operator's answer. */
+  async function addItems(requests: AddRequest[]): Promise<void> {
+    for (const req of requests) {
+      const { item } = req;
+      if (item.category === 'WEAPON') {
+        // Hard block, not a confirmable warning like the over-allocation
+        // dialog below: the server rejects a weapon line for a soldier who
+        // isn't מחויל outright, so letting the operator build a basket around
+        // one first only wastes the trip — stop it here instead.
+        if (soldier.isEnlisted === false) {
+          await ask({ kind: 'notEnlisted', item });
+          continue;
+        }
+      }
+
+      // A second unit of the same serialized item is legitimate (two M-4s,
+      // each with its own מסד) but unusual enough to confirm. A non-serialized
+      // item would collapse into one signature server-side, so its quantity
+      // is edited on the existing row instead.
+      const existing = latest.current.filter((l) => l.item.id === item.id);
+      if (existing.length > 0) {
+        if (!item.isSerialized) continue;
+        if (!(await ask({ kind: 'duplicate', item, existing }))) continue;
+      }
+
+      if (item.category === 'WEAPON') {
+        const remaining = remainingForCompany(item);
+        if (remaining !== null && remaining <= 0) {
+          if (!(await ask({ kind: 'overAllocation', item }))) continue;
+        }
+      }
+
+      const next = await build(req, latest.current);
+      latest.current = next;
+      onChange(next);
+    }
   }
 
   function addItem(item: Item, mode: AddMode = 'full', quantity?: number): void {
-    if (item.category === 'WEAPON') {
-      // Hard block, not a confirmable warning like the over-allocation
-      // dialog below: the server rejects a weapon line for a soldier who
-      // isn't מחויל outright, so letting the operator build a basket around
-      // one first only wastes the trip — stop it here instead.
-      if (soldier.isEnlisted === false) {
-        setNotEnlistedBlock(item);
-        return;
-      }
-      const remaining = remainingForCompany(item);
-      if (remaining !== null && remaining <= 0) {
-        setOverAllocationPick({ item, mode, quantity });
-        return;
-      }
-    }
-    void reallyAddItem(item, mode, quantity);
+    void addItems([{ item, mode, quantity }]);
   }
 
-  function patch(itemId: string, changes: Partial<BasketLine>): void {
-    onChange(lines.map((l) => (l.item.id === itemId ? { ...l, ...changes } : l)));
+  function patch(lineId: string, changes: Partial<BasketLine>): void {
+    onChange(lines.map((l) => (l.id === lineId ? { ...l, ...changes } : l)));
   }
 
-  function removeLine(itemId: string): void {
+  function removeLine(lineId: string): void {
+    onChange(lines.filter((l) => l.id !== lineId));
+  }
+
+  /** Unticking an entitlement row drops every line of that item. */
+  function removeItemLines(itemId: string): void {
     onChange(lines.filter((l) => l.item.id !== itemId));
   }
 
   // A serialized line without a מסד cannot be signed; the API refuses it and
   // so does this step, so the soldier is never asked to sign an invalid form.
-  const missingSerial = lines.some((l) => l.item.isSerialized && !l.serial.trim());
+  const missingSerialLines = lines.filter((l) => l.item.isSerialized && !l.serial.trim());
+  const missingSerial = missingSerialLines.length > 0;
+  // Named, with a count when the same item is on more than one row, so the
+  // operator sees exactly which rows to fill rather than scanning for a red one.
+  const missingSerialNames = [
+    ...missingSerialLines
+      .reduce((counts, l) => counts.set(l.item.name, (counts.get(l.item.name) ?? 0) + 1), new Map<string, number>())
+      .entries(),
+  ]
+    .map(([name, n]) => (n > 1 ? `${name} ×${n}` : name))
+    .join(', ');
   const ready = lines.length > 0 && !missingSerial;
 
   return (
@@ -171,7 +232,7 @@ export function BasketStep({
           onToggle={(item, quantity) => {
             const already = lines.some((l) => l.item.id === item.id);
             if (already) {
-              removeLine(item.id);
+              removeItemLines(item.id);
               return;
             }
             addItem(item, 'entitlement', quantity);
@@ -187,11 +248,11 @@ export function BasketStep({
             <ul className="space-y-3">
               {lines.map((line) => (
                 <BasketRow
-                  key={line.item.id}
+                  key={line.id}
                   line={line}
                   soldierId={soldier.id}
-                  onPatch={(changes) => patch(line.item.id, changes)}
-                  onRemove={() => removeLine(line.item.id)}
+                  onPatch={(changes) => patch(line.id, changes)}
+                  onRemove={() => removeLine(line.id)}
                 />
               ))}
             </ul>
@@ -204,35 +265,16 @@ export function BasketStep({
             <span className="mb-1 block text-meta font-semibold text-ink-soft">
               {he.form1008.addItem}
             </span>
-            <input
-              value={itemQuery}
-              onChange={(e) => setItemQuery(e.target.value)}
-              placeholder={he.form1008.searchItem}
-              className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-body"
+            <ItemPicker
+              catalog={catalog}
+              lines={lines}
+              onAdd={(picked) => void addItems(picked.map((item) => ({ item, mode: 'full' as const })))}
             />
-            {matches.length > 0 && (
-              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-                {matches.map((i) => (
-                  <li key={i.id}>
-                    <button
-                      onClick={() => addItem(i)}
-                      className="flex w-full items-center justify-between gap-2 rounded-ctl border border-rule bg-card-raised px-3 py-2 text-start transition-colors hover:border-field hover:bg-field-wash"
-                    >
-                      <span className="flex items-center gap-2 font-semibold">
-                        <CategoryDot category={i.category} />
-                        {i.name}
-                      </span>
-                      {i.isSerialized && <Tag tone="brass">{he.signatures.serial}</Tag>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
 
           {missingSerial && (
             <p className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
-              {he.issue.serialRequired}
+              {he.issue.serialRequired(missingSerialNames)}
             </p>
           )}
 
@@ -247,24 +289,189 @@ export function BasketStep({
         </div>
       </Panel>
 
-      {overAllocationPick && (
+      {prompt?.kind === 'overAllocation' && (
         <OverAllocationDialog
-          item={overAllocationPick.item}
+          item={prompt.item}
           company={soldier.company}
-          onCancel={() => setOverAllocationPick(null)}
-          onConfirm={() => {
-            void reallyAddItem(overAllocationPick.item, overAllocationPick.mode, overAllocationPick.quantity);
-            setOverAllocationPick(null);
-          }}
+          onCancel={() => resolvePrompt(false)}
+          onConfirm={() => resolvePrompt(true)}
         />
       )}
 
-      {notEnlistedBlock && (
-        <NotEnlistedDialog
-          item={notEnlistedBlock}
-          soldierName={`${soldier.firstName} ${soldier.lastName}`}
-          onClose={() => setNotEnlistedBlock(null)}
+      {prompt?.kind === 'duplicate' && (
+        <DuplicateDialog
+          item={prompt.item}
+          existing={prompt.existing}
+          onCancel={() => resolvePrompt(false)}
+          onConfirm={() => resolvePrompt(true)}
         />
+      )}
+
+      {prompt?.kind === 'notEnlisted' && (
+        <NotEnlistedDialog
+          item={prompt.item}
+          soldierName={`${soldier.firstName} ${soldier.lastName}`}
+          onClose={() => resolvePrompt(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Not a block: a second M-4 or מאג for one soldier is sometimes right, and
+ * only the operator knows. It is a deliberate extra step, naming what is
+ * already on the list so a double-tap is not mistaken for intent.
+ */
+function DuplicateDialog({
+  item,
+  existing,
+  onConfirm,
+  onCancel,
+}: {
+  item: Item;
+  existing: BasketLine[];
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const serials = existing.map((l) => l.serial.trim()).filter(Boolean);
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brass-wash text-brass">
+            <span className="h-2.5 w-2.5 rounded-full bg-brass" />
+          </span>
+          <h2 className="text-lead font-semibold">{he.issue.duplicateTitle(item.name)}</h2>
+        </div>
+        <p className="text-meta text-ink-soft">{he.issue.duplicateBody(item.name, existing.length, serials)}</p>
+        <div className="flex gap-2 pt-1">
+          <Button onClick={onConfirm}>{he.issue.duplicateAction}</Button>
+          <Button variant="quiet" onClick={onCancel}>
+            {he.common.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * A dropdown of the whole catalog, filtered as you type, where several items
+ * can be ticked and added in one go. Case does not matter ("m-4" finds
+ * "M-4"). An item already on the list stays visible and tickable: a second
+ * serialized unit is allowed (after a warning), only a non-serialized one is
+ * greyed out because its quantity is edited on its existing row.
+ */
+function ItemPicker({
+  catalog,
+  lines,
+  onAdd,
+}: {
+  catalog: Item[];
+  lines: BasketLine[];
+  onAdd: (items: Item[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState<string[]>([]);
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent): void {
+      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const q = normalizeSearch(query);
+  const results = useMemo(() => catalog.filter((i) => itemMatches(i, q)), [catalog, q]);
+  const inBasket = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const l of lines) counts.set(l.item.id, (counts.get(l.item.id) ?? 0) + 1);
+    return counts;
+  }, [lines]);
+
+  function toggle(id: string): void {
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  }
+
+  function commit(): void {
+    const chosen = catalog.filter((i) => picked.includes(i.id));
+    setPicked([]);
+    setQuery('');
+    setOpen(false);
+    if (chosen.length > 0) onAdd(chosen);
+  }
+
+  return (
+    <div ref={root} className="relative" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        placeholder={he.form1008.searchItem}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="item-picker-list"
+        className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-body"
+      />
+      {open && (
+        <div className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-ctl border border-rule-strong bg-card-raised shadow-lg">
+          <ul id="item-picker-list" role="listbox" aria-multiselectable="true" className="max-h-72 overflow-y-auto">
+            {results.length === 0 && (
+              <li className="px-3 py-4 text-center text-meta text-graphite">{he.common.noResults}</li>
+            )}
+            {results.map((i) => {
+              const on = picked.includes(i.id);
+              const count = inBasket.get(i.id) ?? 0;
+              const blocked = count > 0 && !i.isSerialized;
+              return (
+                <li key={i.id} role="option" aria-selected={on} aria-disabled={blocked}>
+                  <button
+                    disabled={blocked}
+                    onClick={() => toggle(i.id)}
+                    className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      on ? 'bg-field-wash' : 'hover:bg-card'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[4px] border-2 ${
+                        on ? 'border-field bg-field text-white' : 'border-rule-strong bg-card-raised'
+                      }`}
+                    >
+                      {on && (
+                        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none">
+                          <path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <CategoryDot category={i.category} />
+                    <span className="min-w-0 flex-1 truncate font-semibold">{i.name}</span>
+                    {count > 0 && <Tag tone="brass">{he.issue.inList(count)}</Tag>}
+                    {i.isSerialized && <Tag tone="brass">{he.signatures.serial}</Tag>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="flex items-center gap-2 border-t border-rule bg-card px-3 py-2">
+            <Button size="sm" onClick={commit} disabled={picked.length === 0}>
+              {he.issue.addPicked(picked.length)}
+            </Button>
+            {picked.length > 0 && (
+              <button onClick={() => setPicked([])} className="text-meta font-semibold text-field hover:underline">
+                {he.issue.clearPicked}
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

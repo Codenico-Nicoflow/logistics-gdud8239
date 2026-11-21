@@ -29,7 +29,7 @@ function searchClauses(raw: string): Prisma.SignatureWhereInput[] {
     { soldier: { firstName: { contains: q, mode: 'insensitive' } } },
     { soldier: { lastName: { contains: q, mode: 'insensitive' } } },
     { soldier: { personalNumber: { contains: q } } },
-    { itemInstance: { serial: { contains: q } } },
+    { itemInstance: { serial: { contains: q, mode: 'insensitive' } } },
   ];
 
   const parts = q.split(/\s+/).filter(Boolean);
@@ -69,7 +69,7 @@ function soldierClauses(raw: string): Prisma.SoldierWhereInput[] {
     { lastName: { contains: q, mode: 'insensitive' } },
     { personalNumber: { contains: q } },
     // A מסד identifies a weapon, and the person holding it is the answer.
-    { signatures: { some: { returnedAt: null, itemInstance: { serial: { contains: q } } } } },
+    { signatures: { some: { returnedAt: null, itemInstance: { serial: { contains: q, mode: 'insensitive' } } } } },
   ];
 
   const parts = q.split(/\s+/).filter(Boolean);

@@ -72,7 +72,7 @@ export function SignStep({
               </thead>
               <tbody>
                 {lines.map((l) => (
-                  <tr key={l.item.id}>
+                  <tr key={l.id}>
                     <Td className="font-semibold">{l.item.name}</Td>
                     <Td>{l.item.unitOfMeasure}</Td>
                     <Td numeric>{l.quantity}</Td>
