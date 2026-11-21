@@ -235,11 +235,18 @@ export const api = createApi({
       query: (params) => ({ url: '/ifsun', params }),
       providesTags: ['Ifsun'],
     }),
-    storeItem: build.mutation<IfsunRecord, { signatureId: string; quantity?: number; notes?: string }>({
+    storeItem: build.mutation<
+      IfsunRecord,
+      { signatureId: string; signatureImage: string; signerName?: string; quantity?: number; notes?: string }
+    >({
       query: (body) => ({ url: '/ifsun', method: 'POST', body }),
       invalidatesTags: ['Ifsun', 'Signatures', 'Reports', 'Movements', 'Mesakem'],
     }),
-    collectStored: build.mutation<IfsunRecord, { id: string; notes?: string }>({
+    ifsunRecord: build.query<IfsunRecord, string>({
+      query: (id) => `/ifsun/${id}`,
+      providesTags: ['Ifsun'],
+    }),
+    collectStored: build.mutation<IfsunRecord, { id: string; signatureImage: string; signerName?: string; notes?: string }>({
       query: ({ id, ...body }) => ({ url: `/ifsun/${id}/collect`, method: 'POST', body }),
       invalidatesTags: ['Ifsun', 'Signatures', 'Reports', 'Movements', 'Mesakem'],
     }),
@@ -646,6 +653,7 @@ export const {
   useIssueItemMutation,
   useReturnItemMutation,
   useIfsunQuery,
+  useIfsunRecordQuery,
   useStoreItemMutation,
   useCollectStoredMutation,
   useCreditStoredMutation,

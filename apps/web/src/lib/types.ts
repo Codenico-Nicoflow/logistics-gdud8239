@@ -464,4 +464,9 @@ export type IfsunRecord = {
   closedAt: string | null;
   closedByName: string | null;
   closeNotes: string | null;
+  storeSignerName: string | null;
+  collectSignerName: string | null;
+  /** Only on `GET /ifsun/:id` — the list leaves the (large) images out. */
+  storeSignatureImage?: string | null;
+  collectSignatureImage?: string | null;
 };

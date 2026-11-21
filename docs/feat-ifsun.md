@@ -24,3 +24,11 @@ Excel export gets an `אפסון` sheet (what is stored now) and an `אפסון`
 
 ## Only important items
 Only WEAPON / OPTICS / DRONE can be stored (`ifsun-rules.ts`, enforced by the API, mirrored in the UI). Slings, magazines, gear and ammo are refused. The rules (strip sling and magazine, put a note with the soldier's name on the weapon, update the system and verify) are shown at the top of the אפסון page.
+
+## Signed document
+Deposit and collection are each signed on the device with the same pad as the 1008.
+- Deposit: the depositor signs (the soldier by default; tick "someone else" and enter a name otherwise).
+- Collection: whoever takes it out signs — the soldier, or a person collecting for him, named on the record.
+- Credit (soldier never returned): no signature, it is the armory's own decision, recorded with who did it and the note.
+- Stored on `ifsun_records` as PNG data URLs plus the signer's name (migration `20261121150000_ifsun_signatures`), written once and never edited. The list endpoint omits the images; `GET /ifsun/:id` returns them, and the "מסמך" button on every record shows both halves with times.
+- Backups: images live in the DB, so the pg_dump backup carries them. The Excel export stays a summary without images.

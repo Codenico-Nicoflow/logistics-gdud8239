@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   useCollectStoredMutation,
   useCreditStoredMutation,
   useIfsunQuery,
+  useIfsunRecordQuery,
   useSignatureHoldersQuery,
-} from '../../lib/api';
+} from "../../lib/api";
 import {
   apiErrorMessage,
   Button,
@@ -17,25 +18,35 @@ import {
   Spinner,
   Tag,
   TextField,
-} from '../../components/ui';
-import { useToast } from '../../components/toast';
-import { he } from '../../i18n/he';
-import { IFSUN_CATEGORIES, type IfsunRecord, type SignatureHolder } from '../../lib/types';
-import { StoreDialog, type StorableSignature } from './StoreDialog';
+} from "../../components/ui";
+import { useToast } from "../../components/toast";
+import { he } from "../../i18n/he";
+import {
+  IFSUN_CATEGORIES,
+  type IfsunRecord,
+  type SignatureHolder,
+} from "../../lib/types";
+import { SignerFields, type SignerValue } from "./SignerFields";
+import { StoreDialog, type StorableSignature } from "./StoreDialog";
 
-type Tab = 'STORED' | 'ALL';
-type Closing = { record: IfsunRecord; mode: 'collect' | 'credit' };
+type Tab = "STORED" | "ALL";
+type Closing = { record: IfsunRecord; mode: "collect" | "credit" };
 
 /**
  * אפסון — what soldiers left in the armory instead of taking home. Admin and
  * logistics only. The list is cards, not a table, so it works on a phone.
  */
 export function IfsunPage() {
-  const [tab, setTab] = useState<Tab>('STORED');
-  const [q, setQ] = useState('');
+  const [tab, setTab] = useState<Tab>("STORED");
+  const [q, setQ] = useState("");
   const [closing, setClosing] = useState<Closing | null>(null);
   const [adding, setAdding] = useState(false);
-  const { data, isLoading } = useIfsunQuery({ status: tab, q: q || undefined, take: 200 });
+  const [viewing, setViewing] = useState<string | null>(null);
+  const { data, isLoading } = useIfsunQuery({
+    status: tab,
+    q: q || undefined,
+    take: 200,
+  });
   const rows = data?.rows ?? [];
 
   return (
@@ -49,7 +60,9 @@ export function IfsunPage() {
       </div>
 
       <section className="rounded-panel border border-brass/30 bg-brass-wash px-4 py-3">
-        <h2 className="text-meta font-semibold text-brass">{he.ifsun.rulesTitle}</h2>
+        <h2 className="text-meta font-semibold text-brass">
+          {he.ifsun.rulesTitle}
+        </h2>
         <ol className="mt-1.5 list-decimal space-y-0.5 ps-5 text-meta text-ink-soft">
           {he.ifsun.rules.map((rule) => (
             <li key={rule}>{rule}</li>
@@ -60,37 +73,61 @@ export function IfsunPage() {
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
           <div className="flex gap-1">
-            {(['STORED', 'ALL'] as const).map((t) => (
+            {(["STORED", "ALL"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
                 className={`h-9 rounded-ctl px-3 text-meta font-semibold ${
-                  tab === t ? 'bg-field-wash text-field-dark' : 'text-ink-soft hover:bg-card'
+                  tab === t
+                    ? "bg-field-wash text-field-dark"
+                    : "text-ink-soft hover:bg-card"
                 }`}
               >
-                {t === 'STORED' ? he.ifsun.tabStored : he.ifsun.tabHistory}
+                {t === "STORED" ? he.ifsun.tabStored : he.ifsun.tabHistory}
               </button>
             ))}
           </div>
-          <SearchField value={q} onSearch={setQ} placeholder={he.ifsun.searchPlaceholder} className="w-full sm:w-72" />
+          <SearchField
+            value={q}
+            onSearch={setQ}
+            placeholder={he.ifsun.searchPlaceholder}
+            className="w-full sm:w-72"
+          />
         </div>
 
         {isLoading ? (
           <Spinner />
         ) : rows.length === 0 ? (
-          <EmptyState>{tab === 'STORED' ? he.ifsun.empty : he.ifsun.emptyHistory}</EmptyState>
+          <EmptyState>
+            {tab === "STORED" ? he.ifsun.empty : he.ifsun.emptyHistory}
+          </EmptyState>
         ) : (
           <ul className="divide-y divide-rule">
             {rows.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <li
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
                 <div className="min-w-0 space-y-0.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{r.soldierNameSnapshot}</span>
+                    <span className="font-semibold">
+                      {r.soldierNameSnapshot}
+                    </span>
                     {r.companySnapshot && (
-                      <span className="text-meta text-graphite">{he.companies[r.companySnapshot]}</span>
+                      <span className="text-meta text-graphite">
+                        {he.companies[r.companySnapshot]}
+                      </span>
                     )}
-                    <Tag tone={r.status === 'STORED' ? 'brass' : r.status === 'COLLECTED' ? 'field' : 'neutral'}>
+                    <Tag
+                      tone={
+                        r.status === "STORED"
+                          ? "brass"
+                          : r.status === "COLLECTED"
+                            ? "field"
+                            : "neutral"
+                      }
+                    >
                       {he.ifsun.statuses[r.status]}
                     </Tag>
                   </div>
@@ -98,57 +135,106 @@ export function IfsunPage() {
                     {r.itemNameSnapshot}
                     {r.serialSnapshot && (
                       <>
-                        {' · '}
+                        {" · "}
                         <Serial value={r.serialSnapshot} />
                       </>
                     )}
                     {r.quantity > 1 && ` ×${r.quantity}`}
                   </div>
                   <div className="text-micro text-graphite">
-                    {he.ifsun.storedAt} {formatDateTime(r.storedAt)} · {r.storedByName}
-                    {r.closedAt && ` · ${he.ifsun.closedAt} ${formatDateTime(r.closedAt)}`}
+                    {he.ifsun.storedAt} {formatDateTime(r.storedAt)} ·{" "}
+                    {r.storedByName}
+                    {r.closedAt &&
+                      ` · ${he.ifsun.closedAt} ${formatDateTime(r.closedAt)}`}
                     {r.closedByName && ` · ${r.closedByName}`}
                   </div>
                   {(r.notes || r.closeNotes) && (
-                    <div className="text-micro text-ink-soft">{[r.notes, r.closeNotes].filter(Boolean).join(' · ')}</div>
+                    <div className="text-micro text-ink-soft">
+                      {[r.notes, r.closeNotes].filter(Boolean).join(" · ")}
+                    </div>
                   )}
                 </div>
-                {r.status === 'STORED' && (
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => setClosing({ record: r, mode: 'collect' })}>
-                      {he.ifsun.collectAction}
-                    </Button>
-                    <Button size="sm" variant="quiet" onClick={() => setClosing({ record: r, mode: 'credit' })}>
-                      {he.ifsun.creditAction}
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() => setViewing(r.id)}
+                  >
+                    {he.ifsun.viewDocument}
+                  </Button>
+                  {r.status === "STORED" && (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          setClosing({ record: r, mode: "collect" })
+                        }
+                      >
+                        {he.ifsun.collectAction}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        onClick={() =>
+                          setClosing({ record: r, mode: "credit" })
+                        }
+                      >
+                        {he.ifsun.creditAction}
+                      </Button>
+                    </>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         )}
       </Panel>
 
-      {closing && <CloseDialog closing={closing} onClose={() => setClosing(null)} />}
+      {closing && (
+        <CloseDialog closing={closing} onClose={() => setClosing(null)} />
+      )}
+      {viewing && (
+        <DocumentDialog id={viewing} onClose={() => setViewing(null)} />
+      )}
       {adding && <NewIfsunDialog onClose={() => setAdding(false)} />}
     </div>
   );
 }
 
-function CloseDialog({ closing, onClose }: { closing: Closing; onClose: () => void }) {
+function CloseDialog({
+  closing,
+  onClose,
+}: {
+  closing: Closing;
+  onClose: () => void;
+}) {
   const [collect, { isLoading: collecting }] = useCollectStoredMutation();
   const [credit, { isLoading: crediting }] = useCreditStoredMutation();
   const toast = useToast();
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
+  const [signer, setSigner] = useState<SignerValue>({
+    signatureImage: null,
+    signerName: undefined,
+    valid: false,
+  });
   const [error, setError] = useState<string | null>(null);
   const { record, mode } = closing;
-  const isCollect = mode === 'collect';
+  const isCollect = mode === "collect";
 
   async function submit(): Promise<void> {
     setError(null);
-    const body = { id: record.id, notes: notes.trim() || undefined };
-    const result = isCollect ? await collect(body) : await credit(body);
-    if ('error' in result) {
+    const note = notes.trim() || undefined;
+    if (isCollect && !signer.signatureImage) return;
+    const result =
+      isCollect && signer.signatureImage
+        ? await collect({
+            id: record.id,
+            notes: note,
+            signatureImage: signer.signatureImage,
+            signerName: signer.signerName,
+          })
+        : await credit({ id: record.id, notes: note });
+    if ("error" in result) {
       setError(apiErrorMessage(result.error) ?? he.toast.failed);
       return;
     }
@@ -160,27 +246,49 @@ function CloseDialog({ closing, onClose }: { closing: Closing; onClose: () => vo
   }
 
   return (
-    <Modal onClose={onClose} className="w-full max-w-sm">
+    <Modal
+      onClose={onClose}
+      className="max-h-[92dvh] w-full max-w-md overflow-y-auto"
+    >
       <div className="space-y-3 px-5 py-5">
-        <h2 className="text-lead font-semibold">{isCollect ? he.ifsun.collectTitle : he.ifsun.creditTitle}</h2>
+        <h2 className="text-lead font-semibold">
+          {isCollect ? he.ifsun.collectTitle : he.ifsun.creditTitle}
+        </h2>
         <p className="text-meta text-ink-soft">
-          {(isCollect ? he.ifsun.collectBody : he.ifsun.creditBody)(record.soldierNameSnapshot, record.itemNameSnapshot)}
+          {(isCollect ? he.ifsun.collectBody : he.ifsun.creditBody)(
+            record.soldierNameSnapshot,
+            record.itemNameSnapshot,
+          )}
         </p>
+        {isCollect && (
+          <SignerFields
+            hint={he.ifsun.signCollectHint}
+            disabled={collecting}
+            onChange={setSigner}
+          />
+        )}
         <TextField label={he.ifsun.notes} value={notes} onChange={setNotes} />
         {error && (
-          <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
+          <p
+            role="alert"
+            className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide"
+          >
             {error}
           </p>
         )}
         <div className="flex gap-2 pt-1">
           <Button
-            variant={isCollect ? 'primary' : 'danger'}
+            variant={isCollect ? "primary" : "danger"}
             onClick={() => void submit()}
-            disabled={collecting || crediting}
+            disabled={collecting || crediting || (isCollect && !signer.valid)}
           >
             {isCollect ? he.ifsun.collectAction : he.ifsun.creditAction}
           </Button>
-          <Button variant="quiet" onClick={onClose} disabled={collecting || crediting}>
+          <Button
+            variant="quiet"
+            onClick={onClose}
+            disabled={collecting || crediting}
+          >
             {he.common.cancel}
           </Button>
         </div>
@@ -191,24 +299,46 @@ function CloseDialog({ closing, onClose }: { closing: Closing; onClose: () => vo
 
 /** Find the soldier, then the signed item to store. Uses the same holders list as חתימות. */
 function NewIfsunDialog({ onClose }: { onClose: () => void }) {
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState("");
   const [holder, setHolder] = useState<SignatureHolder | null>(null);
   const [picked, setPicked] = useState<StorableSignature | null>(null);
-  const { data, isFetching } = useSignatureHoldersQuery({ q: q || undefined, take: 20 }, { skip: !q });
+  const { data, isFetching } = useSignatureHoldersQuery(
+    { q: q || undefined, take: 20 },
+    { skip: !q },
+  );
 
   if (picked && holder) {
-    return <StoreDialog signature={picked} soldierName={`${holder.firstName} ${holder.lastName}`} onClose={onClose} />;
+    return (
+      <StoreDialog
+        signature={picked}
+        soldierName={`${holder.firstName} ${holder.lastName}`}
+        onClose={onClose}
+      />
+    );
   }
 
-  const free = holder?.signatures.filter(
-      (s) => IFSUN_CATEGORIES.includes(s.item.category) && !(s.ifsunRecords && s.ifsunRecords.length >= 1),
+  const free =
+    holder?.signatures.filter(
+      (s) =>
+        IFSUN_CATEGORIES.includes(s.item.category) &&
+        !(s.ifsunRecords && s.ifsunRecords.length >= 1),
     ) ?? [];
 
   return (
-    <Modal onClose={onClose} className="flex max-h-[85dvh] w-full max-w-md flex-col">
+    <Modal
+      onClose={onClose}
+      className="flex max-h-[85dvh] w-full max-w-md flex-col"
+    >
       <div className="space-y-3 border-b border-rule px-5 py-4">
         <h2 className="text-lead font-semibold">{he.ifsun.newAction}</h2>
-        {!holder && <SearchField value={q} onSearch={setQ} placeholder={he.ifsun.pickSoldier} autoFocus />}
+        {!holder && (
+          <SearchField
+            value={q}
+            onSearch={setQ}
+            placeholder={he.ifsun.pickSoldier}
+            autoFocus
+          />
+        )}
         {holder && (
           <p className="text-meta text-ink-soft">
             {he.ifsun.pickItem} — {holder.firstName} {holder.lastName}
@@ -233,7 +363,9 @@ function NewIfsunDialog({ onClose }: { onClose: () => void }) {
                     <span className="font-semibold">
                       {h.firstName} {h.lastName}
                     </span>
-                    <span className="text-meta text-graphite">{he.companies[h.company]}</span>
+                    <span className="text-meta text-graphite">
+                      {he.companies[h.company]}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -276,5 +408,91 @@ function NewIfsunDialog({ onClose }: { onClose: () => void }) {
         </Button>
       </div>
     </Modal>
+  );
+}
+
+/** The אפסון document: who deposited and when with their signature, and who collected and when with theirs. */
+function DocumentDialog({ id, onClose }: { id: string; onClose: () => void }) {
+  const { data: r, isLoading } = useIfsunRecordQuery(id);
+  return (
+    <Modal
+      onClose={onClose}
+      className="max-h-[92dvh] w-full max-w-md overflow-y-auto"
+    >
+      <div className="space-y-4 px-5 py-5">
+        <h2 className="text-lead font-semibold">{he.ifsun.documentTitle}</h2>
+        {isLoading || !r ? (
+          <Spinner />
+        ) : (
+          <>
+            <p className="text-meta">
+              <span className="font-semibold">{r.soldierNameSnapshot}</span> ·{" "}
+              {r.itemNameSnapshot}
+              {r.serialSnapshot && (
+                <>
+                  {" · "}
+                  <Serial value={r.serialSnapshot} />
+                </>
+              )}
+              {r.quantity > 1 && ` ×${r.quantity}`}
+            </p>
+            <SignedHalf
+              title={he.ifsun.depositedBy}
+              name={r.storeSignerName}
+              at={r.storedAt}
+              image={r.storeSignatureImage ?? null}
+              logged={r.storedByName}
+            />
+            {r.status !== "STORED" && (
+              <SignedHalf
+                title={he.ifsun.collectedBy}
+                name={r.collectSignerName}
+                at={r.closedAt}
+                image={r.collectSignatureImage ?? null}
+                logged={r.closedByName}
+              />
+            )}
+          </>
+        )}
+        <Button variant="quiet" onClick={onClose}>
+          {he.common.close}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function SignedHalf({
+  title,
+  name,
+  at,
+  image,
+  logged,
+}: {
+  title: string;
+  name: string | null;
+  at: string | null;
+  image: string | null;
+  logged: string | null;
+}) {
+  return (
+    <div className="rounded-ctl border border-rule p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 text-meta">
+        <span className="font-semibold">
+          {title}: {name ?? he.common.none}
+        </span>
+        <span className="text-graphite">{at ? formatDateTime(at) : ""}</span>
+      </div>
+      {image ? (
+        <img
+          src={image}
+          alt=""
+          className="mt-2 h-24 w-full rounded-ctl bg-white object-contain"
+        />
+      ) : (
+        <p className="mt-2 text-micro text-graphite">{he.ifsun.notSigned}</p>
+      )}
+      {logged && <p className="mt-1 text-micro text-graphite">{logged}</p>}
+    </div>
   );
 }
