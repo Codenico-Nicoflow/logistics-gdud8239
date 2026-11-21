@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   useCreateTeamMemberMutation,
   useSetAttendanceMutation,
+  useUpdateTeamMemberMutation,
   useWeekQuery,
 } from '../../lib/api';
 import {
@@ -84,6 +85,7 @@ export function AttendancePage({ user }: { user: AuthUser }) {
   const isAdmin = user.role === 'admin';
   const [anchor, setAnchor] = useState(todayIso());
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<WeekRow | null>(null);
   const { data, isLoading, isFetching } = useWeekQuery(anchor);
   const [setCells] = useSetAttendanceMutation();
 
@@ -169,12 +171,18 @@ export function AttendancePage({ user }: { user: AuthUser }) {
                     </div>
                   </Th>
                 ))}
+                {isAdmin && <Th />}
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.teamMemberId}>
-                  <Td className="whitespace-nowrap font-semibold">{row.nickname}</Td>
+                  <Td className="whitespace-nowrap font-semibold">
+                    {row.nickname}
+                    {row.isActive === false && (
+                      <span className="ms-2 text-micro font-normal text-graphite">{he.attendance.removedTag}</span>
+                    )}
+                  </Td>
                   {row.cells.map((cell, i) => (
                     <Td key={dates[i]} numeric className="p-1">
                       <StatusCell
@@ -185,6 +193,15 @@ export function AttendancePage({ user }: { user: AuthUser }) {
                       />
                     </Td>
                   ))}
+                  {isAdmin && (
+                    <Td className="w-px whitespace-nowrap">
+                      {row.isActive !== false && (
+                        <Button variant="quiet" size="sm" onClick={() => setRemoving(row)}>
+                          {he.attendance.removeMember}
+                        </Button>
+                      )}
+                    </Td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -213,6 +230,7 @@ export function AttendancePage({ user }: { user: AuthUser }) {
             dates={dates}
             isAdmin={isAdmin}
             onChange={setCell}
+            onRemove={() => setRemoving(row)}
           />
         ))}
         {data && (
@@ -228,6 +246,7 @@ export function AttendancePage({ user }: { user: AuthUser }) {
       </ul>
 
       {adding && <AddMemberDialog onClose={() => setAdding(false)} />}
+      {removing && <RemoveMemberDialog row={removing} onClose={() => setRemoving(null)} />}
     </div>
   );
 }
@@ -280,15 +299,29 @@ function MemberCard({
   dates,
   isAdmin,
   onChange,
+  onRemove,
 }: {
   row: WeekRow;
   dates: string[];
   isAdmin: boolean;
   onChange: (teamMemberId: string, date: string, status: AttendanceStatus | null) => void;
+  onRemove: () => void;
 }) {
   return (
     <li className="rounded-panel border border-rule bg-card-raised px-4 py-3">
-      <div className="mb-2 font-semibold">{row.nickname}</div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="font-semibold">
+          {row.nickname}
+          {row.isActive === false && (
+            <span className="ms-2 text-micro font-normal text-graphite">{he.attendance.removedTag}</span>
+          )}
+        </span>
+        {isAdmin && row.isActive !== false && (
+          <Button variant="quiet" size="sm" onClick={onRemove}>
+            {he.attendance.removeMember}
+          </Button>
+        )}
+      </div>
       <div className="space-y-1.5">
         {row.cells.map((cell, i) => (
           <div key={dates[i]} className="flex items-center justify-between gap-3">
@@ -311,6 +344,42 @@ function MemberCard({
         ))}
       </div>
     </li>
+  );
+}
+
+/**
+ * Removal is a deactivation, not a delete: the person's past entries stay in the
+ * database and in the weeks they belong to. Only the roster going forward changes.
+ */
+function RemoveMemberDialog({ row, onClose }: { row: WeekRow; onClose: () => void }) {
+  const [update, { isLoading }] = useUpdateTeamMemberMutation();
+  const toast = useToast();
+
+  async function submit(): Promise<void> {
+    const result = await update({ id: row.teamMemberId, isActive: false });
+    if ('error' in result) {
+      toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
+      return;
+    }
+    toast.success({ title: he.attendance.memberRemoved, detail: row.nickname });
+    onClose();
+  }
+
+  return (
+    <Modal onClose={onClose} role="alertdialog" className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <h2 className="text-lead font-semibold">{he.attendance.removeTitle}</h2>
+        <p className="text-meta text-ink-soft">{he.attendance.removeBody(row.nickname)}</p>
+        <div className="flex gap-2 pt-1">
+          <Button variant="danger" onClick={() => void submit()} disabled={isLoading}>
+            {he.attendance.removeMember}
+          </Button>
+          <Button variant="quiet" onClick={onClose} disabled={isLoading}>
+            {he.common.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
