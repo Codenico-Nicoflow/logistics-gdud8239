@@ -147,7 +147,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                       {he.soldiers.company}
                     </SortableTh>
                     <Th>{he.soldiers.enlisted}</Th>
-                    <Th numeric>{he.soldiers.holding}</Th>
+                    <Th>{he.soldiers.attached}</Th>
                     <Th />
                   </tr>
                 </thead>
@@ -156,11 +156,6 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                     <tr key={s.id} className={s.isActive ? undefined : 'opacity-50'}>
                       <Td className="font-semibold">
                         {s.firstName} {s.lastName}
-                        {s.isAttached && (
-                          <Tag tone="brass">
-                            <span className="mx-1">{he.soldiers.attached}</span>
-                          </Tag>
-                        )}
                         {!s.isActive && (
                           <Tag>
                             <span className="mx-1">{he.soldiers.inactive}</span>
@@ -177,13 +172,11 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                           onRequestToggle={() => setConfirmingEnlist(s)}
                         />
                       </Td>
-                      <Td numeric>
-                        {s.openSignatureCount > 0 ? (
-                          <span className="font-semibold text-field-dark">
-                            {s.openSignatureCount}
-                          </span>
+                      <Td>
+                        {s.isAttached ? (
+                          <Tag tone="brass">{he.soldiers.attached}</Tag>
                         ) : (
-                          <span className="text-graphite">0</span>
+                          <span className="text-graphite">—</span>
                         )}
                       </Td>
                       <Td>

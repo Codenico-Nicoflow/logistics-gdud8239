@@ -14,3 +14,8 @@ A soldier can be marked **מסופח**: serving with the battalion temporarily
 - UI: a checkbox in "הוסף חייל" and in both edit dialogs (חיילים, ניפוק); a
   brass "מסופח" tag next to the name in the חיילים table; and the soldier's
   confirm step in ניפוק shows it after the name.
+
+## Table
+The "מחזיק" (open signatures) column was replaced by a "מסופח" column: a brass
+tag for attached soldiers, "—" otherwise. The tag is no longer repeated beside
+the name. The "holding / not holding" filter above the table is unchanged.

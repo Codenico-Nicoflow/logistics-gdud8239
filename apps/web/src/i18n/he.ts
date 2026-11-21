@@ -148,7 +148,6 @@ export const he = {
     personalNumber: 'מספר אישי',
     phone: 'טלפון',
     company: 'פלוגה',
-    holding: 'מחזיק',
     none: 'לא נמצאו חיילים',
     missing: 'חסר',
     count: (shown: number, total: number) => `מוצגים ${shown} מתוך ${total}`,
