@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { SignaturePad } from "../../components/SignaturePad";
-import { TextField } from "../../components/ui";
-import { he } from "../../i18n/he";
+import { useState } from 'react';
+import { SignaturePad } from '../../components/SignaturePad';
+import { TextField } from '../../components/ui';
+import { he } from '../../i18n/he';
 
 export type SignerValue = {
   signatureImage: string | null;
@@ -25,13 +25,9 @@ export function SignerFields({
 }) {
   const [image, setImage] = useState<string | null>(null);
   const [other, setOther] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState('');
 
-  function emit(
-    nextImage: string | null,
-    nextOther: boolean,
-    nextName: string,
-  ): void {
+  function emit(nextImage: string | null, nextOther: boolean, nextName: string): void {
     const signerName = nextOther ? nextName.trim() : undefined;
     onChange({
       signatureImage: nextImage,
@@ -43,8 +39,7 @@ export function SignerFields({
   return (
     <div className="space-y-2">
       <p className="text-meta font-semibold">
-        {he.ifsun.signHere}{" "}
-        <span className="font-normal text-graphite">— {hint}</span>
+        {he.ifsun.signHere} <span className="font-normal text-graphite">— {hint}</span>
       </p>
       <SignaturePad
         disabled={disabled}

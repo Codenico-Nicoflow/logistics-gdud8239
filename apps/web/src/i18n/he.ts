@@ -82,6 +82,14 @@ export const he = {
   ifsun: {
     title: 'אפסון',
     subtitle: 'ציוד שחתום על חייל והושאר בנשקייה. הוא נספר אצלי בספירה, וגם נשאר רשום עליו.',
+    rangeAll: 'הכל',
+    rangeToday: 'היום',
+    rangeWeek: '7 ימים',
+    fromDate: 'מתאריך',
+    toDate: 'עד תאריך',
+    prevPage: 'הקודם',
+    nextPage: 'הבא',
+    pageOf: (page: number, pages: number, total: number) => `עמוד ${page} מתוך ${pages} · ${total} רשומות`,
     rulesTitle: 'כללי אפסון',
     rules: [
       'מאפסנים את המינימום בלבד: רק פריטים חשובים (נשק, אופטיקה, רחפן).',
@@ -105,7 +113,7 @@ export const he = {
     storedBy: 'אופסן ע״י',
     closedAt: 'נסגר',
     status: 'סטטוס',
-    statuses: { STORED: 'מאופסן', COLLECTED: 'נלקח', CREDITED: 'זוכה' } as Record<string, string>,
+    statuses: { STORED: 'מאופסן', COLLECTED: 'נלקח', CREDITED: 'זוכה' },
     collectAction: 'נלקח',
     creditAction: 'זכה',
     notes: 'הערה (לא חובה)',

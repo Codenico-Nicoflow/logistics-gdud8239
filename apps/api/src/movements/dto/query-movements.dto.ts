@@ -12,7 +12,7 @@ const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
  * (`obj`) because the global pipe's implicit conversion has already turned
  * `value` into a UTC `Date` by the time a transform runs.
  */
-function asDate(field: 'from' | 'to') {
+export function asDate(field: 'from' | 'to') {
   return ({ obj }: { obj: Record<string, unknown> }): unknown => {
     const raw = obj[field];
     if (typeof raw !== 'string') return raw;

@@ -24,6 +24,9 @@ export class IfsunService {
     const q = query.q?.trim();
     const where: Prisma.IfsunRecordWhereInput = {
       ...(status === 'ALL' ? {} : { status }),
+      ...(query.from || query.to
+        ? { storedAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lte: query.to } : {}) } }
+        : {}),
       ...(q
         ? {
             OR: [
@@ -40,7 +43,7 @@ export class IfsunService {
         orderBy: { storedAt: 'desc' },
         omit: LIST_OMIT,
         skip: query.skip ?? 0,
-        take: query.take ?? 100,
+        take: query.take ?? 50,
       }),
       this.prisma.ifsunRecord.count({ where }),
     ]);

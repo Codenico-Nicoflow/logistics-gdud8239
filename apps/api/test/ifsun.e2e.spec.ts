@@ -138,6 +138,22 @@ describe('אפסון', () => {
     await post(`signatures/${sigId}/return`).expect(400);
   });
 
+  it('filters history by the day it was stored and pages the result', async () => {
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201);
+    const today = israelToday();
+    const hit = await request(app.getHttpServer())
+      .get(`/api/ifsun?status=ALL&from=${today}&to=${today}&take=1&skip=0&q=${encodeURIComponent(LAST)}`)
+      .set('Cookie', jar)
+      .expect(200);
+    expect(hit.body.total).toBe(1);
+    expect(hit.body.rows).toHaveLength(1);
+    const past = await request(app.getHttpServer())
+      .get(`/api/ifsun?status=ALL&to=2020-01-01&q=${encodeURIComponent(LAST)}`)
+      .set('Cookie', jar)
+      .expect(200);
+    expect(past.body.total).toBe(0);
+  });
+
   it('refuses accessories — slings and magazines are stripped off, not stored', async () => {
     await prisma.item.update({ where: { id: itemId }, data: { category: 'ACCESSORY' } });
     await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(400);

@@ -230,7 +230,7 @@ export const api = createApi({
     }),
     ifsun: build.query<
       Paginated<IfsunRecord>,
-      { status?: IfsunStatus | 'ALL'; q?: string; take?: number; skip?: number }
+      { status?: IfsunStatus | 'ALL'; q?: string; from?: string; to?: string; take?: number; skip?: number }
     >({
       query: (params) => ({ url: '/ifsun', params }),
       providesTags: ['Ifsun'],
