@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
+import { israelToday } from '../common/israel-date';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ExcelExportService } from './excel-export.service';
@@ -33,7 +34,7 @@ export class ExcelController {
   @Get('export')
   async export(@Res() res: Response): Promise<void> {
     const buffer = await this.exporter.toBuffer();
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = israelToday();
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader('Content-Disposition', `attachment; filename="logistics-${stamp}.xlsx"`);
     res.setHeader('Content-Length', String(buffer.byteLength));

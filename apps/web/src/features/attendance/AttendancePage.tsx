@@ -17,6 +17,7 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
+import { todayIso } from '../../lib/dates';
 import type { AttendanceStatus, AuthUser, Gender, WeekRow } from '../../lib/types';
 
 const STATUSES: AttendanceStatus[] = [
@@ -47,10 +48,6 @@ function label(status: AttendanceStatus, gender: Gender): string {
  *  nonzero, since "+0 חזרה" on every ordinary day would be pure noise. */
 function presentLabel(present: number, returning: number): string {
   return returning > 0 ? `${present} (+${returning} ${he.attendance.statuses.RETURNING})` : `${present}`;
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function shiftWeek(iso: string, weeks: number): string {

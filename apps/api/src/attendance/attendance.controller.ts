@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { israelToday } from '../common/israel-date';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { AttendanceService } from './attendance.service';
@@ -20,7 +21,7 @@ function weeksFromToday(iso: string): number {
     return copy.getTime();
   };
   const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  return Math.round((toSunday(new Date(iso)) - toSunday(new Date())) / msPerWeek);
+  return Math.round((toSunday(new Date(iso)) - toSunday(new Date(israelToday()))) / msPerWeek);
 }
 
 @Controller('attendance')
@@ -29,7 +30,7 @@ export class AttendanceController {
 
   @Get('week')
   week(@Query('date') date: string, @CurrentUser() user: AuthUser) {
-    const iso = date ?? new Date().toISOString().slice(0, 10);
+    const iso = date ?? israelToday();
     if (user.role === 'logistics' && Math.abs(weeksFromToday(iso)) > 1) {
       throw new BadRequestException('לוגיסטיקה יכולה לצפות רק בשבוע הקודם, הנוכחי והבא');
     }
