@@ -135,34 +135,6 @@ export class CountsService {
     return { id: session.id };
   }
 
-  /** Status of the most recent sign-off, for the dashboard. */
-  async latest(): Promise<{
-    session: {
-      id: string;
-      sessionDate: Date;
-      shift: CountShift;
-      isClosed: boolean;
-      recordedBy: string | null;
-    } | null;
-  }> {
-    const session = await this.prisma.countSession.findFirst({
-      orderBy: [{ sessionDate: 'desc' }, { recordedAt: 'desc' }],
-      include: { recordedBy: { select: { displayName: true } } },
-    });
-
-    if (!session) return { session: null };
-
-    return {
-      session: {
-        id: session.id,
-        sessionDate: session.sessionDate,
-        shift: session.shift,
-        isClosed: session.isClosed,
-        recordedBy: session.recordedBy?.displayName ?? null,
-      },
-    };
-  }
-
   /** A closed session's sheet, for printing — same rows as `sheet()`, pinned to what was actually signed rather than recomputed live. */
   async forPrint(id: string): Promise<{
     session: {
