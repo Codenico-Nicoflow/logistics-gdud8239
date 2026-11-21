@@ -4,6 +4,13 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
 import { ACCESSORIES, CATALOG, GEAR_PRICES, TEAM, SeedItem } from './catalog';
 
+// The seed creates an admin account and writes catalog data. Pointed at production by accident
+// (a stray DATABASE_URL in a shell) it would add a login to the live system, so it refuses unless
+// someone says, in so many words, that this is intended.
+if ((process.env.NODE_ENV === 'production' || process.env.RENDER === 'true') && process.env.ALLOW_PROD_SEED !== '1') {
+  throw new Error('Refusing to seed a production environment. Set ALLOW_PROD_SEED=1 if that is really what you want.');
+}
+
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });

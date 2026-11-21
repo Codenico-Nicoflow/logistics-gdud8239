@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only token: nothing here needs to write to the repository.
+permissions:
+  contents: read
+
+# A newer push to the same branch supersedes a running one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API — typecheck, migrate, test, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: logistics
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: logistics
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U logistics -d logistics"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway values for a throwaway database: nothing here is a real credential.
+      DATABASE_URL: postgresql://logistics:ci_only_password@localhost:5432/logistics?schema=public
+      JWT_ACCESS_SECRET: ci-only-access-secret-0123456789-abcdef
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-0123456789-uvwxyz
+      NODE_ENV: development
+      WEB_ORIGIN: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # The backup tests spawn pg_dump, which must be at least as new as the server.
+      - name: Install the PostgreSQL client tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - run: npm ci
+      - run: npm run generate --workspace=apps/api
+      - name: Apply migrations to the empty database
+        run: npm run migrate:deploy --workspace=apps/api
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+        working-directory: apps/api
+      - name: Tests
+        run: npx vitest run
+        working-directory: apps/api
+      - name: Build
+        run: npm run build --workspace=apps/api
+
+  web:
+    name: Web — typecheck, test, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+        working-directory: apps/web
+      - name: Tests
+        run: npx vitest run
+        working-directory: apps/web
+      - name: Build
+        run: npm run build --workspace=apps/web
+
+  audit:
+    name: Dependency audit (reported, not blocking)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Reported on every run but not a gate: two advisories are accepted (see docs/chore-ci-and-dependency-hygiene.md)
+      # and a new one in a build-time dependency should not stop an unrelated fix.
+      - name: npm audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

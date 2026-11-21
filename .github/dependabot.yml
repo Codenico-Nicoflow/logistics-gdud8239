@@ -1,0 +1,38 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Asia/Jerusalem
+    open-pull-requests-limit: 5
+    groups:
+      nestjs:
+        patterns: ["@nestjs/*"]
+        update-types: [minor, patch]
+      react-and-tooling:
+        patterns: ["react*", "@reduxjs/*", "vite*", "@vitejs/*", "tailwindcss", "postcss", "autoprefixer", "vitest"]
+        update-types: [minor, patch]
+      security-patches:
+        applies-to: security-updates
+        patterns: ["*"]
+    # Major versions change behaviour and are decided by a person, not a weekly bot (Prisma 8 is
+    # still a release candidate; TypeScript 7 and Tailwind 4 are rewrites).
+    ignore:
+      - dependency-name: prisma
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Asia/Jerusalem
