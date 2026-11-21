@@ -144,6 +144,13 @@ describe('רשימת חיילים — filters', () => {
     expect(names).toEqual(['חסר', 'מחזיק', 'ריק']);
   });
 
+  it('attachedOnly returns only מסופחים', async () => {
+    await prisma.soldier.updateMany({ where: { id: holderId }, data: { isAttached: true } });
+    const names = (await search('attachedOnly=true')).map((s) => s.firstName);
+    expect(names).toEqual(['מחזיק']);
+    expect((await search('')).length).toBe(3);
+  });
+
   it('incompleteOnly returns soldiers missing a מ.א. or a phone', async () => {
     const names = (await search('incompleteOnly=true')).map((s) => s.firstName);
     expect(names).toEqual(['חסר']);
