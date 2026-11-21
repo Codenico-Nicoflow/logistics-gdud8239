@@ -147,7 +147,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                       {he.soldiers.company}
                     </SortableTh>
                     <Th>{he.soldiers.enlisted}</Th>
-                    <Th numeric>{he.soldiers.holding}</Th>
+                    <Th>{he.soldiers.attached}</Th>
                     <Th />
                   </tr>
                 </thead>
@@ -172,13 +172,11 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                           onRequestToggle={() => setConfirmingEnlist(s)}
                         />
                       </Td>
-                      <Td numeric>
-                        {s.openSignatureCount > 0 ? (
-                          <span className="font-semibold text-field-dark">
-                            {s.openSignatureCount}
-                          </span>
+                      <Td>
+                        {s.isAttached ? (
+                          <Tag tone="brass">{he.soldiers.attached}</Tag>
                         ) : (
-                          <span className="text-graphite">0</span>
+                          <span className="text-graphite">—</span>
                         )}
                       </Td>
                       <Td>
@@ -471,6 +469,7 @@ function EditSoldierDialog({
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
   const [phone, setPhone] = useState(soldier.phone ?? '');
   const [company, setCompany] = useState<Company>(soldier.company);
+  const [isAttached, setIsAttached] = useState(soldier.isAttached);
   const [update, { isLoading, error }] = useUpdateSoldierMutation();
   const toast = useToast();
 
@@ -480,6 +479,7 @@ function EditSoldierDialog({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       company,
+      isAttached,
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
     });
@@ -528,6 +528,10 @@ function EditSoldierDialog({
             />
             <TextField label={he.soldiers.phone} value={phone} onChange={setPhone} />
           </div>
+          <label className="flex items-center gap-2 text-meta">
+            <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
+            {he.soldiers.attachedHint}
+          </label>
 
           {message && (
             <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">

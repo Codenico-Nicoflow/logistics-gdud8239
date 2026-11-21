@@ -1,5 +1,6 @@
 import { Company } from '@prisma/client';
 import {
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -43,4 +44,9 @@ export class CreateSoldierDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  /** מסופח — attached from another unit (e.g. for one תעסוקה). Defaults to organic. */
+  @IsOptional()
+  @IsBoolean()
+  isAttached?: boolean;
 }

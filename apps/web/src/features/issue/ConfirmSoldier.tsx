@@ -42,7 +42,10 @@ export function ConfirmSoldier({
         ) : (
           <>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-              <Detail label={he.issue.fullName} value={`${data.firstName} ${data.lastName}`} />
+              <Detail
+                label={he.issue.fullName}
+                value={`${data.firstName} ${data.lastName}${data.isAttached ? ` · ${he.soldiers.attached}` : ''}`}
+              />
               <Detail label={he.issue.personalNumber} value={data.personalNumber} mono />
               <Detail label={he.issue.company} value={he.companies[data.company]} />
               <Detail label={he.issue.phone} value={data.phone} mono />
@@ -133,6 +136,7 @@ function EditSoldier({
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
   const [phone, setPhone] = useState(soldier.phone ?? '');
   const [company, setCompany] = useState<Company>(soldier.company);
+  const [isAttached, setIsAttached] = useState(soldier.isAttached);
   const [update, { isLoading, error }] = useUpdateSoldierMutation();
 
   async function submit(): Promise<void> {
@@ -141,6 +145,7 @@ function EditSoldier({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       company,
+      isAttached,
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
     });
@@ -167,6 +172,10 @@ function EditSoldier({
           options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
         />
       </div>
+      <label className="flex items-center gap-2 text-meta">
+        <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
+        {he.soldiers.attachedHint}
+      </label>
       {message && (
         <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
           {message}

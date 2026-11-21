@@ -155,3 +155,46 @@ describe('רשימת חיילים — filters', () => {
     expect(rows).toHaveLength(0);
   });
 });
+
+describe('מסופח', () => {
+  const create = (body: object) =>
+    request(app.getHttpServer())
+      .post('/api/soldiers')
+      .set('Cookie', jar)
+      .send({ firstName: 'מסופח', lastName: LAST, company: 'A', ...body });
+
+  it('is off by default and can be set on create', async () => {
+    const plain = await create({}).expect(201);
+    const attached = await create({ isAttached: true }).expect(201);
+    expect(plain.body.isAttached).toBe(false);
+    expect(attached.body.isAttached).toBe(true);
+  });
+
+  it('can be switched on and off later, and the roster shows it', async () => {
+    const made = await create({}).expect(201);
+    const patch = (isAttached: boolean) =>
+      request(app.getHttpServer()).patch(`/api/soldiers/${made.body.id}`).set('Cookie', jar).send({ isAttached });
+
+    await patch(true).expect(200);
+    const listed = await request(app.getHttpServer())
+      .get('/api/soldiers')
+      .query({ q: 'מסופח' })
+      .set('Cookie', jar)
+      .expect(200);
+    const row = (listed.body.rows as { id: string; isAttached: boolean }[]).find((r) => r.id === made.body.id);
+    expect(row?.isAttached).toBe(true);
+
+    await patch(false).expect(200);
+    expect((await prisma.soldier.findUniqueOrThrow({ where: { id: made.body.id } })).isAttached).toBe(false);
+  });
+
+  it('is not changed by an edit that leaves it out', async () => {
+    const made = await create({ isAttached: true }).expect(201);
+    await request(app.getHttpServer())
+      .patch(`/api/soldiers/${made.body.id}`)
+      .set('Cookie', jar)
+      .send({ phone: '050-1234567' })
+      .expect(200);
+    expect((await prisma.soldier.findUniqueOrThrow({ where: { id: made.body.id } })).isAttached).toBe(true);
+  });
+});

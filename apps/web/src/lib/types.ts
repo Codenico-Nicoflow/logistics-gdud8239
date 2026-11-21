@@ -28,6 +28,8 @@ export type SoldierSummary = {
   phone: string | null;
   company: Company;
   isActive: boolean;
+  /** מסופח — attached from another unit rather than organic to the battalion. */
+  isAttached: boolean;
   openSignatureCount: number;
   /** מחויל לתקופת השרות הפעילה. `null` when there is no active service period. */
   isEnlisted: boolean | null;
@@ -42,6 +44,7 @@ export type SoldierDetail = {
   phone: string | null;
   company: Company;
   isActive: boolean;
+  isAttached: boolean;
   signatures: {
     id: string;
     quantity: number;
@@ -59,6 +62,7 @@ export type NewSoldier = {
   company: Company;
   personalNumber?: string;
   phone?: string;
+  isAttached?: boolean;
 };
 
 export type Item = {

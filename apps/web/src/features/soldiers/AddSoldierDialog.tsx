@@ -33,6 +33,7 @@ export function AddSoldierDialog({
   const [personalNumber, setPersonalNumber] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState<Company>('A');
+  const [isAttached, setIsAttached] = useState(false);
   const [duplicates, setDuplicates] = useState<SoldierSummary[] | null>(null);
 
   const [checkDuplicate] = useCheckDuplicateSoldierMutation();
@@ -46,6 +47,7 @@ export function AddSoldierDialog({
       company,
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
+      ...(isAttached ? { isAttached } : {}),
     };
   }
 
@@ -126,6 +128,11 @@ export function AddSoldierDialog({
               hint={he.issue.optional}
             />
           </div>
+
+          <label className="flex items-center gap-2 text-meta">
+            <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
+            {he.soldiers.attachedHint}
+          </label>
 
           {duplicates && duplicates.length > 0 && (
             <div className="rounded-ctl bg-brass-wash px-3 py-2">
