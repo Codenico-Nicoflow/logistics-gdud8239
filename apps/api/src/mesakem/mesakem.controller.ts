@@ -28,7 +28,7 @@ export class MesakemController {
 
   @Post()
   save(@Body() dto: SaveMesakemDto, @CurrentUser() actor: AuthUser) {
-    return this.mesakem.save(dto.sessionDate, dto.lines, actor);
+    return this.mesakem.save(dto.sessionDate, dto.lines, actor, dto.correctionReason);
   }
 
   @Post('finish-day')

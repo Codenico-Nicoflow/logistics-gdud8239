@@ -171,6 +171,8 @@ export type MesakemRow = {
 export type MesakemSheet = {
   rows: MesakemRow[];
   sentAt: string | null;
+  /** Closed counts that signed this day's figures — changing them reopens these. */
+  signedCounts: { id: string; shift: CountShift; date: string }[];
 };
 
 export type CountShift = 'EVENING' | 'MORNING';
@@ -189,6 +191,8 @@ export type CountSheet = {
     id: string;
     isClosed: boolean;
     lastReopen: { at: string; by: string; reason: string } | null;
+    /** מסכם changed after this open count was last saved — the numbers on screen may be stale. */
+    figuresChangedAfterStart: boolean;
   } | null;
   rows: CountSheetRow[];
   signers: {

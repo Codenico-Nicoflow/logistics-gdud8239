@@ -8,6 +8,7 @@ import {
   apiErrorMessage,
   Button,
   CategoryDot,
+  Modal,
   Panel,
   Spinner,
   TableScroll,
@@ -30,6 +31,8 @@ export function SummaryPage() {
   const [date, setDate] = useState(todayIso());
   const [nashkiya, setNashkiya] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  const [confirmingFinish, setConfirmingFinish] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
 
   const { data, isLoading, isFetching } = useMesakemSheetQuery({ date });
   const [save, { isLoading: isSaving, error }] = useSaveMesakemMutation();
@@ -64,21 +67,47 @@ export function SummaryPage() {
     return gap !== null && gap !== 0;
   }).length;
 
-  async function submit(): Promise<void> {
-    const lines = rows
+  const signedCounts = data?.signedCounts ?? [];
+  const signedLabel = signedCounts
+    .map((c) => (c.shift === 'EVENING' ? he.summary.shiftEvening : he.summary.shiftMorning))
+    .join(' ו');
+
+  function currentLines(): { itemId: string; nashkiyaQty: number }[] {
+    return rows
       .filter((r) => nashkiya[r.itemId] !== undefined && nashkiya[r.itemId] !== '')
       .map((r) => ({ itemId: r.itemId, nashkiyaQty: Number(nashkiya[r.itemId]) }));
+  }
 
-    const result = await save({ sessionDate: date, lines });
+  /** A number differs from what is stored — only then does a signed count have to be reopened. */
+  function hasChanges(): boolean {
+    return currentLines().some((l) => rows.find((r) => r.itemId === l.itemId)?.nashkiyaQty !== l.nashkiyaQty);
+  }
+
+  function submit(): void {
+    if (signedCounts.length > 0 && hasChanges()) {
+      setCorrecting(true);
+      return;
+    }
+    void doSave();
+  }
+
+  async function doSave(correctionReason?: string): Promise<void> {
+    const result = await save({
+      sessionDate: date,
+      lines: currentLines(),
+      ...(correctionReason ? { correctionReason } : {}),
+    });
     if (result.data) {
+      setCorrecting(false);
       setSaved(true);
-      toast.success({ title: he.summary.saved });
+      toast.success({ title: result.data.reopened > 0 ? he.summary.countsReopened : he.summary.saved });
     } else {
       toast.error({ title: he.toast.failed, detail: apiErrorMessage(result.error) ?? undefined });
     }
   }
 
   async function finish(): Promise<void> {
+    setConfirmingFinish(false);
     const result = await finishDay({ sessionDate: date });
     if (result.data?.sent) {
       toast.success({ title: he.summary.finishDay });
@@ -102,7 +131,7 @@ export function SummaryPage() {
           <TextField label={he.summary.date} value={date} onChange={setDate} type="date" required className="w-44" />
 
           <div className="ms-auto flex items-end gap-2">
-            <Button onClick={() => void submit()} disabled={isSaving}>
+            <Button onClick={submit} disabled={isSaving}>
               {isSaving ? he.summary.saving : he.summary.save}
             </Button>
             <Button
@@ -111,7 +140,7 @@ export function SummaryPage() {
             >
               {he.summary.downloadExcel}
             </Button>
-            <Button variant="quiet" onClick={() => void finish()} disabled={isFinishing}>
+            <Button variant="quiet" onClick={() => setConfirmingFinish(true)} disabled={isFinishing}>
               {isFinishing ? he.summary.finishing : he.summary.finishDay}
             </Button>
           </div>
@@ -124,6 +153,7 @@ export function SummaryPage() {
             <Tag tone="field">{he.summary.noGaps}</Tag>
           )}
           {saved && <Tag tone="field">{he.summary.saved}</Tag>}
+          {signedCounts.length > 0 && <Tag tone="brass">{he.summary.signedNote(signedLabel)}</Tag>}
           {data?.sentAt && (
             <Tag tone="field">
               {he.summary.finishedToday(new Date(data.sentAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }))}
@@ -195,6 +225,110 @@ export function SummaryPage() {
           </TableScroll>
         )}
       </Panel>
+
+      {confirmingFinish && (
+        <ConfirmFinishDialog
+          date={new Date(`${date}T00:00:00`).toLocaleDateString('he-IL')}
+          filled={currentLines().length}
+          total={rows.length}
+          alreadySent={!!data?.sentAt}
+          onConfirm={() => void finish()}
+          onCancel={() => setConfirmingFinish(false)}
+        />
+      )}
+      {correcting && (
+        <CorrectionDialog
+          shifts={signedLabel}
+          isLoading={isSaving}
+          onConfirm={(reason) => void doSave(reason)}
+          onCancel={() => setCorrecting(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function ConfirmFinishDialog({
+  date,
+  filled,
+  total,
+  alreadySent,
+  onConfirm,
+  onCancel,
+}: {
+  date: string;
+  filled: number;
+  total: number;
+  alreadySent: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brass-wash text-brass">
+            <span className="h-2.5 w-2.5 rounded-full bg-brass" />
+          </span>
+          <h2 className="text-lead font-semibold">{he.summary.finishTitle}</h2>
+        </div>
+        <p className="text-meta text-ink-soft">{he.summary.finishBody(date, filled, total)}</p>
+        {filled < total && (
+          <p className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta font-semibold text-oxide">
+            {he.summary.finishMissing(total - filled)}
+          </p>
+        )}
+        {alreadySent && <p className="text-meta text-brass">{he.summary.finishResend}</p>}
+        <div className="flex gap-2 pt-1">
+          <Button onClick={onConfirm}>{he.summary.finishAction}</Button>
+          <Button variant="quiet" onClick={onCancel}>
+            {he.common.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function CorrectionDialog({
+  shifts,
+  isLoading,
+  onConfirm,
+  onCancel,
+}: {
+  shifts: string;
+  isLoading: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  return (
+    <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
+      <div className="space-y-3 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-oxide-wash text-oxide">
+            <span className="h-2.5 w-2.5 rounded-full bg-oxide" />
+          </span>
+          <h2 className="text-lead font-semibold">{he.summary.correctionTitle}</h2>
+        </div>
+        <p className="text-meta text-ink-soft">{he.summary.correctionBody(shifts)}</p>
+        <TextField
+          label={he.summary.correctionReason}
+          value={reason}
+          onChange={setReason}
+          placeholder={he.summary.correctionPlaceholder}
+          autoFocus
+          required
+        />
+        <div className="flex gap-2 pt-1">
+          <Button variant="danger" onClick={() => onConfirm(reason)} disabled={isLoading || reason.trim().length < 3}>
+            {he.summary.correctionAction}
+          </Button>
+          <Button variant="quiet" onClick={onCancel} disabled={isLoading}>
+            {he.common.cancel}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

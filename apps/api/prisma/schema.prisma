@@ -71,13 +71,13 @@ enum CountShift {
 }
 
 enum AttendanceStatus {
-  PRESENT     @map("נוכח")
-  LEAVING     @map("יציאה")
-  RETURNING   @map("חזרה")
-  ON_LEAVE    @map("חופש")
-  GIMELIM     @map("גימלים")
+  PRESENT      @map("נוכח")
+  LEAVING      @map("יציאה")
+  RETURNING    @map("חזרה")
+  ON_LEAVE     @map("חופש")
+  GIMELIM      @map("גימלים")
   CLOSED_ORDER @map("צו סגור")
-  OTHER       @map("אחר")
+  OTHER        @map("אחר")
 }
 
 enum Gender {
@@ -86,12 +86,12 @@ enum Gender {
 }
 
 enum IssueKind {
-  MISSING_SERIAL      @map("חסר מסד")
-  DUPLICATE_SERIAL    @map("מסד כפול")
-  UNKNOWN_ITEM        @map("פריט לא מזוהה")
-  UNKNOWN_COMPANY     @map("פלוגה לא מזוהה")
+  MISSING_SERIAL       @map("חסר מסד")
+  DUPLICATE_SERIAL     @map("מסד כפול")
+  UNKNOWN_ITEM         @map("פריט לא מזוהה")
+  UNKNOWN_COMPANY      @map("פלוגה לא מזוהה")
   MISSING_SOLDIER_NAME @map("חסר שם חייל")
-  DUPLICATE_ROW       @map("שורה כפולה")
+  DUPLICATE_ROW        @map("שורה כפולה")
 }
 
 enum SnapshotKind {
@@ -129,18 +129,18 @@ model User {
   /// this only widens what a super-admin may additionally do in users.service.
   isSuperAdmin Boolean  @default(false) @map("is_super_admin")
 
-  refreshTokens      RefreshToken[]
-  importLogs         ImportLog[]
-  signaturesIssued   Signature[]    @relation("signedBy")
-  signaturesReturned Signature[]    @relation("returnedBy")
-  movements          Movement[]
-  countSessions      CountSession[]
-  snapshots          Snapshot[]
-  dbBackups          DbBackup[]
-  issueForms         IssueForm[]
+  refreshTokens       RefreshToken[]
+  importLogs          ImportLog[]
+  signaturesIssued    Signature[]          @relation("signedBy")
+  signaturesReturned  Signature[]          @relation("returnedBy")
+  movements           Movement[]
+  countSessions       CountSession[]
+  snapshots           Snapshot[]
+  dbBackups           DbBackup[]
+  issueForms          IssueForm[]
   issueFormAmendments IssueFormAmendment[]
-  dailySummaryLines  DailySummaryLine[]
-  countReopens       CountSessionReopen[]
+  dailySummaryLines   DailySummaryLine[]
+  countReopens        CountSessionReopen[]
 
   @@map("users")
 }
@@ -182,11 +182,11 @@ model Soldier {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  signatures   Signature[]
-  movements    Movement[]
-  issueForms   IssueForm[]
-  enlistments  SoldierEnlistment[]
-  allocations  SoldierAllocation[]
+  signatures  Signature[]
+  movements   Movement[]
+  issueForms  IssueForm[]
+  enlistments SoldierEnlistment[]
+  allocations SoldierAllocation[]
 
   @@index([lastName, firstName])
   @@index([company])
@@ -229,42 +229,43 @@ model TeamMember {
 // ---------- catalog ----------
 
 model Item {
-  id             String       @id @default(uuid())
-  name           String       @unique
-  aliases        String[]     @default([])
-  category       ItemCategory
-  isSerialized   Boolean      @default(true) @map("is_serialized")
+  id            String       @id @default(uuid())
+  name          String       @unique
+  aliases       String[]     @default([])
+  category      ItemCategory
+  isSerialized  Boolean      @default(true) @map("is_serialized")
   /// Whether the item appears in מסכם and in the ספירת נשקיה sheet derived from
   /// it. The catalog holds items nobody tracks daily (priced gear, zero-stock
   /// spares); listing them all would make the evening count unusable.
-  inSummary      Boolean      @default(true) @map("in_summary")
-  authorizedQty  Int          @default(0) @map("authorized_qty")
+  inSummary     Boolean      @default(true) @map("in_summary")
+  authorizedQty Int          @default(0) @map("authorized_qty")
   /// Count of units physically sitting in ימ״ח, out of authorizedQty. A plain
   /// admin-typed number, not tied to specific מסדים — too hard to keep which
   /// serial is where in sync, so only the total is tracked. בפועל (on-hand)
   /// is derived in the UI as authorizedQty - yamahQty - repairQty, never stored.
-  yamahQty       Int          @default(0) @map("yamah_qty")
+  yamahQty      Int          @default(0) @map("yamah_qty")
   /// Same idea as yamahQty but for bulk (non-serialized) items sent out for
   /// repair — a plain admin-typed count, since there's no individual מסד to
   /// flag IN_REPAIR the way a serialized item's ItemInstance can be.
-  repairQty      Int          @default(0) @map("repair_qty")
+  repairQty     Int          @default(0) @map("repair_qty")
   /// Pre-filled on the issue form — five מחסניות, one רצועה. The operator can
   /// change it, including to zero, which drops the line from the form.
-  defaultQty     Int          @default(1) @map("default_qty")
+  defaultQty    Int          @default(1) @map("default_qty")
   /// `י"ח` on the 1008 — the unit the quantity is counted in. Almost always
   /// יח', but the paper form has the column so some items are not.
-  unitOfMeasure  String       @default("יח'") @map("unit_of_measure")
-  unitPrice      Decimal?     @map("unit_price") @db.Decimal(10, 2)
-  isActive       Boolean      @default(true) @map("is_active")
-  createdAt      DateTime     @default(now()) @map("created_at")
+  unitOfMeasure String       @default("יח'") @map("unit_of_measure")
+  unitPrice     Decimal?     @map("unit_price") @db.Decimal(10, 2)
+  isActive      Boolean      @default(true) @map("is_active")
+  createdAt     DateTime     @default(now()) @map("created_at")
 
-  instances   ItemInstance[]
-  signatures  Signature[]
-  allocations Allocation[]
-  countLines  CountLine[]
-  dailySummaryLines DailySummaryLine[]
-  movements   Movement[]
-  formLines   IssueFormLine[]
+  instances          ItemInstance[]
+  signatures         Signature[]
+  allocations        Allocation[]
+  countLines         CountLine[]
+  countFigures       CountSessionFigure[]
+  dailySummaryLines  DailySummaryLine[]
+  movements          Movement[]
+  formLines          IssueFormLine[]
   companyAllocations CompanyAllocation[]
   onHandOverrides    ServicePeriodItemOverride[]
   soldierAllocations SoldierAllocation[]
@@ -291,21 +292,21 @@ model ItemInstance {
 // ---------- the core ----------
 
 model Signature {
-  id             String    @id @default(uuid())
-  soldierId      String    @map("soldier_id")
-  itemId         String    @map("item_id")
-  itemInstanceId String?   @map("item_instance_id")
-  quantity       Int       @default(1)
-  receiptNo      String?   @map("receipt_no")
-  notes          String?
-  signedAt       DateTime  @default(now()) @map("signed_at")
-  signedByUserId String    @map("signed_by_user_id")
-  returnedAt     DateTime? @map("returned_at")
-  returnedByUserId String? @map("returned_by_user_id")
+  id               String    @id @default(uuid())
+  soldierId        String    @map("soldier_id")
+  itemId           String    @map("item_id")
+  itemInstanceId   String?   @map("item_instance_id")
+  quantity         Int       @default(1)
+  receiptNo        String?   @map("receipt_no")
+  notes            String?
+  signedAt         DateTime  @default(now()) @map("signed_at")
+  signedByUserId   String    @map("signed_by_user_id")
+  returnedAt       DateTime? @map("returned_at")
+  returnedByUserId String?   @map("returned_by_user_id")
   // Set when the row was imported with a known data problem (e.g. a serialized
   // item with no serial). Drives the "דרוש טיפול" tab. New signatures created in
   // the app are always clean: the API refuses a serialized item without a serial.
-  needsAttention Boolean   @default(false) @map("needs_attention")
+  needsAttention   Boolean   @default(false) @map("needs_attention")
 
   soldier      Soldier       @relation(fields: [soldierId], references: [id], onDelete: Restrict)
   item         Item          @relation(fields: [itemId], references: [id])
@@ -330,36 +331,36 @@ model Signature {
 /// what was signed on a date, and must not change because a soldier later
 /// moved company or an item was renamed.
 model IssueForm {
-  id          String   @id @default(uuid())
+  id        String @id @default(uuid())
   /// Sequential, human-quotable form number. Printed on the PDF.
-  formNo      Int      @unique @default(autoincrement()) @map("form_no")
-  soldierId   String   @map("soldier_id")
+  formNo    Int    @unique @default(autoincrement()) @map("form_no")
+  soldierId String @map("soldier_id")
 
   /// `פרטי החייל השואל` — the borrower, as they were when they signed.
-  soldierNameSnapshot String  @map("soldier_name_snapshot")
+  soldierNameSnapshot    String  @map("soldier_name_snapshot")
   personalNumberSnapshot String? @map("personal_number_snapshot")
-  companySnapshot     Company @map("company_snapshot")
-  phoneSnapshot       String? @map("phone_snapshot")
+  companySnapshot        Company @map("company_snapshot")
+  phoneSnapshot          String? @map("phone_snapshot")
 
   /// `מס קבלה` in the header box of the paper form.
-  receiptNo      String?  @map("receipt_no")
+  receiptNo String? @map("receipt_no")
 
   /// PNG data URL of the borrower's signature, drawn on the device.
-  signatureImage String  @map("signature_image")
+  signatureImage String   @map("signature_image")
   signedAt       DateTime @default(now()) @map("signed_at")
 
   /// `פרטי החייל המשאיל` — the issuer. Their own signature is drawn too, so
   /// the printed form carries both halves the paper one has.
-  issuedByUserId String  @map("issued_by_user_id")
-  issuedByNameSnapshot String @map("issued_by_name_snapshot")
+  issuedByUserId       String  @map("issued_by_user_id")
+  issuedByNameSnapshot String  @map("issued_by_name_snapshot")
   issuerPersonalNumber String? @map("issuer_personal_number")
   issuerSignatureImage String? @map("issuer_signature_image")
 
-  notes          String?
+  notes String?
 
-  soldier Soldier         @relation(fields: [soldierId], references: [id], onDelete: Restrict)
-  issuedBy User           @relation(fields: [issuedByUserId], references: [id])
-  lines   IssueFormLine[]
+  soldier    Soldier              @relation(fields: [soldierId], references: [id], onDelete: Restrict)
+  issuedBy   User                 @relation(fields: [issuedByUserId], references: [id])
+  lines      IssueFormLine[]
   amendments IssueFormAmendment[]
 
   @@index([soldierId])
@@ -369,22 +370,22 @@ model IssueForm {
 
 /// One line of a 1008: an item, how many, and its מסד when it has one.
 model IssueFormLine {
-  id          String  @id @default(uuid())
-  issueFormId String  @map("issue_form_id")
-  itemId      String  @map("item_id")
+  id               String  @id @default(uuid())
+  issueFormId      String  @map("issue_form_id")
+  itemId           String  @map("item_id")
   /// Snapshotted for the same reason as the soldier's name.
-  itemNameSnapshot String @map("item_name_snapshot")
+  itemNameSnapshot String  @map("item_name_snapshot")
   /// `מזהה` on the paper form: the weapon's serial, known as מסד or צ׳.
   serialSnapshot   String? @map("serial_snapshot")
   /// `י"ח` — the unit the quantity is counted in, as it was when signed.
   unitOfMeasure    String  @default("יח'") @map("unit_of_measure")
-  quantity    Int     @default(1)
+  quantity         Int     @default(1)
   /// `הערות` — the per-line note column the paper form has.
   lineNotes        String? @map("line_notes")
   /// The signature this line created, so a return can be traced back to the
   /// form it was issued on. Not a foreign key: an Excel import replaces every
   /// signature, and a signed form must outlive that.
-  signatureId String? @map("signature_id")
+  signatureId      String? @map("signature_id")
 
   issueForm IssueForm @relation(fields: [issueFormId], references: [id], onDelete: Cascade)
   item      Item      @relation(fields: [itemId], references: [id])
@@ -403,15 +404,15 @@ model IssueFormLine {
 /// latest amendment for that form, falling back to `IssueForm`'s own
 /// original field when none exists yet.
 model IssueFormAmendment {
-  id          String   @id @default(uuid())
-  issueFormId String   @map("issue_form_id")
-  receiptNo   String?  @map("receipt_no")
-  notes       String?
-  amendedByUserId String @map("amended_by_user_id")
-  amendedAt   DateTime @default(now()) @map("amended_at")
+  id              String   @id @default(uuid())
+  issueFormId     String   @map("issue_form_id")
+  receiptNo       String?  @map("receipt_no")
+  notes           String?
+  amendedByUserId String   @map("amended_by_user_id")
+  amendedAt       DateTime @default(now()) @map("amended_at")
 
-  issueForm  IssueForm @relation(fields: [issueFormId], references: [id], onDelete: Cascade)
-  amendedBy  User      @relation(fields: [amendedByUserId], references: [id])
+  issueForm IssueForm @relation(fields: [issueFormId], references: [id], onDelete: Cascade)
+  amendedBy User      @relation(fields: [amendedByUserId], references: [id])
 
   @@index([issueFormId, amendedAt])
   @@map("issue_form_amendments")
@@ -437,9 +438,9 @@ model Movement {
   // signature rows, and append-only audit rows must never be rewritten to follow.
   signatureId             String?        @map("signature_id")
 
-  soldier     Soldier?   @relation(fields: [soldierId], references: [id], onDelete: Restrict)
-  item        Item?      @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  performedBy User?      @relation(fields: [performedByUserId], references: [id], onDelete: Restrict)
+  soldier     Soldier? @relation(fields: [soldierId], references: [id], onDelete: Restrict)
+  item        Item?    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  performedBy User?    @relation(fields: [performedByUserId], references: [id], onDelete: Restrict)
 
   @@index([occurredAt])
   @@index([action])
@@ -513,10 +514,10 @@ model CompanyAllocation {
 /// Never exceeds the item's real בפועל — enforced in
 /// `AllocationsService.setOnHandOverride`. Absent means "use the real בפועל".
 model ServicePeriodItemOverride {
-  id              String  @id @default(uuid())
-  servicePeriodId String  @map("service_period_id")
-  itemId          String  @map("item_id")
-  onHand          Int     @map("on_hand")
+  id              String @id @default(uuid())
+  servicePeriodId String @map("service_period_id")
+  itemId          String @map("item_id")
+  onHand          Int    @map("on_hand")
 
   servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
   item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -532,11 +533,11 @@ model ServicePeriodItemOverride {
 /// constrain what an actual 1008 can issue, unlike the בפועל cap on
 /// `CompanyAllocation` itself — see CLAUDE.md.
 model SoldierAllocation {
-  id              String  @id @default(uuid())
-  servicePeriodId String  @map("service_period_id")
-  itemId          String  @map("item_id")
-  soldierId       String  @map("soldier_id")
-  quantity        Int     @default(0)
+  id              String @id @default(uuid())
+  servicePeriodId String @map("service_period_id")
+  itemId          String @map("item_id")
+  soldierId       String @map("soldier_id")
+  quantity        Int    @default(0)
 
   servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
   item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
@@ -547,38 +548,58 @@ model SoldierAllocation {
 }
 
 model CountSession {
-  id               String     @id @default(uuid())
-  sessionDate      DateTime   @map("session_date") @db.Date
-  shift            CountShift
-  responsibleName  String?    @map("responsible_name")
-  responsiblePn    String?    @map("responsible_pn")
-  responsibleRank  String?    @map("responsible_rank")
-  officerName      String?    @map("officer_name")
-  officerPn        String?    @map("officer_pn")
-  officerRank      String?    @map("officer_rank")
+  id                        String     @id @default(uuid())
+  sessionDate               DateTime   @map("session_date") @db.Date
+  shift                     CountShift
+  responsibleName           String?    @map("responsible_name")
+  responsiblePn             String?    @map("responsible_pn")
+  responsibleRank           String?    @map("responsible_rank")
+  officerName               String?    @map("officer_name")
+  officerPn                 String?    @map("officer_pn")
+  officerRank               String?    @map("officer_rank")
   /// Drawn on the device, same as a 1008's. Nullable because the paper flow
   /// allows printing before the second signer is physically present — they
   /// sign the printed sheet by hand instead.
-  responsibleSignatureImage String? @map("responsible_signature_image")
-  officerSignatureImage     String? @map("officer_signature_image")
-  recordedAt       DateTime   @default(now()) @map("recorded_at")
-  recordedByUserId String     @map("recorded_by_user_id")
-  isClosed         Boolean    @default(false) @map("is_closed")
+  responsibleSignatureImage String?    @map("responsible_signature_image")
+  officerSignatureImage     String?    @map("officer_signature_image")
+  recordedAt                DateTime   @default(now()) @map("recorded_at")
+  recordedByUserId          String     @map("recorded_by_user_id")
+  isClosed                  Boolean    @default(false) @map("is_closed")
 
-  recordedBy User        @relation(fields: [recordedByUserId], references: [id])
+  recordedBy User                 @relation(fields: [recordedByUserId], references: [id])
   lines      CountLine[]
+  figures    CountSessionFigure[]
   reopens    CountSessionReopen[]
 
   @@unique([sessionDate, shift])
   @@map("count_sessions")
 }
 
+/// What a closed count actually signed. A count verifies the מסכם figure, and
+/// that figure can be corrected later (an emergency issue at 19:30); without
+/// this the printout of a signed sheet would silently change with it. Written
+/// when the count closes, dropped when it is reopened.
+model CountSessionFigure {
+  id             String       @id @default(uuid())
+  countSessionId String       @map("count_session_id")
+  itemId         String       @map("item_id")
+  itemName       String       @map("item_name")
+  category       ItemCategory
+  nashkiyaQty    Int?         @map("nashkiya_qty")
+
+  countSession CountSession @relation(fields: [countSessionId], references: [id], onDelete: Cascade)
+  item         Item         @relation(fields: [itemId], references: [id])
+
+  @@unique([countSessionId, itemId])
+  @@map("count_session_figures")
+}
+
 model CountLine {
-  id             String @id @default(uuid())
-  countSessionId String @map("count_session_id")
-  itemId         String @map("item_id")
-  countedQty     Int    @default(0) @map("counted_qty")
-  faultyQty      Int    @default(0) @map("faulty_qty")
+  id             String  @id @default(uuid())
+  countSessionId String  @map("count_session_id")
+  itemId         String  @map("item_id")
+  countedQty     Int     @default(0) @map("counted_qty")
+  faultyQty      Int     @default(0) @map("faulty_qty")
   notes          String?
 
   countSession CountSession @relation(fields: [countSessionId], references: [id], onDelete: Cascade)
@@ -592,11 +613,11 @@ model CountLine {
 /// final-looking act, so undoing it leaves a record of who, when and why,
 /// even though the signatures themselves are cleared and must be redone.
 model CountSessionReopen {
-  id              String   @id @default(uuid())
-  countSessionId  String   @map("count_session_id")
-  reopenedByUserId String  @map("reopened_by_user_id")
-  reason          String
-  reopenedAt      DateTime @default(now()) @map("reopened_at")
+  id               String   @id @default(uuid())
+  countSessionId   String   @map("count_session_id")
+  reopenedByUserId String   @map("reopened_by_user_id")
+  reason           String
+  reopenedAt       DateTime @default(now()) @map("reopened_at")
 
   countSession CountSession @relation(fields: [countSessionId], references: [id], onDelete: Cascade)
   reopenedBy   User         @relation(fields: [reopenedByUserId], references: [id])
@@ -611,15 +632,15 @@ model CountSessionReopen {
 /// back as the figure the two signers verify together — one number is typed
 /// once here, never re-typed there.
 model DailySummaryLine {
-  id            String   @id @default(uuid())
-  sessionDate   DateTime @map("session_date") @db.Date
-  itemId        String   @map("item_id")
-  nashkiyaQty   Int      @map("nashkiya_qty")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  updatedByUserId String @map("updated_by_user_id")
+  id              String   @id @default(uuid())
+  sessionDate     DateTime @map("session_date") @db.Date
+  itemId          String   @map("item_id")
+  nashkiyaQty     Int      @map("nashkiya_qty")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  updatedByUserId String   @map("updated_by_user_id")
 
-  item        Item @relation(fields: [itemId], references: [id])
-  updatedBy   User @relation(fields: [updatedByUserId], references: [id])
+  item      Item @relation(fields: [itemId], references: [id])
+  updatedBy User @relation(fields: [updatedByUserId], references: [id])
 
   @@unique([sessionDate, itemId])
   @@map("daily_summary_lines")
@@ -630,9 +651,9 @@ model DailySummaryLine {
 /// `slackSentAt`/`slackError` pair, so a failed send is visible and retriable
 /// instead of silently lost.
 model DailySummaryExport {
-  id          String   @id @default(uuid())
-  sessionDate DateTime @unique @map("session_date") @db.Date
-  createdAt   DateTime @default(now()) @map("created_at")
+  id          String    @id @default(uuid())
+  sessionDate DateTime  @unique @map("session_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
   slackSentAt DateTime? @map("slack_sent_at")
   slackError  String?   @map("slack_error")
 
@@ -676,18 +697,18 @@ model ImportIssue {
 /// Excel imports, kept out of `movements` so דוח תנועות contains only the two
 /// real actions: giving an item to a soldier and taking it back.
 model ImportLog {
-  id            String   @id @default(uuid())
-  occurredAt    DateTime @default(now()) @map("occurred_at")
-  fileName      String?  @map("file_name")
-  totalRows     Int      @map("total_rows")
-  signatures    Int
-  soldiers      Int
-  flagged       Int
-  issues        Int
-  snapshotId    String?  @map("snapshot_id")
-  performedByUserId   String? @map("performed_by_user_id")
-  performedByNameSnapshot String @map("performed_by_name_snapshot")
-  notes         String?
+  id                      String   @id @default(uuid())
+  occurredAt              DateTime @default(now()) @map("occurred_at")
+  fileName                String?  @map("file_name")
+  totalRows               Int      @map("total_rows")
+  signatures              Int
+  soldiers                Int
+  flagged                 Int
+  issues                  Int
+  snapshotId              String?  @map("snapshot_id")
+  performedByUserId       String?  @map("performed_by_user_id")
+  performedByNameSnapshot String   @map("performed_by_name_snapshot")
+  notes                   String?
 
   performedBy User? @relation(fields: [performedByUserId], references: [id], onDelete: Restrict)
 
@@ -737,12 +758,12 @@ model DbBackup {
 /// `admin` is not represented here: it always has WRITE on everything,
 /// hardcoded, so the matrix can never lock every account out of the app.
 model RolePermission {
-  id    String           @id @default(uuid())
+  id    String          @id @default(uuid())
   role  Role
   /// A screen/feature key, e.g. "soldiers", "allocations.battalion",
   /// "signatures", "issue", "catalog".
   key   String
-  level PermissionLevel  @default(NONE)
+  level PermissionLevel @default(NONE)
 
   @@unique([role, key])
   @@map("role_permissions")
@@ -751,14 +772,14 @@ model RolePermission {
 /// Deleting a count is the one thing that erases a signed record, so it leaves
 /// this row behind. No relation to the session on purpose: it must outlive it.
 model CountSessionDeletion {
-  id                String   @id @default(uuid())
-  sessionDate       DateTime @map("session_date") @db.Date
-  shift             CountShift
-  responsibleName   String?  @map("responsible_name")
-  officerName       String?  @map("officer_name")
-  deletedByName     String   @map("deleted_by_name")
-  reason            String
-  deletedAt         DateTime @default(now()) @map("deleted_at")
+  id              String     @id @default(uuid())
+  sessionDate     DateTime   @map("session_date") @db.Date
+  shift           CountShift
+  responsibleName String?    @map("responsible_name")
+  officerName     String?    @map("officer_name")
+  deletedByName   String     @map("deleted_by_name")
+  reason          String
+  deletedAt       DateTime   @default(now()) @map("deleted_at")
 
   @@map("count_session_deletions")
 }

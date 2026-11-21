@@ -1,10 +1,12 @@
 import { ITEM_ORDER } from '../common/item-order';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WebClient } from '@slack/web-api';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
+import { addDaysIso } from '../common/israel-date';
+import { reopenOps } from '../counts/reopen-ops';
 import type { ItemCategory } from '@prisma/client';
 import { CATEGORY_HE } from '../excel/excel.constants';
 import {
@@ -46,16 +48,41 @@ export class MesakemService {
     private readonly config: ConfigService,
   ) {}
 
+  /**
+   * Counts that signed this day's figures and are closed right now: the evening
+   * count of the day, and the morning count after it (which verifies the same
+   * number). Changing the figures invalidates what they signed.
+   */
+  private async signedCountsFor(date: Date): Promise<{ id: string; shift: 'EVENING' | 'MORNING'; date: string }[]> {
+    const day = date.toISOString().slice(0, 10);
+    const next = addDaysIso(day, 1);
+    const sessions = await this.prisma.countSession.findMany({
+      where: {
+        isClosed: true,
+        OR: [
+          { sessionDate: date, shift: 'EVENING' },
+          { sessionDate: new Date(next), shift: 'MORNING' },
+        ],
+      },
+    });
+    return sessions.map((s) => ({ id: s.id, shift: s.shift, date: s.sessionDate.toISOString().slice(0, 10) }));
+  }
+
   private parseDate(sessionDate: string): Date {
     const date = new Date(sessionDate);
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
     return date;
   }
 
-  async sheet(sessionDate: string): Promise<{ rows: MesakemRow[]; sentAt: Date | null }> {
+  async sheet(sessionDate: string): Promise<{
+    rows: MesakemRow[];
+    sentAt: Date | null;
+    /** Closed counts that signed this day's figures — editing them means reopening these. */
+    signedCounts: { id: string; shift: 'EVENING' | 'MORNING'; date: string }[];
+  }> {
     const date = this.parseDate(sessionDate);
 
-    const [items, issuedRows, lines, exportRow] = await Promise.all([
+    const [items, issuedRows, lines, exportRow, signedCounts] = await Promise.all([
       this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
       this.prisma.signature.groupBy({
         by: ['itemId'],
@@ -64,6 +91,7 @@ export class MesakemService {
       }),
       this.prisma.dailySummaryLine.findMany({ where: { sessionDate: date } }),
       this.prisma.dailySummaryExport.findUnique({ where: { sessionDate: date } }),
+      this.signedCountsFor(date),
     ]);
 
     const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
@@ -84,7 +112,7 @@ export class MesakemService {
       };
     });
 
-    return { rows, sentAt: exportRow?.slackSentAt ?? null };
+    return { rows, sentAt: exportRow?.slackSentAt ?? null, signedCounts };
   }
 
   /** Upserts one day's בנשקייה figures. Re-saving the same date replaces what
@@ -93,11 +121,22 @@ export class MesakemService {
     sessionDate: string,
     lines: { itemId: string; nashkiyaQty: number }[],
     actor: AuthUser,
-  ): Promise<{ saved: number }> {
+    correctionReason?: string,
+  ): Promise<{ saved: number; reopened: number }> {
     const date = this.parseDate(sessionDate);
 
-    await this.prisma.$transaction(
-      lines.map((l) =>
+    // A correction only matters if a number actually moved: re-saving the same
+    // figures must not undo anyone's signature.
+    const before = await this.nashkiyaFor(sessionDate);
+    const changed = lines.some((l) => before.get(l.itemId) !== l.nashkiyaQty);
+    const signed = changed ? await this.signedCountsFor(date) : [];
+    const reason = correctionReason?.trim();
+    if (signed.length > 0 && !reason) {
+      throw new ConflictException('יש ספירה שכבר נחתמה על המסכם הזה — נדרשת סיבה לתיקון, והספירה תיפתח מחדש לחתימה');
+    }
+
+    await this.prisma.$transaction([
+      ...lines.map((l) =>
         this.prisma.dailySummaryLine.upsert({
           where: { sessionDate_itemId: { sessionDate: date, itemId: l.itemId } },
           update: { nashkiyaQty: l.nashkiyaQty, updatedByUserId: actor.id },
@@ -109,9 +148,12 @@ export class MesakemService {
           },
         }),
       ),
-    );
+      ...signed.flatMap((c) =>
+        reopenOps(this.prisma, c.id, actor.id, `תיקון מסכם ${date.toISOString().slice(0, 10)}: ${reason}`),
+      ),
+    ]);
 
-    return { saved: lines.length };
+    return { saved: lines.length, reopened: signed.length };
   }
 
   private async buildWorkbook(sessionDate: string): Promise<{ wb: ExcelJS.Workbook; date: Date }> {
@@ -203,6 +245,10 @@ export class MesakemService {
   async finishDay(sessionDate: string): Promise<{ sent: boolean; error?: string }> {
     const { wb, date } = await this.buildWorkbook(sessionDate);
 
+    // A second send for a day already sent is a correction, and must say so —
+    // two files with the same name in the channel are indistinguishable.
+    const alreadySent = !!(await this.prisma.dailySummaryExport.findUnique({ where: { sessionDate: date } }))
+      ?.slackSentAt;
     const exportRow = await this.prisma.dailySummaryExport.upsert({
       where: { sessionDate: date },
       update: {},
@@ -227,8 +273,8 @@ export class MesakemService {
       await slack.filesUploadV2({
         channel_id: channel,
         file: Buffer.from(buffer),
-        filename: `מסכם-${dateLabel}.xlsx`,
-        initial_comment: `מסכם יומי — ${dateLabel}`,
+        filename: `מסכם-${dateLabel}${alreadySent ? '-מתוקן' : ''}.xlsx`,
+        initial_comment: `מסכם יומי${alreadySent ? ' (מתוקן)' : ''} — ${dateLabel}`,
       });
 
       await this.prisma.dailySummaryExport.update({

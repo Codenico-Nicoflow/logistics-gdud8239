@@ -219,6 +219,12 @@ export function CountsPage() {
           </div>
         )}
 
+        {data?.session?.figuresChangedAfterStart && (
+          <div className="border-t border-rule bg-oxide-wash px-4 py-2 text-meta font-semibold text-oxide">
+            {he.counts.figuresChanged}
+          </div>
+        )}
+
         {data?.session?.lastReopen && (
           <div className="border-t border-rule bg-brass-wash px-4 py-2 text-meta text-ink-soft">
             {he.counts.lastReopen(
