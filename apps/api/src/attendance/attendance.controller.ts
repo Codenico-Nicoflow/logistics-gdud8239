@@ -4,6 +4,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { israelToday } from '../common/israel-date';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
+import { OptionalIsoDatePipe } from '../common/pipes';
 import { AttendanceService } from './attendance.service';
 import { AttendanceSlackService } from './attendance-slack.service';
 import {
@@ -34,8 +35,11 @@ export class AttendanceController {
     private readonly slack: AttendanceSlackService,
   ) {}
 
+  // Full names and personal numbers of the team: admin and logistics only (the screen is not
+  // offered to anyone else either).
   @Get('week')
-  week(@Query('date') date: string, @CurrentUser() user: AuthUser) {
+  @Roles('admin', 'logistics')
+  week(@Query('date', new OptionalIsoDatePipe()) date: string | undefined, @CurrentUser() user: AuthUser) {
     const iso = date ?? israelToday();
     if (user.role === 'logistics' && Math.abs(weeksFromToday(iso)) > 1) {
       throw new BadRequestException('לוגיסטיקה יכולה לצפות רק בשבוע הקודם, הנוכחי והבא');
@@ -44,6 +48,7 @@ export class AttendanceController {
   }
 
   @Get('members')
+  @Roles('admin', 'logistics')
   members(@Query('includeInactive') includeInactive?: string) {
     return this.attendance.listMembers(includeInactive === 'true');
   }

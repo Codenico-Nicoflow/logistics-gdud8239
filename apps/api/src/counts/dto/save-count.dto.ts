@@ -1,5 +1,7 @@
 import { CountShift } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+
+const PNG_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
 
 export class SaveCountDto {
   @IsDateString({}, { message: 'תאריך לא תקין' })
@@ -15,6 +17,9 @@ export class SaveCountDto {
   @IsOptional() @IsString() @MaxLength(20) officerPn?: string;
   @IsOptional() @IsString() @MaxLength(30) officerRank?: string;
 
-  @IsOptional() @IsString() responsibleSignatureImage?: string;
-  @IsOptional() @IsString() officerSignatureImage?: string;
+  // Same shape and cap as every other drawn signature (1008, אפסון): a PNG data URL, nothing else.
+  @IsOptional() @IsString() @Matches(PNG_DATA_URL, { message: 'חתימה לא תקינה' }) @MaxLength(400_000, { message: 'החתימה גדולה מדי' })
+  responsibleSignatureImage?: string;
+  @IsOptional() @IsString() @Matches(PNG_DATA_URL, { message: 'חתימה לא תקינה' }) @MaxLength(400_000, { message: 'החתימה גדולה מדי' })
+  officerSignatureImage?: string;
 }

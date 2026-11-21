@@ -1,5 +1,13 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class IssueDto {
   @IsUUID('4', { message: 'מזהה חייל לא חוקי' })
@@ -22,6 +30,7 @@ export class IssueDto {
   @Type(() => Number)
   @IsInt()
   @Min(1, { message: 'כמות חייבת להיות לפחות 1' })
+  @Max(100_000)
   quantity?: number;
 
   @IsOptional()

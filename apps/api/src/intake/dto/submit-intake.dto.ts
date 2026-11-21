@@ -1,11 +1,14 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -17,7 +20,7 @@ import {
  * backend never has to guess a match.
  */
 export class IntakeRowDto {
-  @IsString()
+  @IsUUID('4')
   itemId!: string;
 
   /** `serial`: one new מסד to register. `bulk`: add `quantity` to the item's
@@ -35,6 +38,7 @@ export class IntakeRowDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1_000_000)
   quantity?: number;
 
   /** Free text — e.g. "שייך לחטיבה" when the item didn't come from ימ״ח. */
@@ -47,6 +51,7 @@ export class IntakeRowDto {
 export class SubmitIntakeDto {
   @IsArray()
   @ArrayMinSize(1, { message: 'אין שורות לקליטה' })
+  @ArrayMaxSize(2000, { message: 'יותר מדי שורות בקליטה אחת' })
   @ValidateNested({ each: true })
   @Type(() => IntakeRowDto)
   rows!: IntakeRowDto[];

@@ -1,18 +1,21 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 
 export class IssueFormLineDto {
-  @IsString()
+  @IsUUID('4', { message: 'מזהה פריט לא חוקי' })
   itemId!: string;
 
   /** Required for an item that takes a מסד; rejected for one that does not. */
@@ -24,6 +27,7 @@ export class IssueFormLineDto {
   @Type(() => Number)
   @IsInt()
   @Min(1, { message: 'כמות חייבת להיות לפחות 1' })
+  @Max(100_000)
   quantity!: number;
 
   /** The `הערות` column the paper form keeps per line. */
@@ -34,11 +38,12 @@ export class IssueFormLineDto {
 }
 
 export class CreateIssueFormDto {
-  @IsString()
+  @IsUUID('4', { message: 'מזהה חייל לא חוקי' })
   soldierId!: string;
 
   @IsArray()
   @ArrayMinSize(1, { message: 'יש לבחור לפחות פריט אחד' })
+  @ArrayMaxSize(200, { message: 'יותר מדי שורות בטופס' })
   @ValidateNested({ each: true })
   @Type(() => IssueFormLineDto)
   lines!: IssueFormLineDto[];

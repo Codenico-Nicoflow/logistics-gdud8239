@@ -100,7 +100,14 @@ export class DbBackupsService {
       const { url, schema } = this.forPgDump(databaseUrl);
       // --no-owner/--no-privileges: a restore target may have a differently
       // named DB role, and the dump should not fail a restore over that.
-      const dump = spawn('pg_dump', ['--no-owner', '--no-privileges', '-n', schema, '--dbname', url]);
+      // The password goes in the child's environment, not on the command line, where any other
+      // process on the machine could read it from `ps`.
+      const parsed = new URL(url);
+      const password = decodeURIComponent(parsed.password);
+      parsed.password = '';
+      const dump = spawn('pg_dump', ['--no-owner', '--no-privileges', '-n', schema, '--dbname', parsed.toString()], {
+        env: { ...process.env, PGPASSWORD: password },
+      });
 
       let stderr = '';
       dump.stderr.on('data', (chunk) => {

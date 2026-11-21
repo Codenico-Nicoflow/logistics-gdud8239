@@ -1,5 +1,5 @@
 import { Tier } from '../common/throttle-tiers';
-import { Body, Controller, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -9,27 +9,34 @@ import { UpdateIssueFormDto } from './dto/update-issue-form.dto';
 import { renderIssueForm } from './issue-form.html';
 import { sendPrintPage } from '../common/print-page';
 import type { AuthUser } from '../auth/auth.types';
+import { BoundedIntPipe, OptionalUuidPipe } from '../common/pipes';
 
 @Controller('issue-forms')
 export class IssueFormsController {
   constructor(private readonly forms: IssueFormsService) {}
 
+  // A 1008 carries a soldier's name, מ.א., phone and drawn signature. Reading one was open to any
+  // logged-in user, and by id — so it needs the same roles as the חתימות screen it belongs to.
   @Get()
+  @Roles('admin', 'logistics', 'viewer')
   findAll(
-    @Query('soldierId') soldierId?: string,
-    @Query('take') take?: string,
-    @Query('skip') skip?: string,
+    @CurrentUser() actor: AuthUser,
+    @Query('soldierId', new OptionalUuidPipe()) soldierId?: string,
+    @Query('take', new BoundedIntPipe(1, 200, 'take')) take?: number,
+    @Query('skip', new BoundedIntPipe(0, 100_000, 'skip')) skip?: number,
   ) {
     return this.forms.findAll({
       ...(soldierId ? { soldierId } : {}),
-      ...(take ? { take: Math.min(Number(take) || 50, 200) } : {}),
-      ...(skip ? { skip: Number(skip) || 0 } : {}),
+      ...(take ? { take } : {}),
+      ...(skip ? { skip } : {}),
+      scope: actor.companyScope,
     });
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.forms.findOne(id);
+  @Roles('admin', 'logistics', 'viewer')
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: AuthUser) {
+    return this.forms.findOne(id, actor.companyScope);
   }
 
   /**
@@ -39,8 +46,13 @@ export class IssueFormsController {
    */
   @Tier('print')
   @Get(':id/print')
-  async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
-    const form = await this.forms.findOne(id);
+  @Roles('admin', 'logistics', 'viewer')
+  async print(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: AuthUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    const form = await this.forms.findOne(id, actor.companyScope);
     sendPrintPage(res, (nonce) => renderIssueForm(form, nonce));
   }
 
