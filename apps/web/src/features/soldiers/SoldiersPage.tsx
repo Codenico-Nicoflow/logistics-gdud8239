@@ -60,7 +60,10 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
   // soldier record itself: no add/edit, no enlistment toggle, no delete.
   const canEditSoldier = user.role === 'admin' || user.role === 'logistics' || user.role === 'SHLISHUT';
   const canEditEnlistment = user.role === 'admin' || user.role === 'SHLISHUT';
-  const canDelete = user.role === 'admin' || user.role === 'SHLISHUT';
+  // A company-scoped user maintains his own soldiers' details but neither adds nor deletes
+  // soldiers; the server refuses it too.
+  const canAdd = canEditSoldier && !scope;
+  const canDelete = (user.role === 'admin' || user.role === 'SHLISHUT') && !scope;
 
   const { data, isLoading, isFetching } = useSoldiersQuery({
     ...(q ? { q } : {}),
@@ -81,7 +84,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
           <h1 className="text-display font-bold">{he.soldiers.title}</h1>
           <p className="mt-1 text-ink-soft">{he.soldiers.subtitle}</p>
         </div>
-        {canEditSoldier && <Button onClick={() => setAdding(true)}>{he.soldiers.add}</Button>}
+        {canAdd && <Button onClick={() => setAdding(true)}>{he.soldiers.add}</Button>}
       </div>
 
       {scope && (
@@ -254,11 +257,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
       </Panel>
 
       {adding && (
-        <AddSoldierDialog
-          onClose={() => setAdding(false)}
-          onCreated={() => setAdding(false)}
-          lockedCompany={scope ?? undefined}
-        />
+        <AddSoldierDialog onClose={() => setAdding(false)} onCreated={() => setAdding(false)} />
       )}
       {editing && (
         <EditSoldierDialog soldier={editing} lockedCompany={scope ?? undefined} onClose={() => setEditing(null)} />

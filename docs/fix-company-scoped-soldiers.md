@@ -18,3 +18,6 @@ For a scoped user the company filter is replaced by a banner with the company le
 `test/soldiers-scope.e2e.spec.ts`: list ignores a requested company, other company's soldier is 404 on read/edit/enlist/delete, create and move to another company are 403. API 112/112.
 
 Not browser-checked.
+
+## Follow-up: no adding or deleting (fix/scoped-no-add-delete)
+A company-scoped user maintains his own soldiers' details (edit, within his company) but can neither add nor delete soldiers: `POST /soldiers` and `DELETE /soldiers/:id` answer `403` for any user with a `companyScope`, and the screen hides "הוסף חייל" and the delete action for him. Users without a scope (admin, logistics, שלישות) are unchanged; logistics sees every soldier.

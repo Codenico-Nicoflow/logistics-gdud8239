@@ -95,12 +95,13 @@ describe('company-scoped soldiers', () => {
     await get(`soldiers/${bId}`).expect(404);
   });
 
-  it('cannot edit, enlist or delete another company\'s soldier', async () => {
+  it('cannot edit or enlist another company\'s soldier, and cannot delete anyone', async () => {
     const patch = (id: string, body: object) =>
       request(app.getHttpServer()).patch(`/api/soldiers/${id}`).set('Cookie', jar).send(body);
     await patch(bId, { phone: '050-0000000' }).expect(404);
     await patch(aId, { phone: '050-0000000' }).expect(200);
-    await request(app.getHttpServer()).delete(`/api/soldiers/${bId}`).set('Cookie', jar).expect(404);
+    await request(app.getHttpServer()).delete(`/api/soldiers/${bId}`).set('Cookie', jar).expect(403);
+    await request(app.getHttpServer()).delete(`/api/soldiers/${aId}`).set('Cookie', jar).expect(403);
     await request(app.getHttpServer())
       .patch(`/api/soldiers/${bId}/enlistment`)
       .set('Cookie', jar)
@@ -108,14 +109,14 @@ describe('company-scoped soldiers', () => {
       .expect(404);
   });
 
-  it('cannot create a soldier in, or move one to, another company', async () => {
+  it('cannot add a soldier at all, and cannot move one to another company', async () => {
     const post = (company: string) =>
       request(app.getHttpServer())
         .post('/api/soldiers')
         .set('Cookie', jar)
         .send({ firstName: 'חדש', lastName: LAST, company });
     await post('B').expect(403);
-    await post('A').expect(201);
+    await post('A').expect(403);
     await request(app.getHttpServer())
       .patch(`/api/soldiers/${aId}`)
       .set('Cookie', jar)
