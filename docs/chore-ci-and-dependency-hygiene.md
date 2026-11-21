@@ -11,8 +11,8 @@ PR 3 of the security plan. Until now nothing ran the tests or checked dependenci
 
 Suggested next step in GitHub (Settings → Branches → `main`): require the `api` and `web` checks before merging.
 
-## Dependabot (`.github/dependabot.yml`)
-Weekly (Monday, Israel time): npm and GitHub Actions. Minor/patch updates are grouped (NestJS together, React/Vite tooling together) so it is a few PRs a week, not dozens; security updates are grouped separately. **Major** versions of Prisma, TypeScript and Tailwind are ignored — Prisma 8 is still a release candidate, TypeScript 7 and Tailwind 4 are rewrites — those are decisions for a person.
+## Dependabot — removed
+It was added here and removed afterwards: a weekly stream of update PRs (including major-version jumps CI cannot judge) was more noise than help for a team this size. Dependencies are updated by hand when needed, and the CI `audit` job still reports known advisories on every run.
 
 ## Dependency updates in this PR (in-range only, majors untouched)
 NestJS 12.3.2 → 12.6.0 (`common`, `core`, `platform-express`, `testing`), `config` 12.1.1, `jwt` 12.0.5, `passport` 12.0.2, `schedule` 12.0.4, `throttler` 6.8.0, `cli`, `@slack/web-api` 8.5.0, plus small patch bumps (`dotenv`, `supertest`, `@swc/core`, Redux Toolkit, react-router, react-hook-form, postcss, autoprefixer). API 189/189, web tests green, both builds green.
