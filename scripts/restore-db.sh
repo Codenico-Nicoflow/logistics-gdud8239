@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Restore a full DB backup (logistics-db-*.sql.gz, from גיבויים) into an EMPTY database.
 #
-#   scripts/restore-db.sh <dump.sql.gz> <target-postgres-url> [--compare <source-postgres-url>]
+#   scripts/restore-db.sh <dump.sql.gz> [<target-postgres-url>] [--compare <source-postgres-url>]
+#   RESTORE_DATABASE_URL=<url> npm run restore -- <dump.sql.gz>
+#
+# The target comes from the argument or from RESTORE_DATABASE_URL — deliberately
+# not from DATABASE_URL, so a shell that happens to point at production can never
+# be restored into by accident.
 #
 # Refuses to touch a database that already has tables: a dump has no DROP statements,
 # and silently merging a backup into live data is worse than failing. Restore into a
@@ -11,11 +16,13 @@
 # the original when testing a restore, or skip it in a real disaster).
 set -euo pipefail
 
-DUMP="${1:-}"; TARGET="${2:-}"; shift 2 || true
+DUMP="${1:-}"; shift || true
+TARGET="${RESTORE_DATABASE_URL:-}"
+if [[ -n "${1:-}" && "${1:-}" != "--compare" ]]; then TARGET="$1"; shift; fi
 SOURCE=""
 if [[ "${1:-}" == "--compare" ]]; then SOURCE="${2:-}"; fi
 if [[ -z "$DUMP" || -z "$TARGET" || ! -f "$DUMP" ]]; then
-  echo "usage: $0 <dump.sql.gz> <target-postgres-url> [--compare <source-postgres-url>]" >&2; exit 2
+  echo "usage: $0 <dump.sql.gz> [<target-postgres-url>] [--compare <source-postgres-url>]  (or set RESTORE_DATABASE_URL)" >&2; exit 2
 fi
 
 # psql does not understand Prisma's ?schema= parameter.
