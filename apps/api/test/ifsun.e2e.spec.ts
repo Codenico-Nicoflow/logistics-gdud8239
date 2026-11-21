@@ -170,6 +170,16 @@ describe('אפסון', () => {
     expect(wb).toBeInstanceOf(ExcelJS.Workbook);
   });
 
+  it('serves a printable page with both signatures and escapes names', async () => {
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG, signerName: '<b>x</b>' }).expect(201)).body;
+    const res = await request(app.getHttpServer()).get(`/api/ifsun/${rec.id}/print`).set('Cookie', jar).expect(200);
+    expect(res.headers['content-type']).toContain('text/html');
+    expect(res.text).toContain(PNG);
+    expect(res.text).toContain('&lt;b&gt;x&lt;/b&gt;');
+    expect(res.text).not.toContain('<b>x</b>');
+    await request(app.getHttpServer()).get(`/api/ifsun/${rec.id}/print`).set('Cookie', viewerJar).expect(403);
+  });
+
   it('refuses accessories — slings and magazines are stripped off, not stored', async () => {
     await prisma.item.update({ where: { id: itemId }, data: { category: 'ACCESSORY' } });
     await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(400);

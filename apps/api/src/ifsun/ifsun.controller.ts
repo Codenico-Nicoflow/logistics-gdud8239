@@ -1,4 +1,7 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { sendPrintPage } from '../common/print-page';
+import { renderIfsun } from './ifsun.html';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
@@ -20,6 +23,13 @@ export class IfsunController {
   @Post()
   store(@Body() dto: StoreDto, @CurrentUser() actor: AuthUser) {
     return this.ifsun.store(dto, actor);
+  }
+
+  /** Printable document — HTML, so the browser's print dialog makes the PDF (same as the 1008 and the count sheet). */
+  @Get(':id/print')
+  async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    const record = await this.ifsun.findOne(id);
+    sendPrintPage(res, (nonce) => renderIfsun(record, nonce));
   }
 
   @Get(':id')

@@ -125,6 +125,7 @@ export const he = {
     signatureRequired: 'נדרשת חתימה',
     nameRequired: 'נדרש שם מלא',
     viewDocument: 'מסמך',
+    printDocument: 'הדפס / שמור כ‑PDF',
     documentTitle: 'מסמך אפסון',
     depositedBy: 'הופקד ע״י',
     collectedBy: 'נלקח ע״י',
