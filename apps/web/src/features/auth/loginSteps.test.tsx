@@ -40,6 +40,21 @@ describe('login: the step after the password', () => {
     expect((screen.getByRole('button', { name: he.mfa.verify }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('does not re-check who is signed in when only the first step is done', async () => {
+    // A re-check at that point 401s, flips the app to a spinner and rebuilds the login page, which
+    // threw the code step away in the real app before anyone could type a code.
+    respond({ ...NOT_SIGNED_IN, '/api/auth/login': { status: 200, body: { step: 'totp', mfaToken: 'tok' } } });
+    mount('/');
+    await submitPassword();
+    expect(await screen.findByRole('heading', { name: he.mfa.stepTitle })).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 200));
+    const meCalls = (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.filter(([input]) =>
+      (typeof input === 'string' ? input : input.url).includes('/api/auth/me'),
+    );
+    expect(meCalls).toHaveLength(1); // the initial load only
+    expect(screen.queryByRole('heading', { name: he.mfa.stepTitle })).toBeTruthy();
+  });
+
   it('enables the button only once a full code is typed, and sends it with the token', async () => {
     respond({
       ...NOT_SIGNED_IN,
