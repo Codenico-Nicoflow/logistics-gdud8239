@@ -27,6 +27,8 @@ export type PublicUser = {
   lastLoginAt: Date | null;
   /** A setup link is outstanding: the account cannot log in until its owner uses it. */
   mustSetup: boolean;
+  /** How many devices the person has enrolled (a number only; keys never leave the server). */
+  passkeyCount?: number;
 };
 
 /** The one-time link, returned exactly once when it is created. */
@@ -61,11 +63,12 @@ export class UsersService {
     return { url: `${origin}/setup/${token}`, expiresAt };
   }
 
-  findAll(): Promise<PublicUser[]> {
-    return this.prisma.user.findMany({
-      select: PUBLIC_FIELDS,
+  async findAll(): Promise<PublicUser[]> {
+    const rows = await this.prisma.user.findMany({
+      select: { ...PUBLIC_FIELDS, _count: { select: { passkeys: true } } },
       orderBy: [{ isActive: 'desc' }, { username: 'asc' }],
     });
+    return rows.map(({ _count, ...user }) => ({ ...user, passkeyCount: _count.passkeys }));
   }
 
   /**
@@ -211,6 +214,11 @@ export class UsersService {
       }
     }
 
+    return this.reissue(user, actingUserId);
+  }
+
+  private async reissue(user: { id: string; passwordHash: string | null }, actingUserId: string | null): Promise<SetupLink> {
+    const id = user.id;
     await this.prisma.user.update({
       where: { id },
       // `passwordChangedAt` ends access tokens already issued; the refresh tokens go just below.

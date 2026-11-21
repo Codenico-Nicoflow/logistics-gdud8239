@@ -147,6 +147,15 @@ function NamingIcon() {
     </svg>
   );
 }
+function DevicesIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+      <path d="M10 2.5 4 5v4.5c0 3.6 2.5 6.3 6 8 3.5-1.7 6-4.4 6-8V5l-6-2.5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="m7.5 10 1.8 1.8L13 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function UsersIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -233,6 +242,10 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
       { to: '/users', label: he.nav.users, icon: <UsersIcon />, roles: ['admin'] },
       { to: '/backups', label: he.nav.backups, icon: <BackupsIcon />, roles: ['admin'] },
     ],
+  },
+  {
+    heading: he.nav.myAccount,
+    items: [{ to: '/devices', label: he.nav.devices, icon: <DevicesIcon /> }],
   },
 ];
 

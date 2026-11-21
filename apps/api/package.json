@@ -11,7 +11,8 @@
     "generate": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "user:invite": "tsx scripts/user-invite.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -29,6 +30,7 @@
     "@nestjs/throttler": "^6.7.1",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@simplewebauthn/server": "^14.1.0",
     "@slack/web-api": "^8.3.0",
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",

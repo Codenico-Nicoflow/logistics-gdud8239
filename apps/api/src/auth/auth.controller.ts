@@ -16,13 +16,18 @@ import { Tier } from '../common/throttle-tiers';
 import type { CookieOptions, Request, Response } from 'express';
 import { AuthService, type TokenPair } from './auth.service';
 import { InvitesService } from './invites.service';
+import { SessionCookies } from './session-cookies';
+import { WebauthnService } from './webauthn.service';
 import { SetupPasswordDto } from './dto/setup-password.dto';
-import { ACCESS_COOKIE, REFRESH_COOKIE } from './auth.constants';
+import { REFRESH_COOKIE } from './auth.constants';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import type { AuthUser } from './auth.types';
+
+/** Either a finished sign-in, or the next step still owed (with the token that proves the password step). */
+export type LoginResult = { user: AuthUser } | { step: 'passkey' | 'enroll'; mfaToken: string };
 
 @Controller('auth')
 export class AuthController {
@@ -30,6 +35,8 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly invites: InvitesService,
     private readonly config: ConfigService,
+    private readonly cookies: SessionCookies,
+    private readonly webauthn: WebauthnService,
   ) {}
 
   /** Tight per-IP limits (see the `login` tiers): this is the one route where guessing is the attack. */
@@ -41,13 +48,16 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ user: AuthUser }> {
+  ): Promise<LoginResult> {
     const user = await this.auth.validateCredentials(dto.username, dto.password, request.ip);
-    const tokens = await this.auth.issueTokens(user, {
-      userAgent: request.headers['user-agent'],
-      ip: request.ip,
-    });
-    this.setCookies(response, tokens);
+
+    // The password is only the first proof. A person with a passkey (or anyone, once passkeys are
+    // required) gets no session yet — just a five-minute token good for the second step.
+    const step = await this.webauthn.stepFor(user.id);
+    if (step !== 'none') return { step, mfaToken: await this.webauthn.signStepToken(user.id) };
+
+    const tokens = await this.auth.issueTokens(user, { userAgent: request.headers['user-agent'], ip: request.ip });
+    this.cookies.set(response, tokens);
     return { user };
   }
 
@@ -74,10 +84,16 @@ export class AuthController {
     @Body() dto: SetupPasswordDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
-  ): Promise<{ user: AuthUser }> {
+  ): Promise<LoginResult> {
     const user = await this.invites.complete(token, dto.password, request.ip);
+
+    // Same rule as login: a person who still owes the second step does not get a session from the
+    // password they just chose.
+    const step = await this.webauthn.stepFor(user.id);
+    if (step !== 'none') return { step, mfaToken: await this.webauthn.signStepToken(user.id) };
+
     const tokens = await this.auth.issueTokens(user, { userAgent: request.headers['user-agent'], ip: request.ip });
-    this.setCookies(response, tokens);
+    this.cookies.set(response, tokens);
     return { user };
   }
 
@@ -96,7 +112,7 @@ export class AuthController {
       userAgent: request.headers['user-agent'],
       ip: request.ip,
     });
-    this.setCookies(response, tokens);
+    this.cookies.set(response, tokens);
     return { ok: true };
   }
 
@@ -114,7 +130,7 @@ export class AuthController {
   ): Promise<{ ok: true }> {
     const token = this.readRefreshCookie(request);
     if (token) await this.auth.revoke(token);
-    this.clearCookies(response);
+    this.cookies.clear(response);
     return { ok: true };
   }
 
@@ -133,54 +149,12 @@ export class AuthController {
   ): Promise<{ ok: true }> {
     await this.auth.changePassword(user.id, dto.currentPassword, dto.newPassword);
     // Every session was revoked, including this one.
-    this.clearCookies(response);
+    this.cookies.clear(response);
     return { ok: true };
   }
 
   private readRefreshCookie(request: Request): string | undefined {
     const cookies = request.cookies as Record<string, string | undefined> | undefined;
     return cookies?.[REFRESH_COOKIE];
-  }
-
-  /**
-   * Tokens live in httpOnly cookies so page scripts cannot read them, which
-   * removes the XSS-to-token-theft path that localStorage leaves open.
-   */
-  private cookieOptions(expires: Date): CookieOptions {
-    return {
-      httpOnly: true,
-      secure: this.config.get<string>('COOKIE_SECURE') === 'true',
-      // Strict: every call is first-party (the SPA and /api share the Vercel origin), so
-      // the cookie never has a reason to travel on a cross-site request.
-      sameSite: 'strict',
-      path: '/',
-      expires,
-    };
-  }
-
-  private setCookies(response: Response, tokens: TokenPair): void {
-    const accessTtl = this.config.get<string>('JWT_ACCESS_TTL') ?? '15m';
-    const accessMinutes = Number(/^(\d+)m$/.exec(accessTtl)?.[1] ?? 15);
-    response.cookie(
-      ACCESS_COOKIE,
-      tokens.accessToken,
-      this.cookieOptions(new Date(Date.now() + accessMinutes * 60_000)),
-    );
-    response.cookie(
-      REFRESH_COOKIE,
-      tokens.refreshToken,
-      this.cookieOptions(tokens.refreshExpiresAt),
-    );
-  }
-
-  private clearCookies(response: Response): void {
-    const base: CookieOptions = {
-      httpOnly: true,
-      secure: this.config.get<string>('COOKIE_SECURE') === 'true',
-      sameSite: 'strict',
-      path: '/',
-    };
-    response.clearCookie(ACCESS_COOKIE, base);
-    response.clearCookie(REFRESH_COOKIE, base);
   }
 }

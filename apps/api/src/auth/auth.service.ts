@@ -270,6 +270,11 @@ export class AuthService {
     if (stored.userId !== payload.sub || !stored.user.isActive) {
       throw new UnauthorizedException('המשתמש אינו פעיל');
     }
+    // Once passkeys are required, a session opened before that cannot be renewed by someone who has
+    // none: they sign in again and enrol. (Access tokens already issued run out within minutes.)
+    if (process.env.MFA_ENFORCED === 'true' && (await this.prisma.webauthnCredential.count({ where: { userId: stored.userId } })) === 0) {
+      throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
+    }
 
     // Claimed atomically: of two concurrent refreshes with the same token only one updates
     // a row, so a token can never be rotated into two live sessions.

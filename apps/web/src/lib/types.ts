@@ -282,6 +282,8 @@ export type PublicUser = {
   lastLoginAt?: string | null;
   /** A setup link is outstanding: the account cannot log in until its owner opens it. */
   mustSetup?: boolean;
+  /** Devices (passkeys) the person has enrolled. */
+  passkeyCount?: number;
 };
 
 /** The one-time link an admin hands to a person; the server returns it exactly once. */
@@ -486,4 +488,16 @@ export type IfsunRecord = {
   /** Only on `GET /ifsun/:id` — the list leaves the (large) images out. */
   storeSignatureImage?: string | null;
   collectSignatureImage?: string | null;
+};
+
+/** What a sign-in answers: a finished sign-in, or the next step still owed. */
+export type LoginResult = { user: AuthUser } | { step: 'passkey' | 'enroll'; mfaToken: string };
+
+export type PasskeySummary = {
+  id: string;
+  deviceName: string;
+  deviceType: string | null;
+  backedUp: boolean;
+  createdAt: string;
+  lastUsedAt: string | null;
 };

@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { createHash, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
@@ -7,10 +6,9 @@ import { BCRYPT_ROUNDS } from './auth.constants';
 import { checkPassword } from './password-policy';
 import type { AuthUser } from './auth.types';
 
-export const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
 export type InviteKind = 'INVITE' | 'RESET';
 
-const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
+import { hashInviteToken, INVITE_TTL_MS, newInviteToken } from './invite-token';
 /** One answer for "no such link", "already used" and "expired": it must not say which. */
 const INVALID_LINK = 'הקישור אינו תקף או שפג תוקפו';
 
@@ -28,7 +26,7 @@ export class InvitesService {
 
   /** Issues a link for `userId`, cancelling any earlier unused one. The token is returned once. */
   async create(userId: string, kind: InviteKind, createdByUserId: string | null): Promise<{ token: string; expiresAt: Date }> {
-    const token = randomBytes(32).toString('base64url');
+    const { token, tokenHash } = newInviteToken();
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
     await this.prisma.$transaction([
       this.prisma.userInvite.updateMany({
@@ -36,7 +34,7 @@ export class InvitesService {
         data: { expiresAt: new Date() },
       }),
       this.prisma.userInvite.create({
-        data: { userId, tokenHash: sha256(token), kind, expiresAt, createdByUserId },
+        data: { userId, tokenHash, kind, expiresAt, createdByUserId },
       }),
     ]);
     return { token, expiresAt };
@@ -72,6 +70,9 @@ export class InvitesService {
         where: { id: invite.userId },
         data: { passwordHash, passwordChangedAt: new Date(), mustSetup: false, failedLoginCount: 0, lockedUntil: null },
       });
+      // A reset means a forgotten password or a lost device: the old passkeys go with it, so a thief
+      // holding the phone cannot use them, and the person enrols a new device.
+      if (invite.kind === 'RESET') await tx.webauthnCredential.deleteMany({ where: { userId: invite.userId } });
       // Anything signed in under the old credentials ends here.
       await tx.refreshToken.updateMany({ where: { userId: invite.userId, revokedAt: null }, data: { revokedAt: new Date() } });
       return true;
@@ -86,7 +87,7 @@ export class InvitesService {
   private findUsable(token: string) {
     if (token.length < 20 || token.length > 100) return Promise.resolve(null);
     return this.prisma.userInvite.findFirst({
-      where: { tokenHash: sha256(token), usedAt: null, expiresAt: { gt: new Date() }, user: { isActive: true } },
+      where: { tokenHash: hashInviteToken(token), usedAt: null, expiresAt: { gt: new Date() }, user: { isActive: true } },
       include: { user: true },
     });
   }

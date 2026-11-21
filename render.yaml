@@ -43,3 +43,7 @@ services:
       # docs/fix-platform-hardening-and-throttling.md. Unset = every visitor looks like one IP.
       - key: TRUST_PROXY_HOPS
         sync: false
+      # Passkey second step. Unset = optional. Set to "true" in the dashboard once two admins have enrolled
+      # a device. Owned by the dashboard (sync: false) so a blueprint sync never flips it back.
+      - key: MFA_ENFORCED
+        sync: false
