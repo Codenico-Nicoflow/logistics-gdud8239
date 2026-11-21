@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config';
 import { WebClient } from '@slack/web-api';
 import ExcelJS from 'exceljs';
+import { storedQtyByItem } from '../ifsun/stored-qty';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
 import { addDaysIso } from '../common/israel-date';
@@ -28,7 +29,10 @@ export type MesakemRow = {
   itemId: string;
   itemName: string;
   category: string;
+  /** Out with soldiers — signatures minus whatever is parked in the armory under אפסון. */
   issued: number;
+  /** Units stored (אפסון): signed to a soldier but on the shelf, so counted in בנשקייה, not in מנופק. */
+  stored: number;
   authorizedQty: number;
   nashkiyaQty: number | null;
   /** מצבה − (מנופק + בנשקייה); `null` until בנשקייה is filled in for the day. */
@@ -82,7 +86,7 @@ export class MesakemService {
   }> {
     const date = this.parseDate(sessionDate);
 
-    const [items, issuedRows, lines, exportRow, signedCounts] = await Promise.all([
+    const [items, issuedRows, lines, exportRow, signedCounts, storedByItem] = await Promise.all([
       this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
       this.prisma.signature.groupBy({
         by: ['itemId'],
@@ -92,13 +96,15 @@ export class MesakemService {
       this.prisma.dailySummaryLine.findMany({ where: { sessionDate: date } }),
       this.prisma.dailySummaryExport.findUnique({ where: { sessionDate: date } }),
       this.signedCountsFor(date),
+      storedQtyByItem(this.prisma),
     ]);
 
     const issuedByItem = new Map(issuedRows.map((r) => [r.itemId, r._sum.quantity ?? 0]));
     const lineByItem = new Map(lines.map((l) => [l.itemId, l]));
 
     const rows: MesakemRow[] = items.map((item) => {
-      const issued = issuedByItem.get(item.id) ?? 0;
+      const stored = storedByItem.get(item.id) ?? 0;
+      const issued = (issuedByItem.get(item.id) ?? 0) - stored;
       const line = lineByItem.get(item.id);
       const nashkiyaQty = line?.nashkiyaQty ?? null;
       return {
@@ -106,6 +112,7 @@ export class MesakemService {
         itemName: item.name,
         category: item.category,
         issued,
+        stored,
         authorizedQty: item.authorizedQty,
         nashkiyaQty,
         gap: nashkiyaQty === null ? null : item.authorizedQty - (issued + nashkiyaQty),

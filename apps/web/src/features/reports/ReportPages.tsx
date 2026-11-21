@@ -195,6 +195,9 @@ export function SummaryPage() {
                       <Td numeric>{row.authorizedQty}</Td>
                       <Td numeric className="text-field-dark">
                         {row.issued}
+                        {(row.stored ?? 0) > 0 && (
+                          <span className="ms-1 text-micro text-brass">{he.ifsun.storedQty(row.stored ?? 0)}</span>
+                        )}
                       </Td>
                       <Td numeric>
                         <input

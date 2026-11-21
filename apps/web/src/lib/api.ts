@@ -14,6 +14,8 @@ import type {
   Item,
   ItemInstance,
   MatrixRow,
+  IfsunRecord,
+  IfsunStatus,
   MovementAction,
   MovementRow,
   Paginated,
@@ -81,6 +83,7 @@ export const api = createApi({
     'Items',
     'Reports',
     'Movements',
+    'Ifsun',
     'Snapshots',
     'DbBackups',
     'Counts',
@@ -224,6 +227,25 @@ export const api = createApi({
     >({
       query: (body) => ({ url: '/signatures/issue', method: 'POST', body }),
       invalidatesTags: ['Signatures', 'Reports', 'Movements', 'Soldiers', 'Items'],
+    }),
+    ifsun: build.query<
+      Paginated<IfsunRecord>,
+      { status?: IfsunStatus | 'ALL'; q?: string; take?: number; skip?: number }
+    >({
+      query: (params) => ({ url: '/ifsun', params }),
+      providesTags: ['Ifsun'],
+    }),
+    storeItem: build.mutation<IfsunRecord, { signatureId: string; quantity?: number; notes?: string }>({
+      query: (body) => ({ url: '/ifsun', method: 'POST', body }),
+      invalidatesTags: ['Ifsun', 'Signatures', 'Reports', 'Movements', 'Mesakem'],
+    }),
+    collectStored: build.mutation<IfsunRecord, { id: string; notes?: string }>({
+      query: ({ id, ...body }) => ({ url: `/ifsun/${id}/collect`, method: 'POST', body }),
+      invalidatesTags: ['Ifsun', 'Signatures', 'Reports', 'Movements', 'Mesakem'],
+    }),
+    creditStored: build.mutation<IfsunRecord, { id: string; notes?: string }>({
+      query: ({ id, ...body }) => ({ url: `/ifsun/${id}/credit`, method: 'POST', body }),
+      invalidatesTags: ['Ifsun', 'Signatures', 'Reports', 'Movements', 'Mesakem', 'Soldiers', 'Items'],
     }),
     returnItem: build.mutation<Signature, { id: string; quantity?: number; notes?: string }>({
       query: ({ id, ...body }) => ({ url: `/signatures/${id}/return`, method: 'POST', body }),
@@ -623,6 +645,10 @@ export const {
   useSignatureHoldersQuery,
   useIssueItemMutation,
   useReturnItemMutation,
+  useIfsunQuery,
+  useStoreItemMutation,
+  useCollectStoredMutation,
+  useCreditStoredMutation,
   useSummaryQuery,
   useMesakemSheetQuery,
   useSaveMesakemMutation,

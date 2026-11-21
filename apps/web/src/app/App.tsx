@@ -8,6 +8,7 @@ import { ServicePeriodsPage } from '../features/allocations/ServicePeriodsPage';
 import { CompanyAllocationPage } from '../features/allocations/CompanyAllocationPage';
 import { DocumentsPage } from '../features/signatures/DocumentsPage';
 import { SummaryPage } from '../features/reports/ReportPages';
+import { IfsunPage } from '../features/ifsun/IfsunPage';
 import { DailyMovementsPage } from '../features/movements/DailyMovementsPage';
 import { BackupsPage } from '../features/backups/BackupsPage';
 import { CountsPage } from '../features/counts/CountsPage';
@@ -60,6 +61,7 @@ export function App() {
           {can(['admin', 'logistics']) && (
             <Route path="daily-movements" element={<DailyMovementsPage />} />
           )}
+          {can(['admin', 'logistics']) && <Route path="ifsun" element={<IfsunPage />} />}
           {can(['admin', 'logistics']) && <Route path="counts" element={<CountsPage />} />}
           {can([...OLD_ROLES, 'SHLISHUT', 'SAMGAD', 'COMPANY_CMDR']) && (
             <Route path="soldiers" element={<SoldiersPage user={user} />} />

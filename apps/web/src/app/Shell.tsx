@@ -100,6 +100,15 @@ function DocumentsIcon() {
     </svg>
   );
 }
+function IfsunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <rect x="4" y="10" width="16" height="10" rx="1.5" strokeLinejoin="round" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function SoldiersIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -187,6 +196,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
         icon: <CompanyIcon />,
         roles: ['admin', 'COMPANY_CMDR'],
       },
+      { to: '/ifsun', label: he.nav.ifsun, icon: <IfsunIcon />, roles: ['admin', 'logistics'] },
       { to: '/soldiers', label: he.nav.soldiers, icon: <SoldiersIcon /> },
       {
         to: '/daily-movements',
