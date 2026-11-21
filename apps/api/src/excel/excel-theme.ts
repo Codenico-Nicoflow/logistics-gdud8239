@@ -43,7 +43,17 @@ const TONE: Record<Tone, { fg: string; bg: string }> = {
   graphite: { fg: PALETTE.inkSoft, bg: PALETTE.graphiteWash },
 };
 
-function solid(argb: string): ExcelJS.Fill {
+/** The same color per item category on every sheet. */
+export const CATEGORY_TONE: Record<string, Tone> = {
+  WEAPON: 'field',
+  OPTICS: 'sky',
+  DRONE: 'violet',
+  ACCESSORY: 'brass',
+  GEAR: 'graphite',
+  AMMO: 'oxide',
+};
+
+export function solid(argb: string): ExcelJS.Fill {
   return { type: 'pattern', pattern: 'solid', fgColor: { argb } };
 }
 

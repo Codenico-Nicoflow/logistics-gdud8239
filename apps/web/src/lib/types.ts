@@ -8,14 +8,6 @@ export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED' | 'IN_REPAIR';
 export type MovementAction = 'ISSUE' | 'RETURN';
 export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
 export type DbBackupKind = 'daily' | 'manual';
-export type IssueKind =
-  | 'MISSING_SERIAL'
-  | 'DUPLICATE_SERIAL'
-  | 'UNKNOWN_ITEM'
-  | 'UNKNOWN_COMPANY'
-  | 'MISSING_SOLDIER_NAME'
-  | 'DUPLICATE_ROW';
-
 export const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
 
 export type AuthUser = {
@@ -315,17 +307,6 @@ export type DbBackup = {
   slackSentAt: string | null;
   slackError: string | null;
   createdBy: { displayName: string } | null;
-};
-
-export type ImportPreview = {
-  totalRows: number;
-  soldiers: number;
-  signatures: number;
-  instances: number;
-  mergedIntoQuantity: number;
-  issues: { kind: IssueKind; count: number; examples: string[] }[];
-  perItem: { itemName: string; count: number }[];
-  perCompany: { company: string; count: number }[];
 };
 
 // --- תקופת שרות: battalion/company allocations, and signed handover forms ---

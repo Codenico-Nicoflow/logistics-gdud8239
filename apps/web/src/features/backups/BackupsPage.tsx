@@ -1,10 +1,7 @@
-import { useRef, useState } from 'react';
 import {
-  useCommitImportMutation,
   useCreateDbBackupMutation,
   useCreateSnapshotMutation,
   useDbBackupsQuery,
-  usePreviewImportMutation,
   useSendDbBackupToSlackMutation,
   useSendSnapshotToSlackMutation,
   useSnapshotsQuery,
@@ -24,19 +21,37 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import type { ImportPreview } from '../../lib/types';
 
 export function BackupsPage() {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-display font-bold">{he.backups.title}</h1>
+        <p className="mt-1 text-ink-soft">{he.backups.subtitle}</p>
+      </div>
+
+      <DbBackupPanel />
+      <SnapshotPanel />
+    </div>
+  );
+}
+
+/**
+ * The daily Excel snapshot — a human-readable copy of the business data, sent
+ * to Slack for visibility. Secondary to the SQL backup above: it cannot be
+ * restored from, only read.
+ */
+function SnapshotPanel() {
   const { data, isLoading } = useSnapshotsQuery();
   const [createSnapshot, createState] = useCreateSnapshotMutation();
   const toast = useToast();
   const [sendSlack] = useSendSnapshotToSlackMutation();
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div>
-        <h1 className="text-display font-bold">{he.backups.title}</h1>
-        <p className="mt-1 text-ink-soft">{he.backups.subtitle}</p>
+        <h2 className="text-lead font-bold">{he.backups.snapshotTitle}</h2>
+        <p className="mt-1 text-meta text-ink-soft">{he.backups.snapshotSubtitle}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -63,8 +78,6 @@ export function BackupsPage() {
           {createState.isLoading ? he.backups.creating : he.backups.createNow}
         </Button>
       </div>
-
-      <ImportPanel />
 
       <Panel title={he.backups.title}>
         {isLoading ? (
@@ -124,8 +137,6 @@ export function BackupsPage() {
           </TableScroll>
         )}
       </Panel>
-
-      <DbBackupPanel />
     </div>
   );
 }
@@ -221,138 +232,6 @@ function DbBackupPanel() {
           </TableScroll>
         )}
       </Panel>
-    </div>
-  );
-}
-
-/**
- * Import is deliberately two-stage: the preview writes nothing, so the operator
- * sees what a wipe-and-replace would do before committing to it.
- */
-function ImportPanel() {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<ImportPreview | null>(null);
-  const [result, setResult] = useState<string | null>(null);
-  const [runPreview, previewState] = usePreviewImportMutation();
-  const [runCommit, commitState] = useCommitImportMutation();
-  const toast = useToast();
-
-  async function choose(selected: File | null): Promise<void> {
-    setFile(selected);
-    setPreview(null);
-    setResult(null);
-    if (!selected) return;
-    const form = new FormData();
-    form.append('file', selected);
-    const res = await runPreview(form);
-    if (res.data) setPreview(res.data);
-  }
-
-  async function commit(): Promise<void> {
-    if (!file) return;
-    const form = new FormData();
-    form.append('file', file);
-    const res = await runCommit(form);
-    if (res.data) {
-      setResult(he.backups.imported(res.data.signatures));
-      toast.success({
-        title: he.toast.imported,
-        detail: he.backups.importedDetail(res.data.signatures, res.data.soldiers),
-      });
-      setPreview(null);
-      setFile(null);
-      if (fileRef.current) fileRef.current.value = '';
-    } else {
-      toast.error({ title: he.toast.failed, detail: apiErrorMessage(res.error) ?? undefined });
-    }
-  }
-
-  const error = previewState.error ?? commitState.error;
-  const apiMessage = apiErrorMessage(error);
-
-  return (
-    <Panel title={he.backups.importTitle}>
-      <div className="space-y-3 px-4 py-4">
-        <p className="rounded-ctl bg-brass-wash px-3 py-2 text-meta text-ink-soft">
-          {he.backups.importWarning}
-        </p>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".xlsx"
-          onChange={(e) => void choose(e.target.files?.[0] ?? null)}
-          className="block w-full text-meta file:me-3 file:rounded-ctl file:border file:border-rule-strong file:bg-card-raised file:px-3 file:py-1.5 file:text-body file:font-semibold"
-        />
-
-        {previewState.isLoading && <Spinner />}
-
-        {preview && (
-          <div className="rounded-panel border border-rule bg-card px-4 py-3">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label={he.backups.previewRows} value={preview.totalRows} />
-              <Stat label={he.backups.previewSoldiers} value={preview.soldiers} />
-              <Stat label={he.backups.previewSignatures} value={preview.signatures} />
-              <Stat
-                label={he.backups.previewIssues}
-                value={preview.issues.reduce((sum, i) => sum + i.count, 0)}
-                tone={preview.issues.length ? 'oxide' : 'ink'}
-              />
-            </div>
-
-            {preview.issues.length > 0 && (
-              <ul className="mt-3 space-y-1 border-t border-rule pt-3">
-                {preview.issues.map((i) => (
-                  <li key={i.kind} className="text-meta">
-                    <span className="font-semibold">{i.count}</span>
-                    <span className="text-graphite"> · </span>
-                    {he.issueKinds[i.kind] ?? i.kind}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <Button
-              onClick={() => void commit()}
-              disabled={commitState.isLoading}
-              className="mt-4"
-            >
-              {commitState.isLoading ? he.backups.importing : he.backups.confirmImport}
-            </Button>
-          </div>
-        )}
-
-        {result && (
-          <p role="status" className="rounded-ctl bg-field-wash px-3 py-2 font-semibold text-field-dark">
-            {result}
-          </p>
-        )}
-        {apiMessage && (
-          <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
-            {apiMessage}
-          </p>
-        )}
-      </div>
-    </Panel>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  tone = 'ink',
-}: {
-  label: string;
-  value: number;
-  tone?: 'ink' | 'oxide';
-}) {
-  return (
-    <div>
-      <div className="text-micro text-graphite">{label}</div>
-      <div className={`text-head font-bold ${tone === 'oxide' ? 'text-oxide' : 'text-ink'}`}>
-        {value}
-      </div>
     </div>
   );
 }

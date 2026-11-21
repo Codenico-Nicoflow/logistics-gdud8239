@@ -1,17 +1,15 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ReportsModule } from '../reports/reports.module';
 import { MovementsModule } from '../movements/movements.module';
-import { SnapshotsModule } from '../snapshots/snapshots.module';
+import { MesakemModule } from '../mesakem/mesakem.module';
+import { AllocationsModule } from '../allocations/allocations.module';
 import { ExcelExportService } from './excel-export.service';
-import { ExcelImportService } from './excel-import.service';
 import { ExcelController } from './excel.controller';
 
 @Module({
-  // Snapshots need the exporter and the import endpoint needs snapshots, so the
-  // two modules reference each other.
-  imports: [ReportsModule, MovementsModule, forwardRef(() => SnapshotsModule)],
-  providers: [ExcelExportService, ExcelImportService],
+  imports: [ReportsModule, MovementsModule, MesakemModule, AllocationsModule],
+  providers: [ExcelExportService],
   controllers: [ExcelController],
-  exports: [ExcelExportService, ExcelImportService],
+  exports: [ExcelExportService],
 })
 export class ExcelModule {}
