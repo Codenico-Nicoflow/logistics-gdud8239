@@ -3,7 +3,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { IfsunService } from './ifsun.service';
-import { CloseIfsunDto, StoreDto } from './dto/store.dto';
+import { CloseIfsunDto, CollectDto, StoreDto } from './dto/store.dto';
 import { QueryIfsunDto } from './dto/query-ifsun.dto';
 
 // Admin + logistics only, reads included: אפסון is the armory's own bookkeeping.
@@ -19,12 +19,17 @@ export class IfsunController {
 
   @Post()
   store(@Body() dto: StoreDto, @CurrentUser() actor: AuthUser) {
-    return this.ifsun.store(dto.signatureId, dto.quantity, dto.notes, actor);
+    return this.ifsun.store(dto, actor);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.ifsun.findOne(id);
   }
 
   @Post(':id/collect')
-  collect(@Param('id') id: string, @Body() dto: CloseIfsunDto, @CurrentUser() actor: AuthUser) {
-    return this.ifsun.collect(id, dto.notes, actor);
+  collect(@Param('id') id: string, @Body() dto: CollectDto, @CurrentUser() actor: AuthUser) {
+    return this.ifsun.collect(id, dto, actor);
   }
 
   @Post(':id/credit')

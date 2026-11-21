@@ -24,3 +24,18 @@ Excel export gets an `אפסון` sheet (what is stored now) and an `אפסון`
 
 ## Only important items
 Only WEAPON / OPTICS / DRONE can be stored (`ifsun-rules.ts`, enforced by the API, mirrored in the UI). Slings, magazines, gear and ammo are refused. The rules (strip sling and magazine, put a note with the soldier's name on the weapon, update the system and verify) are shown at the top of the אפסון page.
+
+## Signed document
+Deposit and collection are each signed on the device with the same pad as the 1008.
+- Deposit: the depositor signs (the soldier by default; tick "someone else" and enter a name otherwise).
+- Collection: whoever takes it out signs — the soldier, or a person collecting for him, named on the record.
+- Credit (soldier never returned): no signature, it is the armory's own decision, recorded with who did it and the note.
+- Stored on `ifsun_records` as PNG data URLs plus the signer's name (migration `20261121150000_ifsun_signatures`), written once and never edited. The list endpoint omits the images; `GET /ifsun/:id` returns them, and the "מסמך" button on every record shows both halves with times.
+- Backups: images live in the DB, so the pg_dump backup carries them. The Excel export stays a summary without images.
+
+## History at scale
+`GET /ifsun` filters on the server by `status`, `q`, and `from`/`to` (the day it was stored, whole Israeli days, same parsing as דוח תנועות) and pages with `skip`/`take` (default 50). The history tab has date range, status and search, 25 per page with previous/next and a "page X of Y · N records" line. Changing a filter returns to page 1.
+
+## What the backups hold
+- DB backup (pg_dump, Slack): everything, including the signature drawings.
+- Excel: the `אפסון` sheet is now the whole ledger (stored now + history): soldier, item, מסד, status, when stored, who signed the deposit, when closed, who signed the collection, who logged it, and whether each signature is on file. The drawings are not embedded in the workbook on purpose (size); the DB backup has them.

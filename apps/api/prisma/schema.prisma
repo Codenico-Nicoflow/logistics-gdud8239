@@ -825,6 +825,15 @@ model IfsunRecord {
   closedByName        String?     @map("closed_by_name")
   closeNotes          String?     @map("close_notes")
 
+  /// The two signed halves of the אפסון document, drawn on the device as PNG
+  /// data URLs like the 1008's. Whoever hands the item in signs at deposit;
+  /// whoever takes it out signs at collection — the soldier, or someone
+  /// collecting for him, whose name is then recorded. Written once, never edited.
+  storeSignatureImage   String? @map("store_signature_image")
+  storeSignerName       String? @map("store_signer_name")
+  collectSignatureImage String? @map("collect_signature_image")
+  collectSignerName     String? @map("collect_signer_name")
+
   signature Signature @relation(fields: [signatureId], references: [id], onDelete: Restrict)
 
   @@index([status])

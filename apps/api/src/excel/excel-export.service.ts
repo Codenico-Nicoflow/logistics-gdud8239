@@ -142,7 +142,7 @@ export class ExcelExportService {
       [SHEET.summary, 'בנשקייה היומי מול מצבה ומנופק, והפער לכל פריט'],
       [SHEET.count, 'הספירה שנחתמה בערב ובבוקר, עם החתימות'],
       [SHEET.signatures, 'כל הציוד החתום כרגע, לפי פלוגה וחייל'],
-      [SHEET.ifsun, 'ציוד שחתום על חייל ומאופסן בנשקייה כרגע'],
+      [SHEET.ifsun, 'כל האפסונים: מי הפקיד ומי לקח, ומתי'],
       [SHEET.companies, 'מה יש בכל פלוגה, וכמה מההקצאה נוצל'],
       [SHEET.soldiers, 'ההקצאה לכל חייל מול מה שנופק לו'],
       [SHEET.movements, 'כל הניפוקים והזיכויים, לפי יום'],
@@ -375,28 +375,71 @@ export class ExcelExportService {
 
   // ---------- אפסון ----------
 
-  /** What is on the armory shelf under a soldier's name right now — the full history stays in the database backup. */
+  /**
+   * The whole אפסון ledger — what is stored now and everything that was, with who
+   * signed each half. The signature drawings themselves stay in the database
+   * backup (a thousand embedded PNGs would make the workbook unusable); this
+   * sheet says whether each half was signed and by whom.
+   */
   private async addIfsun(wb: ExcelJS.Workbook): Promise<void> {
-    const rows = await this.prisma.ifsunRecord.findMany({ where: { status: 'STORED' }, orderBy: { storedAt: 'asc' } });
-    const COLS = 6;
-    const ws = createSheet(wb, SHEET.ifsun, [20, 22, 13, 8, 16, 18]);
-    addTitleBlock(ws, COLS, 'אפסון', `ציוד שחתום על חיילים ונמצא בנשקייה   ·   הופק ${generatedAtLabel()}`);
-    addKpiRow(ws, COLS, [
-      { label: 'יחידות מאופסנות', value: rows.reduce((n, r) => n + r.quantity, 0), tone: 'brass' },
-      { label: 'חיילים', value: new Set(rows.map((r) => r.soldierId)).size, tone: 'sky' },
+    const [rows, storeSigned, collectSigned] = await Promise.all([
+      this.prisma.ifsunRecord.findMany({
+        orderBy: { storedAt: 'desc' },
+        omit: { storeSignatureImage: true, collectSignatureImage: true },
+      }),
+      this.prisma.ifsunRecord.findMany({ where: { storeSignatureImage: { not: null } }, select: { id: true } }),
+      this.prisma.ifsunRecord.findMany({ where: { collectSignatureImage: { not: null } }, select: { id: true } }),
     ]);
-    const header = addHeaderRow(ws, ['חייל', 'צל"מ', 'מסד', 'כמות', 'אופסן', 'אופסן ע"י']);
+    const hasStore = new Set(storeSigned.map((r) => r.id));
+    const hasCollect = new Set(collectSigned.map((r) => r.id));
+    const stored = rows.filter((r) => r.status === 'STORED');
+    const STATUS_HE = { STORED: 'מאופסן', COLLECTED: 'נלקח', CREDITED: 'זוכה' } as const;
+
+    const COLS = 11;
+    const ws = createSheet(wb, SHEET.ifsun, [20, 20, 13, 7, 11, 16, 18, 16, 18, 16, 16]);
+    addTitleBlock(ws, COLS, 'אפסון', `ציוד שהושאר בנשקייה, כולל ההיסטוריה   ·   הופק ${generatedAtLabel()}`);
+    addKpiRow(ws, COLS, [
+      { label: 'יחידות מאופסנות כעת', value: stored.reduce((n, r) => n + r.quantity, 0), tone: 'brass' },
+      { label: 'חיילים', value: new Set(stored.map((r) => r.soldierId)).size, tone: 'sky' },
+      { label: 'רשומות בהיסטוריה', value: rows.length, tone: 'field' },
+    ]);
+    const header = addHeaderRow(ws, [
+      'חייל',
+      'צל"מ',
+      'מסד',
+      'כמות',
+      'סטטוס',
+      'אופסן',
+      'הופקד ע"י (חתם)',
+      'נסגר',
+      'נלקח ע"י (חתם)',
+      'נרשם ע"י',
+      'חתימות שמורות',
+    ]);
     rows.forEach((r, i) => {
+      const signed = [hasStore.has(r.id) ? 'הפקדה' : '', hasCollect.has(r.id) ? 'לקיחה' : ''].filter(Boolean).join(' + ');
       const row = addBodyRow(
         ws,
-        [r.soldierNameSnapshot, r.itemNameSnapshot, r.serialSnapshot ?? '', r.quantity, dateTimeLabel(r.storedAt), r.storedByName],
+        [
+          r.soldierNameSnapshot,
+          r.itemNameSnapshot,
+          r.serialSnapshot ?? '',
+          r.quantity,
+          STATUS_HE[r.status],
+          dateTimeLabel(r.storedAt),
+          r.storeSignerName ?? '',
+          r.closedAt ? dateTimeLabel(r.closedAt) : '',
+          r.collectSignerName ?? '',
+          [r.storedByName, r.closedByName].filter(Boolean).join(' / '),
+          signed || 'ללא',
+        ],
         i,
-        [3, 4, 5],
+        [3, 4, 5, 6, 8, 11],
       );
       if (r.serialSnapshot) mono(row.getCell(3));
     });
     if (rows.length === 0) {
-      const row = addBodyRow(ws, ['אין ציוד מאופסן כרגע', '', '', '', '', ''], 0);
+      const row = addBodyRow(ws, ['אין רשומות אפסון', '', '', '', '', '', '', '', '', '', ''], 0);
       ws.mergeCells(row.number, 1, row.number, COLS);
     }
     finalizeSheet(ws, header, COLS, FOOTER);

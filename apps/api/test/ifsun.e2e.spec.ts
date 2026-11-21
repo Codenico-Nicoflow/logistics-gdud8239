@@ -14,12 +14,15 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import ExcelJS from 'exceljs';
+import { ExcelExportService } from '../src/excel/excel-export.service';
 import { israelToday } from '../src/common/israel-date';
 
 const STAFF = { username: 'e2e_ifsun_staff', password: 'e2e-ifsun-staff-123' };
 const VIEWER = { username: 'e2e_ifsun_viewer', password: 'e2e-ifsun-viewer-123' };
 const LAST = 'E2E-אפסון';
 const ITEM = 'E2E נשק אפסון';
+const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 
 let app: INestApplication;
 let prisma: PrismaService;
@@ -101,7 +104,7 @@ describe('אפסון', () => {
   it('moves a stored unit from מנופק to the armory side of מסכם, and writes a תנועה', async () => {
     expect(await mesakemRow()).toMatchObject({ issued: 1, stored: 0 });
 
-    await post('ifsun', { signatureId: sigId }).expect(201);
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201);
     expect(await mesakemRow()).toMatchObject({ issued: 0, stored: 1 });
 
     const sig = await prisma.signature.findUniqueOrThrow({ where: { id: sigId } });
@@ -111,20 +114,20 @@ describe('אפסון', () => {
   });
 
   it('refuses to store the same unit twice', async () => {
-    await post('ifsun', { signatureId: sigId }).expect(201);
-    await post('ifsun', { signatureId: sigId }).expect(409);
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201);
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(409);
   });
 
   it('collect puts the unit back out and logs it', async () => {
-    const rec = (await post('ifsun', { signatureId: sigId }).expect(201)).body;
-    await post(`ifsun/${rec.id}/collect`).expect(201);
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201)).body;
+    await post(`ifsun/${rec.id}/collect`, { signatureImage: PNG }).expect(201);
     expect(await mesakemRow()).toMatchObject({ issued: 1, stored: 0 });
     expect(await prisma.movement.count({ where: { signatureId: sigId, action: 'COLLECT' } })).toBe(1);
-    await post(`ifsun/${rec.id}/collect`).expect(409);
+    await post(`ifsun/${rec.id}/collect`, { signatureImage: PNG }).expect(409);
   });
 
   it('credit closes the record and the signature, with a זיכוי movement', async () => {
-    const rec = (await post('ifsun', { signatureId: sigId }).expect(201)).body;
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201)).body;
     await post(`ifsun/${rec.id}/credit`).expect(201);
     const sig = await prisma.signature.findUniqueOrThrow({ where: { id: sigId } });
     expect(sig.returnedAt).not.toBeNull();
@@ -133,23 +136,74 @@ describe('אפסון', () => {
   });
 
   it('a stored signature cannot be returned directly', async () => {
-    await post('ifsun', { signatureId: sigId }).expect(201);
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201);
     await post(`signatures/${sigId}/return`).expect(400);
+  });
+
+  it('filters history by the day it was stored and pages the result', async () => {
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201);
+    const today = israelToday();
+    const hit = await request(app.getHttpServer())
+      .get(`/api/ifsun?status=ALL&from=${today}&to=${today}&take=1&skip=0&q=${encodeURIComponent(LAST)}`)
+      .set('Cookie', jar)
+      .expect(200);
+    expect(hit.body.total).toBe(1);
+    expect(hit.body.rows).toHaveLength(1);
+    const past = await request(app.getHttpServer())
+      .get(`/api/ifsun?status=ALL&to=2020-01-01&q=${encodeURIComponent(LAST)}`)
+      .set('Cookie', jar)
+      .expect(200);
+    expect(past.body.total).toBe(0);
+  });
+
+  it('puts closed records and signer names in the Excel backup, not just what is stored now', async () => {
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201)).body;
+    await post(`ifsun/${rec.id}/collect`, { signatureImage: PNG, signerName: 'אחיו של החייל' }).expect(201);
+
+    const wb = await app.get(ExcelExportService).build();
+    const ws = wb.getWorksheet('אפסון');
+    const cells: string[] = [];
+    ws?.eachRow((row) => row.eachCell((c) => cells.push(String(c.value ?? ''))));
+    expect(cells).toContain('אחיו של החייל');
+    expect(cells).toContain('נלקח');
+    expect(cells).toContain('הפקדה + לקיחה');
+    expect(wb).toBeInstanceOf(ExcelJS.Workbook);
   });
 
   it('refuses accessories — slings and magazines are stripped off, not stored', async () => {
     await prisma.item.update({ where: { id: itemId }, data: { category: 'ACCESSORY' } });
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(400);
+  });
+
+  it('keeps both signed halves, and names who collected when it was not the soldier', async () => {
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201)).body;
+    expect(rec.storeSignerName).toBe(`מאפסן ${LAST}`);
+    await post(`ifsun/${rec.id}/collect`, { signatureImage: PNG, signerName: 'חבר של החייל' }).expect(201);
+
+    const detail = (await request(app.getHttpServer()).get(`/api/ifsun/${rec.id}`).set('Cookie', jar).expect(200)).body;
+    expect(detail.storeSignatureImage).toBe(PNG);
+    expect(detail.collectSignatureImage).toBe(PNG);
+    expect(detail.collectSignerName).toBe('חבר של החייל');
+
+    // The list stays light: images only come with the detail.
+    const list = (await request(app.getHttpServer()).get('/api/ifsun?status=ALL').set('Cookie', jar).expect(200)).body;
+    expect(list.rows[0].storeSignatureImage).toBeUndefined();
+  });
+
+  it('requires a signature to store and to collect', async () => {
     await post('ifsun', { signatureId: sigId }).expect(400);
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201)).body;
+    await post(`ifsun/${rec.id}/collect`, {}).expect(400);
   });
 
   it('is closed to viewers', async () => {
     await request(app.getHttpServer()).get('/api/ifsun').set('Cookie', viewerJar).expect(403);
-    await post('ifsun', { signatureId: sigId }, viewerJar).expect(403);
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }, viewerJar).expect(403);
   });
 
   it('lists what is stored with its history on request', async () => {
-    const rec = (await post('ifsun', { signatureId: sigId }).expect(201)).body;
-    await post(`ifsun/${rec.id}/collect`).expect(201);
+    const rec = (await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201)).body;
+    await post(`ifsun/${rec.id}/collect`, { signatureImage: PNG }).expect(201);
     const open = await request(app.getHttpServer()).get('/api/ifsun').set('Cookie', jar).expect(200);
     expect(open.body.rows.filter((r: { soldierId: string }) => r.soldierId === soldierId)).toHaveLength(0);
     const all = await request(app.getHttpServer()).get('/api/ifsun?status=ALL').set('Cookie', jar).expect(200);

@@ -4,9 +4,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import type { AuthUser } from '../auth/auth.types';
 import type { Paginated } from '../common/pagination.dto';
+import type { CollectDto, StoreDto } from './dto/store.dto';
 import type { QueryIfsunDto } from './dto/query-ifsun.dto';
 import { storedQtyForSignature } from './stored-qty';
 import { IFSUN_CATEGORIES } from './ifsun-rules';
+
+/** Signature images are big; the list only needs to know they exist, the detail view fetches them. */
+const LIST_OMIT = { storeSignatureImage: true, collectSignatureImage: true } as const;
 
 @Injectable()
 export class IfsunService {
@@ -20,6 +24,9 @@ export class IfsunService {
     const q = query.q?.trim();
     const where: Prisma.IfsunRecordWhereInput = {
       ...(status === 'ALL' ? {} : { status }),
+      ...(query.from || query.to
+        ? { storedAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lte: query.to } : {}) } }
+        : {}),
       ...(q
         ? {
             OR: [
@@ -34,16 +41,25 @@ export class IfsunService {
       this.prisma.ifsunRecord.findMany({
         where,
         orderBy: { storedAt: 'desc' },
+        omit: LIST_OMIT,
         skip: query.skip ?? 0,
-        take: query.take ?? 100,
+        take: query.take ?? 50,
       }),
       this.prisma.ifsunRecord.count({ where }),
     ]);
     return { rows, total };
   }
 
+  /** One record with both signed halves — the אפסון document. */
+  async findOne(id: string) {
+    const record = await this.prisma.ifsunRecord.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('רשומת האפסון אינה קיימת');
+    return record;
+  }
+
   /** אפסון — the item goes on the armory shelf; the soldier's signature stays open. */
-  async store(signatureId: string, quantity: number | undefined, notes: string | undefined, actor: AuthUser) {
+  async store(dto: StoreDto, actor: AuthUser) {
+    const { signatureId, quantity, notes } = dto;
     return this.prisma.$transaction(async (tx) => {
       const sig = await tx.signature.findUnique({
         where: { id: signatureId },
@@ -73,6 +89,8 @@ export class IfsunService {
           serialSnapshot: sig.itemInstance?.serial ?? null,
           quantity: qty,
           notes: notes ?? null,
+          storeSignatureImage: dto.signatureImage,
+          storeSignerName: dto.signerName?.trim() || name,
           storedByUserId: actor.id,
           storedByName: actor.displayName,
         },
@@ -83,12 +101,20 @@ export class IfsunService {
   }
 
   /** The soldier takes it back out of the armory. */
-  async collect(id: string, notes: string | undefined, actor: AuthUser) {
+  async collect(id: string, dto: CollectDto, actor: AuthUser) {
+    const notes = dto.notes;
     return this.prisma.$transaction(async (tx) => {
       const record = await this.openRecord(tx, id);
       const updated = await tx.ifsunRecord.update({
         where: { id },
-        data: { status: 'COLLECTED', closedAt: new Date(), closedByName: actor.displayName, closeNotes: notes ?? null },
+        data: {
+          status: 'COLLECTED',
+          closedAt: new Date(),
+          closedByName: actor.displayName,
+          closeNotes: notes ?? null,
+          collectSignatureImage: dto.signatureImage,
+          collectSignerName: dto.signerName?.trim() || record.soldierNameSnapshot,
+        },
       });
       await this.movement(tx, 'COLLECT', record, actor, notes);
       return updated;
