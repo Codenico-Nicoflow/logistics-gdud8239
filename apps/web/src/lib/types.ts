@@ -239,8 +239,6 @@ export type WeekRow = {
   teamMemberId: string;
   nickname: string;
   gender: Gender;
-  /** `false`: removed from the list, shown only because they have entries in this week. */
-  isActive?: boolean;
   cells: { status: AttendanceStatus | null; note: string | null }[];
 };
 

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { israelToday } from '../common/israel-date';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -67,6 +67,12 @@ export class AttendanceController {
   @Roles('admin')
   sendWeek(@Body() dto: SendWeekDto, @CurrentUser() user: AuthUser) {
     return this.slack.sendWeek(dto.date ?? israelToday(), 'manual', user.displayName);
+  }
+
+  @Delete('members/:id')
+  @Roles('admin')
+  deleteMember(@Param('id') id: string) {
+    return this.attendance.deleteMember(id);
   }
 
   @Patch('members/:id')

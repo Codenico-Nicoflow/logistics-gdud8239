@@ -382,8 +382,7 @@ export class ExcelExportService {
 
   /**
    * The team's weekly ימי יציאה grid — four weeks back through two ahead, one band
-   * per week. A person removed from the list still appears in the weeks where they
-   * have entries, exactly as on the screen.
+   * per week.
    */
   private async addAttendance(wb: ExcelJS.Workbook): Promise<void> {
     const COLS = 8;
@@ -416,7 +415,7 @@ export class ExcelExportService {
         const cells = row.cells.map((c) => (c.status ? STATUS_HE[c.status] : ''));
         const out = addBodyRow(
           ws,
-          [row.isActive ? row.nickname : `${row.nickname} (הוסר)`, ...cells],
+          [row.nickname, ...cells],
           index++,
           [2, 3, 4, 5, 6, 7, 8],
         );
