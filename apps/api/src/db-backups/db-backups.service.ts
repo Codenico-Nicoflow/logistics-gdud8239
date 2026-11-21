@@ -141,6 +141,15 @@ export class DbBackupsService {
     };
   }
 
+  /** Admin cleanup. The Slack copy, if one was sent, is not touched. */
+  async remove(id: string): Promise<{ id: string }> {
+    const row = await this.prisma.dbBackup.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('הגיבוי אינו קיים');
+    await this.prisma.dbBackup.delete({ where: { id } });
+    await unlink(row.filePath).catch(() => {});
+    return { id };
+  }
+
   /**
    * The daily run. Written right after SnapshotsService's own daily cron
    * (18:05 vs 18:00) so the two don't contend for DB/disk I/O at the exact

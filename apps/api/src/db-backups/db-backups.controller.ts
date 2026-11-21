@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,6 +26,11 @@ export class DbBackupsController {
     res.setHeader('Content-Type', 'application/gzip');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     stream.pipe(res);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.backups.remove(id);
   }
 
   @Post(':id/send-to-slack')

@@ -275,6 +275,32 @@ export class CountsService {
     return { id, isClosed: false };
   }
 
+  /**
+   * Erases a count. Only one that is not closed: a signed sheet must first be
+   * cancelled (reopen), so the paper trail shows it was closed and then undone
+   * before it disappeared. The deletion row outlives the session.
+   */
+  async remove(id: string, reason: string, actor: AuthUser): Promise<{ id: string }> {
+    const session = await this.prisma.countSession.findUnique({ where: { id } });
+    if (!session) throw new NotFoundException('הספירה אינה קיימת');
+    if (session.isClosed) throw new BadRequestException('יש לבטל את סגירת הספירה לפני מחיקתה');
+
+    await this.prisma.$transaction([
+      this.prisma.countSessionDeletion.create({
+        data: {
+          sessionDate: session.sessionDate,
+          shift: session.shift,
+          responsibleName: session.responsibleName,
+          officerName: session.officerName,
+          deletedByName: actor.displayName,
+          reason: reason.trim(),
+        },
+      }),
+      this.prisma.countSession.delete({ where: { id } }),
+    ]);
+    return { id };
+  }
+
   /** Recent sessions, for picking a date to review. */
   recent(limit = 30) {
     return this.prisma.countSession.findMany({

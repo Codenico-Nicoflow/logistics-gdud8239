@@ -4,6 +4,7 @@ import {
   useSaveCountMutation,
   useCloseCountMutation,
   useRecentCountsQuery,
+  useDeleteCountMutation,
   useReopenCountMutation,
   useMeQuery,
 } from '../../lib/api';
@@ -22,6 +23,7 @@ import {
 } from '../../components/ui';
 import { SignaturePad } from '../../components/SignaturePad';
 import { useToast } from '../../components/toast';
+import { DeleteDialog } from '../../components/DeleteDialog';
 import { he } from '../../i18n/he';
 import { todayIso } from '../../lib/dates';
 import type { CountShift } from '../../lib/types';
@@ -317,7 +319,7 @@ export function CountsPage() {
         )}
       </Panel>
 
-      <RecentSessions onPick={(d, s) => { setDate(d); setShift(s); }} />
+      <RecentSessions isAdmin={isAdmin} onPick={(d, s) => { setDate(d); setShift(s); }} />
 
       {confirmingClose && (
         <ConfirmCloseDialog
@@ -423,8 +425,17 @@ function ReopenDialog({
 
 /** Every past sign-off, kept forever in the DB — lets you go back to any day
  *  and see who counted, who signed, and reprint the sheet. */
-function RecentSessions({ onPick }: { onPick: (date: string, shift: CountShift) => void }) {
+function RecentSessions({
+  onPick,
+  isAdmin,
+}: {
+  onPick: (date: string, shift: CountShift) => void;
+  isAdmin: boolean;
+}) {
   const { data, isLoading } = useRecentCountsQuery();
+  const [remove, removeState] = useDeleteCountMutation();
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const toast = useToast();
 
   if (isLoading) return null;
   const rows = data ?? [];
@@ -442,6 +453,7 @@ function RecentSessions({ onPick }: { onPick: (date: string, shift: CountShift) 
               <Th>{he.counts.officer}</Th>
               <Th>{he.counts.closedTag}</Th>
               <Th>{he.counts.print}</Th>
+              {isAdmin && <Th />}
             </tr>
           </thead>
           <tbody>
@@ -473,11 +485,42 @@ function RecentSessions({ onPick }: { onPick: (date: string, shift: CountShift) 
                     {he.counts.print}
                   </button>
                 </Td>
+                {isAdmin && (
+                  <Td>
+                    <button
+                      className="text-oxide hover:underline disabled:cursor-not-allowed disabled:text-graphite disabled:no-underline"
+                      disabled={row.isClosed}
+                      title={row.isClosed ? he.counts.deleteNeedsReopen : undefined}
+                      onClick={() => setDeleting(row.id)}
+                    >
+                      {he.counts.delete}
+                    </button>
+                  </Td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </TableScroll>
+      {deleting && (
+        <DeleteDialog
+          title={he.counts.deleteTitle}
+          body={he.counts.deleteBody}
+          reasonLabel={he.counts.deleteReason}
+          isLoading={removeState.isLoading}
+          onCancel={() => setDeleting(null)}
+          onConfirm={(reason) =>
+            void remove({ id: deleting, reason }).then((r) => {
+              if ('data' in r && r.data) {
+                setDeleting(null);
+                toast.success({ title: he.counts.deleted });
+              } else {
+                toast.error({ title: he.toast.failed, detail: apiErrorMessage('error' in r ? r.error : undefined) ?? undefined });
+              }
+            })
+          }
+        />
+      )}
     </Panel>
   );
 }

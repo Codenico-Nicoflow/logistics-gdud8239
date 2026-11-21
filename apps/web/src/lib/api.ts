@@ -281,6 +281,10 @@ export const api = createApi({
       query: () => '/snapshots',
       providesTags: ['Snapshots'],
     }),
+    deleteSnapshot: build.mutation<{ id: string }, string>({
+      query: (id) => ({ url: `/snapshots/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Snapshots'],
+    }),
     createSnapshot: build.mutation<{ id: string }, void>({
       query: () => ({ url: '/snapshots', method: 'POST' }),
       invalidatesTags: ['Snapshots'],
@@ -294,6 +298,10 @@ export const api = createApi({
     dbBackups: build.query<DbBackup[], void>({
       query: () => '/db-backups',
       providesTags: ['DbBackups'],
+    }),
+    deleteDbBackup: build.mutation<{ id: string }, string>({
+      query: (id) => ({ url: `/db-backups/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['DbBackups'],
     }),
     createDbBackup: build.mutation<{ id: string }, void>({
       query: () => ({ url: '/db-backups', method: 'POST' }),
@@ -329,6 +337,10 @@ export const api = createApi({
     }),
     closeCount: build.mutation<{ id: string; isClosed: boolean }, string>({
       query: (id) => ({ url: `/counts/${id}/close`, method: 'POST' }),
+      invalidatesTags: ['Counts', 'Reports'],
+    }),
+    deleteCount: build.mutation<{ id: string }, { id: string; reason: string }>({
+      query: ({ id, reason }) => ({ url: `/counts/${id}`, method: 'DELETE', body: { reason } }),
       invalidatesTags: ['Counts', 'Reports'],
     }),
     reopenCount: build.mutation<{ id: string; isClosed: boolean }, { id: string; reason: string }>({
@@ -623,6 +635,9 @@ export const {
   useSaveCountMutation,
   useCloseCountMutation,
   useReopenCountMutation,
+  useDeleteCountMutation,
+  useDeleteSnapshotMutation,
+  useDeleteDbBackupMutation,
   useCreateItemMutation,
   useUpdateItemMutation,
   useLazyDeletionCheckQuery,

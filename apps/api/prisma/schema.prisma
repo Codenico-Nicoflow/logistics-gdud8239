@@ -747,3 +747,18 @@ model RolePermission {
   @@unique([role, key])
   @@map("role_permissions")
 }
+
+/// Deleting a count is the one thing that erases a signed record, so it leaves
+/// this row behind. No relation to the session on purpose: it must outlive it.
+model CountSessionDeletion {
+  id                String   @id @default(uuid())
+  sessionDate       DateTime @map("session_date") @db.Date
+  shift             CountShift
+  responsibleName   String?  @map("responsible_name")
+  officerName       String?  @map("officer_name")
+  deletedByName     String   @map("deleted_by_name")
+  reason            String
+  deletedAt         DateTime @default(now()) @map("deleted_at")
+
+  @@map("count_session_deletions")
+}

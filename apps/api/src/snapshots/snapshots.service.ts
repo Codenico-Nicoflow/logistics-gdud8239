@@ -76,6 +76,15 @@ export class SnapshotsService {
     };
   }
 
+  /** Admin cleanup. The Slack copy, if one was sent, is not touched. */
+  async remove(id: string): Promise<{ id: string }> {
+    const row = await this.prisma.snapshot.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('הגיבוי אינו קיים');
+    await this.prisma.snapshot.delete({ where: { id } });
+    await unlink(row.filePath).catch(() => {});
+    return { id };
+  }
+
   /**
    * The daily 18:00 send.
    *
