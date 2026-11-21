@@ -140,6 +140,7 @@ model User {
   issueForms         IssueForm[]
   issueFormAmendments IssueFormAmendment[]
   dailySummaryLines  DailySummaryLine[]
+  countReopens       CountSessionReopen[]
 
   @@map("users")
 }
@@ -566,6 +567,7 @@ model CountSession {
 
   recordedBy User        @relation(fields: [recordedByUserId], references: [id])
   lines      CountLine[]
+  reopens    CountSessionReopen[]
 
   @@unique([sessionDate, shift])
   @@map("count_sessions")
@@ -584,6 +586,23 @@ model CountLine {
 
   @@unique([countSessionId, itemId])
   @@map("count_lines")
+}
+
+/// An admin cancelling a closed ספירה — the mistake path. Closing is a signed,
+/// final-looking act, so undoing it leaves a record of who, when and why,
+/// even though the signatures themselves are cleared and must be redone.
+model CountSessionReopen {
+  id              String   @id @default(uuid())
+  countSessionId  String   @map("count_session_id")
+  reopenedByUserId String  @map("reopened_by_user_id")
+  reason          String
+  reopenedAt      DateTime @default(now()) @map("reopened_at")
+
+  countSession CountSession @relation(fields: [countSessionId], references: [id], onDelete: Cascade)
+  reopenedBy   User         @relation(fields: [reopenedByUserId], references: [id])
+
+  @@index([countSessionId])
+  @@map("count_session_reopens")
 }
 
 /// `מסכם` — the once-a-day armory headcount entered by hand (`בבקשה`/`בנשקייה`

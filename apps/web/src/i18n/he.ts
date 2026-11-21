@@ -489,6 +489,18 @@ export const he = {
     needsBothSignatures: 'יש למלא שם, מ.א., דרגה ולהחתים את שני הצדדים לפני סגירת הספירה',
     reopenHint: 'ספירה סגורה — לא ניתן לערוך. ניתן להדפיס בלבד.',
     recentTitle: 'ספירות קודמות',
+    confirmCloseTitle: 'לחתום ולסגור את הספירה?',
+    confirmCloseBody: (shift: string, date: string, items: number, a: string, b: string) =>
+      `ספירת ${shift} · ${date} · ${items} פריטים, נחתמת על ידי ${a} ו${b}. לאחר הסגירה אי אפשר לערוך אותה — רק מנהל יכול לבטל סגירה.`,
+    confirmCloseAction: 'חתום וסגור',
+    reopen: 'בטל סגירה',
+    reopenTitle: 'לבטל את סגירת הספירה?',
+    reopenBody: 'החתימות של שני הצדדים יימחקו וצריך לחתום מחדש. שמות, מ.א. ודרגות יישארו. הפעולה נרשמת עם שמך והסיבה.',
+    reopenReason: 'סיבה (חובה)',
+    reopenReasonPlaceholder: 'למשל: נסגר בטעות לפני שהספירה הסתיימה',
+    reopenAction: 'בטל סגירה',
+    reopened: 'הסגירה בוטלה — יש לחתום מחדש',
+    lastReopen: (by: string, at: string, reason: string) => `נפתחה מחדש על ידי ${by} ב-${at} — ${reason}`,
   },
 
   intake: {

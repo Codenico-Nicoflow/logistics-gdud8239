@@ -179,7 +179,11 @@ export type CountSheetRow = {
 };
 
 export type CountSheet = {
-  session: { id: string; isClosed: boolean } | null;
+  session: {
+    id: string;
+    isClosed: boolean;
+    lastReopen: { at: string; by: string; reason: string } | null;
+  } | null;
   rows: CountSheetRow[];
   signers: {
     responsibleName: string | null;

@@ -5,6 +5,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CountsService } from './counts.service';
 import { SaveCountDto } from './dto/save-count.dto';
+import { ReopenCountDto } from './dto/reopen-count.dto';
 import { renderCountSession } from './count-session.html';
 import { sendPrintPage } from '../common/print-page';
 import type { AuthUser } from '../auth/auth.types';
@@ -45,5 +46,12 @@ export class CountsController {
   @Roles('admin', 'logistics')
   close(@Param('id') id: string) {
     return this.counts.close(id);
+  }
+
+  /** Admin only: cancels a closed count (a mistake), clears its signatures and logs why. */
+  @Post(':id/reopen')
+  @Roles('admin')
+  reopen(@Param('id') id: string, @Body() dto: ReopenCountDto, @CurrentUser() actor: AuthUser) {
+    return this.counts.reopen(id, dto.reason, actor);
   }
 }

@@ -37,7 +37,12 @@ export class CountsService {
    * summary disappears from here too — one list, maintained once.
    */
   async sheet(sessionDate: string, shift: CountShift): Promise<{
-    session: { id: string; isClosed: boolean } | null;
+    session: {
+      id: string;
+      isClosed: boolean;
+      /** The most recent admin cancellation of a closed count, if there was one. */
+      lastReopen: { at: Date; by: string; reason: string } | null;
+    } | null;
     rows: CountSheetRow[];
     signers: {
       responsibleName: string | null;
@@ -61,6 +66,13 @@ export class CountsService {
       this.mesakem.nashkiyaFor(sessionDate),
       this.prisma.countSession.findUnique({
         where: { sessionDate_shift: { sessionDate: date, shift } },
+        include: {
+          reopens: {
+            orderBy: { reopenedAt: 'desc' },
+            take: 1,
+            include: { reopenedBy: { select: { displayName: true } } },
+          },
+        },
       }),
     ]);
 
@@ -72,7 +84,19 @@ export class CountsService {
     }));
 
     return {
-      session: session ? { id: session.id, isClosed: session.isClosed } : null,
+      session: session
+        ? {
+            id: session.id,
+            isClosed: session.isClosed,
+            lastReopen: session.reopens[0]
+              ? {
+                  at: session.reopens[0].reopenedAt,
+                  by: session.reopens[0].reopenedBy.displayName,
+                  reason: session.reopens[0].reason,
+                }
+              : null,
+          }
+        : null,
       rows,
       signers: {
         responsibleName: session?.responsibleName ?? null,
@@ -211,6 +235,31 @@ export class CountsService {
       data: { isClosed: true },
     });
     return { id: updated.id, isClosed: updated.isClosed };
+  }
+
+  /**
+   * Admin-only undo of a closed count, for when someone closed it by mistake.
+   *
+   * Both signatures are cleared: the people signed a sheet that is about to be
+   * changed, so a signature on the corrected version has to be given again.
+   * Names, מ.א. and דרגה stay so they need not be retyped. The act itself is
+   * recorded — who, when, and the reason — so the history stays honest.
+   */
+  async reopen(id: string, reason: string, actor: AuthUser): Promise<{ id: string; isClosed: boolean }> {
+    const session = await this.prisma.countSession.findUnique({ where: { id } });
+    if (!session) throw new NotFoundException('הספירה אינה קיימת');
+    if (!session.isClosed) throw new BadRequestException('הספירה אינה סגורה');
+
+    await this.prisma.$transaction([
+      this.prisma.countSessionReopen.create({
+        data: { countSessionId: id, reopenedByUserId: actor.id, reason: reason.trim() },
+      }),
+      this.prisma.countSession.update({
+        where: { id },
+        data: { isClosed: false, responsibleSignatureImage: null, officerSignatureImage: null },
+      }),
+    ]);
+    return { id, isClosed: false };
   }
 
   /** Recent sessions, for picking a date to review. */
