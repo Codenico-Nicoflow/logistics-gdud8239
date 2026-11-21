@@ -7,13 +7,13 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
-import { originCheck } from './common/origin-check.middleware';
+import { normalizeOrigin, originCheck } from './common/origin-check.middleware';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   const config = app.get(ConfigService);
   const logger = new Logger('bootstrap');
-  const webOrigin = config.get<string>('WEB_ORIGIN') ?? 'http://localhost:5173';
+  const webOrigin = normalizeOrigin(config.get<string>('WEB_ORIGIN') ?? 'http://localhost:5173');
 
   // Behind Vercel's rewrite and Render's load balancer, `req.ip` is the proxy's address unless
   // Express is told how many proxies to believe. Rate limiting keys on that IP, so without it
@@ -36,6 +36,8 @@ async function bootstrap(): Promise<void> {
   // is allowed to be — and, unlike a casual global bump, nothing bigger than this gets in.
   app.useBodyParser('json', { limit: '1mb' });
   app.use(originCheck(webOrigin));
+  // Printed at boot so a wrong value is visible in the deploy log instead of only as blocked logins.
+  logger.log(`Browser origin allowed for writes and CORS: ${webOrigin}`);
 
   // Excludes bare '/' so it stays reachable outside the API prefix — a plain
   // 200 there for anyone (or any infra check) that visits the service root

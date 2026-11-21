@@ -79,6 +79,11 @@ export function validateEnv(raw: Record<string, unknown>): EnvVars {
   }
   if (isProduction) {
     if (!config.WEB_ORIGIN) throw new Error('WEB_ORIGIN must be set in production (CORS and the Origin check use it)');
+    try {
+      new URL(config.WEB_ORIGIN);
+    } catch {
+      throw new Error('WEB_ORIGIN must be a full address such as https://app.example');
+    }
     if (config.COOKIE_SECURE !== 'true') {
       throw new Error('COOKIE_SECURE must be "true" in production, or login cookies travel without the Secure flag');
     }
