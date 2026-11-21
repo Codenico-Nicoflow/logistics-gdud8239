@@ -179,23 +179,6 @@ export const GEAR_PRICES: Record<string, number> = {
   'שק שינה נייקו': 295.89,
 };
 
-/** `הקצאות` sheet — allocation targets per item × company. */
-export const ALLOCATIONS: Record<string, Record<string, number>> = {
-  'M-4': { A: 82, B: 66, C: 85, SUPPORT: 89, HQ: 16 },
-  M5: { A: 60, B: 54, C: 59, SUPPORT: 58, HQ: 2 },
-  מטולון: { A: 8, B: 3, C: 6, SUPPORT: 4, HQ: 2 },
-  'M-4 קלע': { A: 10, B: 6, C: 12, SUPPORT: 7, HQ: 2 },
-  עידו: { A: 2, B: 2, C: 2, SUPPORT: 2, HQ: 2 },
-  משקפת: { A: 13, B: 12, C: 13, SUPPORT: 13, HQ: 3 },
-  שחמ: { A: 12, B: 10, C: 14, SUPPORT: 11, HQ: 7 },
-  נגב: { A: 2, B: 2, C: 0, SUPPORT: 0, HQ: 0 },
-  'ציין לייזר': { A: 8, B: 7, C: 8, SUPPORT: 8, HQ: 0 },
-  'מטל מפקד': { A: 2, B: 2, C: 1, SUPPORT: 4, HQ: 1 },
-  מאג: { A: 0, B: 0, C: 4, SUPPORT: 0, HQ: 1 },
-  מפרו: { A: 22, B: 11, C: 24, SUPPORT: 28, HQ: 11 },
-  מכפל: { A: 5, B: 5, C: 5, SUPPORT: 5, HQ: 4 },
-};
-
 /** Logistics team roster from `יציאות.xlsx`. */
 export const TEAM: { nickname: string; gender: 'M' | 'F' }[] = [
   { nickname: 'שונם', gender: 'M' },

@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import { PrismaClient, Company } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcryptjs';
-import { ACCESSORIES, CATALOG, GEAR_PRICES, ALLOCATIONS, TEAM, SeedItem } from './catalog';
+import { ACCESSORIES, CATALOG, GEAR_PRICES, TEAM, SeedItem } from './catalog';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -74,26 +74,6 @@ async function seedItems(): Promise<void> {
   console.log(`  פריטים: ${all.length}`);
 }
 
-async function seedAllocations(): Promise<void> {
-  let count = 0;
-  for (const [itemName, byCompany] of Object.entries(ALLOCATIONS)) {
-    const item = await prisma.item.findUnique({ where: { name: itemName } });
-    if (!item) {
-      console.warn(`  ! הקצאה לפריט שאינו בקטלוג: ${itemName}`);
-      continue;
-    }
-    for (const [company, targetQty] of Object.entries(byCompany)) {
-      await prisma.allocation.upsert({
-        where: { itemId_company: { itemId: item.id, company: company as Company } },
-        update: { targetQty },
-        create: { itemId: item.id, company: company as Company, targetQty },
-      });
-      count++;
-    }
-  }
-  console.log(`  הקצאות: ${count}`);
-}
-
 async function seedTeam(): Promise<void> {
   for (const [i, member] of TEAM.entries()) {
     await prisma.teamMember.upsert({
@@ -109,7 +89,6 @@ async function main(): Promise<void> {
   console.log('זריעת נתוני בסיס...');
   await seedUsers();
   await seedItems();
-  await seedAllocations();
   await seedTeam();
   console.log('הזריעה הושלמה.');
 }
