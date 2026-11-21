@@ -54,6 +54,9 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Nothing may make the page itself scroll sideways: a stray wide element would otherwise leave the
+     whole screen pannable and cropped. Wide data gets its own layout instead (cards on a phone). */
+  overflow-x: clip;
 }
 
 body {
@@ -66,6 +69,35 @@ body {
   /* Counts and serials must line up down a column. */
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  /* A long unbroken string (a serial, a URL, a name) wraps instead of pushing the layout wide. */
+  overflow-wrap: break-word;
+  /* No grey flash on tap, and taps register at once instead of waiting to see if it is a double-tap. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--field);
+}
+
+/* iPhone Safari zooms the whole page in when a field under 16px gets focus, and leaves it zoomed. */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  /* The up/down spinner steals a third of a number box on a phone, and the numeric keypad does the job. */
+  input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
 
 /* Serials are mechanical identifiers; brass and letter-spacing set them apart

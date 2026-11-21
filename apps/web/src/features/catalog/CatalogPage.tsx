@@ -55,6 +55,55 @@ export function CatalogPage() {
       </div>
 
       <Panel>
+        {/* Phone: a card per item. Ten columns cannot fit, and a table cut off inside its card hid most
+            of them (stock, repair, the row actions) behind a sideways scroll. */}
+        <ul className="divide-y divide-rule sm:hidden">
+          {(items ?? []).map((item) => {
+            const onHand = item.authorizedQty - item.yamahQty - item.repairQty;
+            return (
+              <li key={item.id} className={`space-y-3 px-4 py-3 ${item.isActive ? '' : 'opacity-50'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-body font-semibold">{item.name}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <CategoryTag category={item.category} />
+                      {item.isSerialized && <Tag tone="brass">{he.catalog.serialized}</Tag>}
+                      {!item.isActive && <Tag>{he.catalog.deactivated}</Tag>}
+                    </div>
+                  </div>
+                  <SummaryToggle item={item} />
+                </div>
+                <dl className="grid grid-cols-5 gap-1.5 text-center">
+                  {[
+                    [he.catalog.authorized, item.authorizedQty],
+                    [he.catalog.yamahQty, item.yamahQty],
+                    [he.catalog.repairQty, item.repairQty],
+                    [he.catalog.onHand, onHand],
+                    [he.catalog.issued, issuedByName.get(item.name) ?? 0],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-ctl bg-card px-1 py-1.5">
+                      <dt className="text-micro leading-tight text-graphite">{label}</dt>
+                      <dd className="mt-0.5 text-body font-bold">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="quiet" size="sm" onClick={() => setViewingInstances(item)}>
+                    {he.catalog.instances}
+                  </Button>
+                  <Button variant="quiet" size="sm" onClick={() => setEditing(item)}>
+                    {he.catalog.edit}
+                  </Button>
+                  <Button variant="quiet" size="sm" onClick={() => setRemoving(item)}>
+                    {he.catalog.remove}
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="hidden sm:block">
         <TableScroll>
           <table className="row-hover w-full">
             <thead>
@@ -129,6 +178,7 @@ export function CatalogPage() {
             </tbody>
           </table>
         </TableScroll>
+        </div>
       </Panel>
 
       {adding && <ItemDialog onClose={() => setAdding(false)} />}
@@ -160,7 +210,7 @@ function InstancesDialog({ item, onClose }: { item: Item; onClose: () => void })
   const { data, isLoading } = useItemQuery(item.id);
 
   return (
-    <Modal onClose={onClose} className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden">
+    <Modal onClose={onClose} className="flex max-h-[85dvh] w-full max-w-lg flex-col overflow-hidden">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-rule bg-card px-4 py-3">
           <h2 className="text-lead font-semibold">{he.catalog.instancesTitle(item.name)}</h2>
           <Button variant="quiet" size="sm" onClick={onClose}>
@@ -173,6 +223,33 @@ function InstancesDialog({ item, onClose }: { item: Item; onClose: () => void })
           ) : !data || data.instances.length === 0 ? (
             <p className="px-4 py-6 text-center text-graphite">{he.catalog.noInstances}</p>
           ) : (
+            <>
+            {/* Phone: a card per serial. Five columns with a status menu and a remove link in each cannot fit
+                a phone, and made every control a tiny target. */}
+            <ul className="divide-y divide-rule sm:hidden">
+              {data.instances.map((inst) => {
+                const holder = inst.signatures[0]?.soldier;
+                return (
+                  <li key={inst.id} className="space-y-2 px-4 py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Serial value={inst.serial} />
+                      <RemoveInstanceButton instanceId={inst.id} serial={inst.serial} held={!!holder} />
+                    </div>
+                    <InstanceStatusSelect instance={inst} held={!!holder} />
+                    <div className="text-meta">
+                      {holder ? (
+                        `${holder.firstName} ${holder.lastName}`
+                      ) : (
+                        <span className="text-graphite">{he.catalog.instanceInArmory}</span>
+                      )}
+                    </div>
+                    {inst.notes && <div className="text-meta text-graphite">{inst.notes}</div>}
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="hidden sm:block">
             <TableScroll>
               <table className="row-hover w-full">
                 <thead>
@@ -216,6 +293,8 @@ function InstancesDialog({ item, onClose }: { item: Item; onClose: () => void })
                 </tbody>
               </table>
             </TableScroll>
+            </div>
+            </>
           )}
         </div>
         <AddInstanceForm item={item} />
@@ -304,13 +383,13 @@ function AddInstanceForm({ item }: { item: Item }) {
     <div className="shrink-0 border-t border-rule bg-card px-4 py-3">
       <p className="mb-2 text-meta font-semibold text-ink-soft">{he.catalog.addInstance}</p>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="block">
+        <label className="block w-full sm:w-auto">
           <span className="mb-1 block text-micro text-graphite">{he.catalog.optionalSerial}</span>
           <input
             value={serial}
             onChange={(e) => setSerial(e.target.value)}
             placeholder={he.catalog.optionalSerialPlaceholder}
-            className="serial h-9 w-40 rounded-ctl border-2 border-brass bg-brass-wash px-2.5 text-meta"
+            className="serial h-11 w-full rounded-ctl border-2 border-brass bg-brass-wash px-2.5 text-meta sm:h-9 sm:w-40"
           />
         </label>
         {!serial.trim() && (
@@ -321,7 +400,7 @@ function AddInstanceForm({ item }: { item: Item }) {
               min={1}
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              className="serial h-9 w-20 rounded-ctl border border-rule-strong bg-card-raised px-2.5 text-center text-meta"
+              className="serial h-11 w-24 rounded-ctl border border-rule-strong bg-card-raised px-2.5 text-center text-meta sm:h-9 sm:w-20"
             />
           </label>
         )}
@@ -371,7 +450,7 @@ function RemoveInstanceButton({
     <>
       <button
         onClick={() => setConfirming(true)}
-        className="text-meta font-semibold text-oxide hover:underline"
+        className="inline-flex min-h-10 items-center text-meta font-semibold text-oxide hover:underline"
       >
         {he.catalog.removeInstance}
       </button>
@@ -704,14 +783,19 @@ function SummaryToggle({ item }: { item: Item }) {
     }
   }
 
+  // The label is the tap target: a bare 13px checkbox is nearly impossible to hit with a thumb. On a phone
+  // it also says what it is; on a desktop the checkbox sits alone in its column, as before.
   return (
-    <input
-      type="checkbox"
-      className="cursor-pointer"
-      aria-label={`${he.catalog.inSummary} — ${item.name}`}
-      checked={item.inSummary}
-      disabled={isLoading}
-      onChange={(e) => void toggle(e.target.checked)}
-    />
+    <label className="flex min-h-11 cursor-pointer items-center gap-2 text-meta text-ink-soft sm:min-h-0">
+      <input
+        type="checkbox"
+        className="h-5 w-5 cursor-pointer sm:h-4 sm:w-4"
+        aria-label={`${he.catalog.inSummary} — ${item.name}`}
+        checked={item.inSummary}
+        disabled={isLoading}
+        onChange={(e) => void toggle(e.target.checked)}
+      />
+      <span className="sm:hidden">{he.catalog.inSummary}</span>
+    </label>
   );
 }

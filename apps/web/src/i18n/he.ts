@@ -173,6 +173,7 @@ export const he = {
   },
 
   documents: {
+    backToList: 'חזרה לרשימת החיילים',
     title: 'חתימות',
     pickSoldier: 'בחר חייל מהרשימה כדי לראות את פרטיו',
     noForms: 'החייל לא חתם על אף טופס 1008',
@@ -218,6 +219,8 @@ export const he = {
     subtitle: 'רשימת החיילים בגדוד והפריטים שברשותם',
     search: 'חפש לפי שם, מספר אישי או טלפון',
     allCompanies: 'כל הפלוגות',
+    sortByName: 'מיון לפי שם',
+    sortByCompany: 'מיון לפי פלוגה',
     scopeTitle: (company: string) => `פלוגה ${company}`,
     scopeHint: 'מוצגים רק חיילי הפלוגה שלך',
     scopeCount: (n: number) => `${n} חיילים`,
@@ -766,6 +769,11 @@ export const he = {
       `${name} יימחק לצמיתות, יחד עם כל הרישומים שלו בכל השבועות. אי אפשר לשחזר. אפשר להוסיף אותו שוב מחדש.`,
     memberRemoved: 'איש הצוות נמחק',
     days: ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'],
+    dayNames: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'],
+    dayHeading: (name: string, date: string) => `יום ${name}, ${date}`,
+    todayTag: 'היום',
+    notFilled: 'לא מולא',
+    manageTeam: 'ניהול הצוות',
   },
 
   passkey: {

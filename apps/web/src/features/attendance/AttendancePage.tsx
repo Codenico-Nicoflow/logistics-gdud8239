@@ -22,36 +22,8 @@ import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { todayIso } from '../../lib/dates';
 import type { AttendanceStatus, AuthUser, Gender, WeekRow } from '../../lib/types';
-
-const STATUSES: AttendanceStatus[] = [
-  'PRESENT',
-  'LEAVING',
-  'RETURNING',
-  'ON_LEAVE',
-  'GIMELIM',
-  'CLOSED_ORDER',
-];
-
-/** Each status gets a colour so a week reads at a glance. */
-const STATUS_STYLE: Record<AttendanceStatus, string> = {
-  PRESENT: 'bg-field-wash text-field-dark',
-  LEAVING: 'bg-brass-wash text-brass',
-  RETURNING: 'bg-cat-optics-wash text-cat-optics',
-  ON_LEAVE: 'bg-card text-graphite',
-  GIMELIM: 'bg-cat-drone-wash text-cat-drone',
-  CLOSED_ORDER: 'bg-oxide-wash text-oxide',
-  OTHER: 'bg-card text-ink-soft',
-};
-
-function label(status: AttendanceStatus, gender: Gender): string {
-  return gender === 'F' ? he.attendance.statusesF[status] : he.attendance.statuses[status];
-}
-
-/** "12" or "12 (+3 חזרה)" — the returning count is called out only when
- *  nonzero, since "+0 חזרה" on every ordinary day would be pure noise. */
-function presentLabel(present: number, returning: number): string {
-  return returning > 0 ? `${present} (+${returning} ${he.attendance.statuses.RETURNING})` : `${present}`;
-}
+import { DayView } from './AttendanceDayView';
+import { presentLabel, StatusCell } from './statuses';
 
 function shiftWeek(iso: string, weeks: number): string {
   const d = new Date(iso);
@@ -222,31 +194,10 @@ export function AttendancePage({ user }: { user: AuthUser }) {
         </TableScroll>
       </Panel>
 
-      {/* Mobile: one card per person, a day per line — the grid's own shape
-       *  doesn't survive a phone width, so this re-renders the same cells as
-       *  a vertical list instead of a 7-wide table. */}
-      <ul className="space-y-3 sm:hidden">
-        {rows.map((row) => (
-          <MemberCard
-            key={row.teamMemberId}
-            row={row}
-            dates={dates}
-            isAdmin={isAdmin}
-            onChange={setCell}
-            onRemove={() => setRemoving(row)}
-          />
-        ))}
-        {data && (
-          <li className="rounded-panel border border-rule bg-card-raised px-4 py-3">
-            <div className="mb-2 text-meta font-semibold text-ink-soft">{he.attendance.present}</div>
-            <div className="grid grid-cols-7 gap-1 text-center text-micro font-bold leading-tight text-field-dark">
-              {data.presentPerDay.map((count, i) => (
-                <div key={dates[i]}>{presentLabel(count, data.returningPerDay[i] ?? 0)}</div>
-              ))}
-            </div>
-          </li>
-        )}
-      </ul>
+      {/* Phone: day first. Seven day tabs (each with its headcount) and the chosen day's whole list —
+       *  the grid's own shape has no honest way to fit a phone width, and a card per person with seven
+       *  lines each is a very long page that hides the totals. */}
+      {data && <DayView week={data} isAdmin={isAdmin} onChange={setCell} onRemove={setRemoving} />}
 
       {adding && <AddMemberDialog onClose={() => setAdding(false)} />}
       {sending && data && (
@@ -254,99 +205,6 @@ export function AttendancePage({ user }: { user: AuthUser }) {
       )}
       {removing && <DeleteMemberDialog row={removing} onClose={() => setRemoving(null)} />}
     </div>
-  );
-}
-
-/** One person's day in the desktop grid — a select for the admin, plain
- *  colored text for anyone else, so a read-only viewer never sees a control
- *  that would reject their click anyway. */
-function StatusCell({
-  status,
-  gender,
-  editable,
-  onChange,
-}: {
-  status: AttendanceStatus | null;
-  gender: Gender;
-  editable: boolean;
-  onChange: (status: AttendanceStatus | null) => void;
-}) {
-  if (!editable) {
-    return (
-      <div
-        className={`w-full rounded-ctl px-1 py-1.5 text-center text-meta font-semibold ${
-          status ? STATUS_STYLE[status] : 'text-graphite'
-        }`}
-      >
-        {status ? label(status, gender) : '–'}
-      </div>
-    );
-  }
-  return (
-    <select
-      value={status ?? ''}
-      onChange={(e) => onChange((e.target.value || null) as AttendanceStatus | null)}
-      className={`w-full cursor-pointer rounded-ctl border border-transparent px-1 py-1.5 text-center text-meta font-semibold focus:border-field ${
-        status ? STATUS_STYLE[status] : 'bg-transparent text-graphite'
-      }`}
-    >
-      <option value="">{he.common.none}</option>
-      {STATUSES.map((s) => (
-        <option key={s} value={s}>
-          {label(s, gender)}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function MemberCard({
-  row,
-  dates,
-  isAdmin,
-  onChange,
-  onRemove,
-}: {
-  row: WeekRow;
-  dates: string[];
-  isAdmin: boolean;
-  onChange: (teamMemberId: string, date: string, status: AttendanceStatus | null) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <li className="rounded-panel border border-rule bg-card-raised px-4 py-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="font-semibold">
-          {row.nickname}
-        </span>
-        {isAdmin && (
-          <Button variant="quiet" size="sm" onClick={onRemove}>
-            {he.attendance.removeMember}
-          </Button>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        {row.cells.map((cell, i) => (
-          <div key={dates[i]} className="flex items-center justify-between gap-3">
-            <span className="shrink-0 text-meta text-graphite">
-              {he.attendance.days[i]}{' '}
-              {new Date(dates[i] as string).toLocaleDateString('he-IL', {
-                day: '2-digit',
-                month: '2-digit',
-              })}
-            </span>
-            <div className="w-36">
-              <StatusCell
-                status={cell.status}
-                gender={row.gender}
-                editable={isAdmin}
-                onChange={(s) => onChange(row.teamMemberId, dates[i] as string, s)}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </li>
   );
 }
 

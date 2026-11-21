@@ -8,9 +8,6 @@ import {
   SearchField,
   Spinner,
   Tag,
-  TableScroll,
-  Td,
-  Th,
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
@@ -49,23 +46,14 @@ export function NamingPage() {
 
       <SearchField value={query} onSearch={setQuery} placeholder={he.naming.searchPlaceholder} />
 
+      {/* A list, not a table: an item and its names fit one stacked row at any width, and chips with a delete
+          mark and an add box wrap naturally instead of being squeezed into a column. */}
       <Panel>
-        <TableScroll>
-          <table className="row-hover w-full">
-            <thead>
-              <tr>
-                <Th>{he.naming.catalogName}</Th>
-                <Th>{he.naming.aliases}</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {catalog.map((item) => (
-                <NamingRow key={item.id} item={item} />
-              ))}
-            </tbody>
-          </table>
-        </TableScroll>
+        <ul className="divide-y divide-rule">
+          {catalog.map((item) => (
+            <NamingRow key={item.id} item={item} />
+          ))}
+        </ul>
       </Panel>
     </div>
   );
@@ -94,14 +82,12 @@ function NamingRow({ item }: { item: Item }) {
   }
 
   return (
-    <tr>
-      <Td>
-        <span className="flex items-center gap-2 font-semibold">
-          <CategoryDot category={item.category} />
-          {item.name}
-        </span>
-      </Td>
-      <Td>
+    <li className="space-y-2 px-4 py-3 sm:grid sm:grid-cols-[14rem_1fr] sm:items-start sm:gap-4 sm:space-y-0">
+      <span className="flex items-center gap-2 font-semibold">
+        <CategoryDot category={item.category} />
+        {item.name}
+      </span>
+      <div>
         <div className="flex flex-wrap items-center gap-1.5">
           {item.aliases.length === 0 && !adding && (
             <span className="text-graphite">{he.naming.noAliases}</span>
@@ -113,7 +99,7 @@ function NamingRow({ item }: { item: Item }) {
                 <button
                   onClick={() => void removeAlias(alias)}
                   aria-label={he.naming.removeAlias}
-                  className="text-oxide hover:underline"
+                  className="-my-2 -me-2 inline-flex h-10 w-10 items-center justify-center text-lead text-oxide hover:underline"
                 >
                   ×
                 </button>
@@ -121,7 +107,7 @@ function NamingRow({ item }: { item: Item }) {
             </Tag>
           ))}
           {adding ? (
-            <span className="flex items-center gap-1.5">
+            <span className="flex w-full items-center gap-1.5 sm:w-auto">
               <input
                 autoFocus
                 value={draft}
@@ -134,7 +120,7 @@ function NamingRow({ item }: { item: Item }) {
                   }
                 }}
                 placeholder={he.naming.aliasPlaceholder}
-                className="rounded-ctl border border-rule-strong bg-card-raised px-2 py-1 text-meta"
+                className="h-10 min-w-0 flex-1 rounded-ctl border border-rule-strong bg-card-raised px-3 text-meta sm:flex-none"
               />
               <Button size="sm" onClick={() => void addAlias()} disabled={isLoading}>
                 {he.naming.save}
@@ -143,7 +129,7 @@ function NamingRow({ item }: { item: Item }) {
           ) : (
             <button
               onClick={() => setAdding(true)}
-              className="rounded-ctl border border-dashed border-rule-strong px-2 py-1 text-meta text-graphite hover:border-field hover:text-field-dark"
+              className="inline-flex h-10 items-center rounded-ctl border border-dashed border-rule-strong px-3 text-meta text-graphite hover:border-field hover:text-field-dark"
             >
               {he.naming.addAlias}
             </button>
@@ -152,8 +138,7 @@ function NamingRow({ item }: { item: Item }) {
         {apiErrorMessage(error) && (
           <p className="mt-1 text-micro text-oxide">{apiErrorMessage(error)}</p>
         )}
-      </Td>
-      <Td />
-    </tr>
+      </div>
+    </li>
   );
 }

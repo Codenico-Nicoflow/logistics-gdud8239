@@ -128,10 +128,12 @@ export function SummaryPage() {
 
       <Panel>
         <div className="flex flex-wrap items-end gap-3 px-4 py-4">
-          <TextField label={he.summary.date} value={date} onChange={setDate} type="date" required className="w-44" />
+          <TextField label={he.summary.date} value={date} onChange={setDate} type="date" required className="w-full sm:w-44" />
 
-          <div className="ms-auto flex items-end gap-2">
-            <Button onClick={submit} disabled={isSaving}>
+          {/* On a phone the three actions are a full-width stack (save first, the one people reach for), not a
+              row that wraps awkwardly under the date. */}
+          <div className="grid w-full grid-cols-2 gap-2 sm:ms-auto sm:flex sm:w-auto sm:items-end">
+            <Button onClick={submit} disabled={isSaving} className="col-span-2">
               {isSaving ? he.summary.saving : he.summary.save}
             </Button>
             <Button
@@ -170,6 +172,60 @@ export function SummaryPage() {
         {isLoading || isFetching ? (
           <Spinner />
         ) : (
+          <>
+          {/* Phone: a card per item, with the one thing being typed (בנשקייה) as a big number box. Five
+              columns with a narrow input in each cannot be filled in by thumb. */}
+          <ul className="divide-y divide-rule sm:hidden">
+            {rows.map((row) => {
+              const gap = gapFor(row);
+              return (
+                <li key={row.itemId} className="space-y-2 px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2 text-body font-semibold">
+                      <CategoryDot category={row.category} />
+                      {row.itemName}
+                    </span>
+                    {gap === null ? (
+                      <span className="shrink-0 text-meta text-graphite">{he.summary.notFilled}</span>
+                    ) : gap === 0 ? (
+                      <span className="shrink-0 text-meta font-semibold text-field">{he.summary.gap}: 0</span>
+                    ) : (
+                      <Tag tone="oxide">{gap > 0 ? `חסר ${gap}` : `עודף ${-gap}`}</Tag>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 items-end gap-2 text-center">
+                    <div className="rounded-ctl bg-card px-2 py-1.5">
+                      <div className="text-micro text-graphite">{he.summary.authorized}</div>
+                      <div className="text-body font-bold">{row.authorizedQty}</div>
+                    </div>
+                    <div className="rounded-ctl bg-card px-2 py-1.5">
+                      <div className="text-micro text-graphite">{he.summary.issued}</div>
+                      <div className="text-body font-bold text-field-dark">{row.issued}</div>
+                      {(row.stored ?? 0) > 0 && (
+                        <div className="text-micro text-brass">{he.ifsun.storedQty(row.stored ?? 0)}</div>
+                      )}
+                    </div>
+                    <label className="block">
+                      <span className="text-micro text-graphite">{he.summary.inArmory}</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={nashkiya[row.itemId] ?? ''}
+                        onChange={(e) => {
+                          setNashkiya((c) => ({ ...c, [row.itemId]: e.target.value }));
+                          setSaved(false);
+                        }}
+                        className="mt-0.5 h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-2 text-center text-body font-bold"
+                      />
+                    </label>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden sm:block">
           <TableScroll>
             <table className="row-hover w-full">
               <thead>
@@ -226,6 +282,8 @@ export function SummaryPage() {
               </tbody>
             </table>
           </TableScroll>
+          </div>
+          </>
         )}
       </Panel>
 
