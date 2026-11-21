@@ -234,6 +234,14 @@ export function CountsPage() {
       </Panel>
 
       <Panel>
+        {data && (
+          <div className="border-b border-rule px-4 py-2 text-meta text-graphite">
+            {he.counts.figureNote(
+              new Date(`${data.figureDate}T00:00:00`).toLocaleDateString('he-IL'),
+              shift === 'MORNING',
+            )}
+          </div>
+        )}
         {isLoading || isFetching ? (
           <Spinner />
         ) : (

@@ -489,6 +489,10 @@ export const he = {
     needsBothSignatures: 'יש למלא שם, מ.א., דרגה ולהחתים את שני הצדדים לפני סגירת הספירה',
     reopenHint: 'ספירה סגורה — לא ניתן לערוך. ניתן להדפיס בלבד.',
     recentTitle: 'ספירות קודמות',
+    figureNote: (day: string, morning: boolean) =>
+      morning
+        ? `ספירת הבוקר חותמת על המספר שהוזן במסכם בסוף יום ${day}`
+        : `המספר הוא זה שהוזן במסכם ב-${day}`,
     confirmCloseTitle: 'לחתום ולסגור את הספירה?',
     confirmCloseBody: (shift: string, date: string, items: number, a: string, b: string) =>
       `ספירת ${shift} · ${date} · ${items} פריטים, נחתמת על ידי ${a} ו${b}. לאחר הסגירה אי אפשר לערוך אותה — רק מנהל יכול לבטל סגירה.`,

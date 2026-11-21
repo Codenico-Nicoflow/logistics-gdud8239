@@ -12,6 +12,7 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
+import ExcelJS from 'exceljs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -19,6 +20,8 @@ const ADMIN = { username: 'e2e_count_admin', password: 'e2e-count-admin-123' };
 const STAFF = { username: 'e2e_count_staff', password: 'e2e-count-staff-123' };
 /** A date no real count will ever use, so this cannot touch real data. */
 const DAY = '2031-03-14';
+const NEXT = '2031-03-15';
+const ITEM = 'E2E פריט ספירה';
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 let app: INestApplication;
@@ -31,7 +34,9 @@ const cookie = (res: request.Response) =>
   (res.headers['set-cookie'] as unknown as string[]).map((c) => c.split(';')[0]).join('; ');
 
 async function cleanup(): Promise<void> {
-  await prisma.countSession.deleteMany({ where: { sessionDate: new Date(DAY) } });
+  await prisma.countSession.deleteMany({ where: { sessionDate: { in: [new Date(DAY), new Date(NEXT)] } } });
+  await prisma.dailySummaryLine.deleteMany({ where: { item: { name: ITEM } } });
+  await prisma.item.deleteMany({ where: { name: ITEM } });
 }
 
 beforeAll(async () => {
@@ -167,5 +172,98 @@ describe('cancelling a closed count', () => {
       .expect(201);
     await request(app.getHttpServer()).post(`/api/counts/${sessionId}/close`).set('Cookie', staffJar).expect(201);
     expect((await prisma.countSession.findUniqueOrThrow({ where: { id: sessionId } })).isClosed).toBe(true);
+  });
+});
+
+async function openSession(date: string, shift: 'EVENING' | 'MORNING', name: string, closed = true) {
+  const staff = await prisma.user.findUniqueOrThrow({ where: { username: STAFF.username } });
+  return prisma.countSession.create({
+    data: {
+      sessionDate: new Date(date),
+      shift,
+      isClosed: closed,
+      recordedByUserId: staff.id,
+      responsibleName: name,
+      officerName: `${name}-קצין`,
+    },
+  });
+}
+
+describe('a night is the evening plus the morning after', () => {
+  const sheet = (date: string, shift: 'EVENING' | 'MORNING') =>
+    request(app.getHttpServer()).get('/api/counts/sheet').query({ date, shift }).set('Cookie', staffJar).expect(200);
+
+  it("a morning count signs the previous day's מסכם figure, not its own empty one", async () => {
+    await cleanup();
+    const staff = await prisma.user.findUniqueOrThrow({ where: { username: STAFF.username } });
+    const item = await prisma.item.create({ data: { name: ITEM, category: 'GEAR', isSerialized: false, authorizedQty: 5 } });
+    await prisma.dailySummaryLine.create({
+      data: { sessionDate: new Date(DAY), itemId: item.id, nashkiyaQty: 7, updatedByUserId: staff.id },
+    });
+    await prisma.dailySummaryLine.create({
+      data: { sessionDate: new Date(NEXT), itemId: item.id, nashkiyaQty: 99, updatedByUserId: staff.id },
+    });
+
+    const evening = await sheet(DAY, 'EVENING');
+    const morning = await sheet(NEXT, 'MORNING');
+    const pick = (b: { rows: { itemName: string; nashkiyaQty: number | null }[] }) =>
+      b.rows.find((r) => r.itemName === ITEM)?.nashkiyaQty;
+
+    expect(evening.body.figureDate).toBe(DAY);
+    expect(pick(evening.body)).toBe(7);
+    expect(morning.body.figureDate).toBe(DAY);
+    expect(pick(morning.body)).toBe(7); // not 99, the next day's figure
+  });
+
+  async function countSheetRows(): Promise<{ header: string; names: [unknown, unknown] }> {
+    const res = await request(app.getHttpServer())
+      .get('/api/excel/export')
+      .set('Cookie', staffJar)
+      .buffer(true)
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on('data', (c: Buffer) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(res.body as Parameters<typeof wb.xlsx.load>[0]);
+    const ws = wb.getWorksheet('ספירת נשקיה');
+    if (!ws) throw new Error('no ספירת נשקיה sheet');
+    let header = '';
+    let names: [unknown, unknown] = [null, null];
+    ws.eachRow((row) => {
+      const first = String(row.getCell(1).value ?? '');
+      if (String(row.getCell(2).value ?? '').startsWith('ספירת ערב ·')) {
+        header = `${row.getCell(2).value} | ${row.getCell(3).value}`;
+      }
+      if (first === 'שם ומשפחה' && names[0] === null) names = [row.getCell(2).value, row.getCell(3).value];
+    });
+    return { header, names };
+  }
+
+  it('the Excel sheet shows the evening and the morning after it side by side', async () => {
+    await cleanup();
+    await openSession(DAY, 'EVENING', 'ערב-שם');
+    await openSession(NEXT, 'MORNING', 'בוקר-שם');
+    const { header, names } = await countSheetRows();
+    expect(header).toBe('ספירת ערב · 14.03 | ספירת בוקר · 15.03');
+    expect(names).toEqual(['ערב-שם', 'בוקר-שם']);
+  });
+
+  it('with only an evening, the morning after is pending', async () => {
+    await cleanup();
+    await openSession(DAY, 'EVENING', 'ערב-שם');
+    const { header, names } = await countSheetRows();
+    expect(header).toBe('ספירת ערב · 14.03 | ספירת בוקר · 15.03');
+    expect(names).toEqual(['ערב-שם', '—']);
+  });
+
+  it('with only a morning, the evening before it is the missing half', async () => {
+    await cleanup();
+    await openSession(NEXT, 'MORNING', 'בוקר-שם');
+    const { header, names } = await countSheetRows();
+    expect(header).toBe('ספירת ערב · 14.03 | ספירת בוקר · 15.03');
+    expect(names).toEqual(['—', 'בוקר-שם']);
   });
 });
