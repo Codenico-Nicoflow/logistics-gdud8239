@@ -237,33 +237,6 @@ export type Week = {
   returningPerDay: number[];
 };
 
-export type TodayMember = {
-  teamMemberId: string;
-  nickname: string;
-  gender: Gender;
-  status: AttendanceStatus | null;
-  note: string | null;
-};
-
-export type Today = {
-  date: string;
-  byStatus: { status: AttendanceStatus; members: TodayMember[] }[];
-  /** Nobody has filled this person's cell yet — not the same as absent. */
-  unmarked: TodayMember[];
-  present: number;
-  total: number;
-};
-
-export type LatestCount = {
-  session: {
-    id: string;
-    sessionDate: string;
-    shift: CountShift;
-    isClosed: boolean;
-    recordedBy: string | null;
-  } | null;
-};
-
 export type RecentCountSession = {
   id: string;
   sessionDate: string;
@@ -301,14 +274,6 @@ export type MatrixRow = {
   byCompany: Record<Company, number>;
   total: number;
   inArmory: number;
-};
-
-export type AllocationRow = {
-  itemName: string;
-  targets: Record<Company, number>;
-  issued: Record<Company, number>;
-  remaining: Record<Company, number>;
-  totalTarget: number;
 };
 
 export type MovementRow = {

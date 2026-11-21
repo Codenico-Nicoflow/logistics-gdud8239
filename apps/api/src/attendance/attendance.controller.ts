@@ -36,11 +36,6 @@ export class AttendanceController {
     return this.attendance.week(iso);
   }
 
-  @Get('today')
-  today(@Query('date') date?: string) {
-    return this.attendance.today(date);
-  }
-
   @Get('members')
   members(@Query('includeInactive') includeInactive?: string) {
     return this.attendance.listMembers(includeInactive === 'true');

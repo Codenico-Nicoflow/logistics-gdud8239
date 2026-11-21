@@ -1,6 +1,5 @@
 import { createApi, fetchBaseQuery, type BaseQueryFn } from '@reduxjs/toolkit/query/react';
 import type {
-  AllocationRow,
   AuthUser,
   Company,
   CountSheet,
@@ -24,8 +23,6 @@ import type {
   Snapshot,
   SummaryRow,
   MesakemSheet,
-  Today,
-  LatestCount,
   RecentCountSession,
   NewSoldier,
   SoldierDetail,
@@ -260,10 +257,6 @@ export const api = createApi({
       query: () => '/reports/companies',
       providesTags: ['Reports'],
     }),
-    allocations: build.query<AllocationRow[], void>({
-      query: () => '/reports/allocations',
-      providesTags: ['Reports'],
-    }),
 
     // --- movements ---
     movements: build.query<
@@ -396,14 +389,6 @@ export const api = createApi({
     week: build.query<Week, string>({
       query: (date) => ({ url: '/attendance/week', params: { date } }),
       providesTags: ['Attendance'],
-    }),
-    today: build.query<Today, void>({
-      query: () => '/attendance/today',
-      providesTags: ['Attendance'],
-    }),
-    latestCount: build.query<LatestCount, void>({
-      query: () => '/counts/latest',
-      providesTags: ['Counts'],
     }),
     recentCounts: build.query<RecentCountSession[], void>({
       query: () => '/counts/recent',
@@ -640,7 +625,6 @@ export const {
   useSaveMesakemMutation,
   useFinishMesakemDayMutation,
   useCompanyMatrixQuery,
-  useAllocationsQuery,
   useMovementsQuery,
   useSnapshotsQuery,
   useCreateSnapshotMutation,
@@ -667,8 +651,6 @@ export const {
   useCheckDuplicateSoldierMutation,
   useSetSoldierEnlistedMutation,
   useDeleteSoldierMutation,
-  useTodayQuery,
-  useLatestCountQuery,
   useRecentCountsQuery,
   useTeamMembersQuery,
   useSetAttendanceMutation,

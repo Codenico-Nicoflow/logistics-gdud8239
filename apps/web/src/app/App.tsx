@@ -3,13 +3,11 @@ import { useMeQuery } from '../lib/api';
 import { Shell } from './Shell';
 import { Spinner } from '../components/ui';
 import { LoginPage } from '../features/auth/LoginPage';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { IssuePage } from '../features/issue/IssuePage';
 import { ServicePeriodsPage } from '../features/allocations/ServicePeriodsPage';
 import { CompanyAllocationPage } from '../features/allocations/CompanyAllocationPage';
 import { DocumentsPage } from '../features/signatures/DocumentsPage';
-import { AllocationsPage, CompaniesPage, SummaryPage } from '../features/reports/ReportPages';
-import { MovementsPage } from '../features/movements/MovementsPage';
+import { SummaryPage } from '../features/reports/ReportPages';
 import { DailyMovementsPage } from '../features/movements/DailyMovementsPage';
 import { BackupsPage } from '../features/backups/BackupsPage';
 import { CountsPage } from '../features/counts/CountsPage';
@@ -57,12 +55,8 @@ export function App() {
       <Routes>
         <Route element={<Shell user={user} />} path="/">
           <Route index element={<Navigate to={defaultPathFor(user.role)} replace />} />
-          {can(OLD_ROLES) && <Route path="dashboard" element={<DashboardPage />} />}
           {can(OLD_ROLES) && <Route path="documents" element={<DocumentsPage user={user} />} />}
           {can(['admin', 'logistics']) && <Route path="summary" element={<SummaryPage />} />}
-          {can(OLD_ROLES) && <Route path="companies" element={<CompaniesPage />} />}
-          {can(OLD_ROLES) && <Route path="allocations" element={<AllocationsPage />} />}
-          {can(OLD_ROLES) && <Route path="movements" element={<MovementsPage />} />}
           {can(['admin', 'logistics']) && (
             <Route path="daily-movements" element={<DailyMovementsPage />} />
           )}

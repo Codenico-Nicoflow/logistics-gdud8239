@@ -10,18 +10,14 @@ export const he = {
   },
 
   nav: {
-    dashboard: 'לוח בקרה',
     documents: 'חתימות',
     dailyMovements: 'דוח תנועות יומי',
     issue: 'ניפוק',
     summary: 'מסכם',
-    companies: 'פלוגות',
-    allocations: 'הקצאות',
     servicePeriods: 'הקצאה לתקופת שרות',
     companySplit: 'חלוקה לפלוגות',
     companyAllocation: 'חלוקה לפי חייל',
     counts: 'ספירת נשקיה',
-    movements: 'דוח תנועות',
     attendance: 'ימי יציאה',
     catalog: 'קטלוג פריטים',
     soldiers: 'חיילים',
@@ -87,39 +83,6 @@ export const he = {
     UNKNOWN_COMPANY: 'פלוגה לא מזוהה',
     MISSING_SOLDIER_NAME: 'חסר שם חייל',
     DUPLICATE_ROW: 'שורה כפולה',
-  },
-
-  dashboard: {
-    title: 'לוח בקרה',
-    signedOut: 'פריטים מנופקים',
-    inArmory: 'בנשקיה',
-    gaps: 'פערים',
-    recentActivity: 'תנועות אחרונות',
-    noActivity: 'לא נרשמו תנועות',
-    byCompany: 'מנופק לפי פלוגה',
-    topGaps: 'הפערים הגדולים',
-    noGaps: 'אין פערים במצבה',
-    uncounted: (n: number) => `${n} פריטים טרם נספרו`,
-    notCounted: 'טרם נספר',
-
-    whoIsHere: 'מי נמצא היום',
-    present: 'נוכחים',
-    unmarked: 'טרם סומנו',
-    noTeam: 'לא הוגדרו אנשי צוות',
-    fillAttendance: 'מילוי ימי יציאה',
-
-    lastCount: 'ספירת נשקיה אחרונה',
-    noCount: 'טרם בוצעה ספירה',
-    startCount: 'התחל ספירה',
-    countOpen: 'פתוחה',
-    countClosed: 'סגורה',
-    countedOf: (counted: number, total: number) => `${counted} מתוך ${total} פריטים נספרו`,
-    countedBy: (name: string) => `נספר ע"י ${name}`,
-    daysAgo: (n: number) =>
-      n === 0 ? 'היום' : n === 1 ? 'אתמול' : `לפני ${n} ימים`,
-    staleCount: 'הספירה אינה מהיום',
-    mismatchCount: (n: number) => `${n} פריטים אינם תואמים`,
-    allMatch: 'כל הפריטים שנספרו תואמים',
   },
 
   signatures: {
@@ -394,22 +357,6 @@ export const he = {
     withGaps: (n: number) => `${n} פריטים עם פער`,
     noGaps: 'אין פערים',
     notFilled: '—',
-  },
-
-  companiesReport: {
-    title: 'פלוגות',
-    item: 'פריט',
-    total: 'סה"כ',
-    inArmory: 'בנשקיה',
-  },
-
-  allocations: {
-    title: 'הקצאות',
-    item: 'פריט',
-    target: 'הקצאה',
-    issued: 'נופק',
-    remaining: 'נשאר לחתום',
-    totalTarget: 'סה"כ',
   },
 
   // תקופות שרות — pre-assigning soldiers before a reserve-duty call-up.
