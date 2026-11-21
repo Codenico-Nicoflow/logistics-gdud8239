@@ -14,3 +14,7 @@ Every feature/fix lives on its own branch (`feat/...`, `fix/...`), opened as a P
 ## Docs
 
 Per-feature documentation lives in [`docs/`](docs/).
+
+## Disaster recovery
+
+See [docs/RESTORE.md](docs/RESTORE.md) for how to restore the system from a backup.

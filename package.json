@@ -12,6 +12,7 @@
     "db:down": "docker compose down",
     "migrate": "npm run migrate --workspace=apps/api",
     "seed": "npm run seed --workspace=apps/api",
-    "test": "npm run test --workspace=apps/api"
+    "test": "npm run test --workspace=apps/api",
+    "restore": "bash scripts/restore-db.sh"
   }
 }
