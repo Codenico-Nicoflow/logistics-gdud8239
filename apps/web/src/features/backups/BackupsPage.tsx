@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import {
   useCreateDbBackupMutation,
+  useDeleteDbBackupMutation,
+  useDeleteSnapshotMutation,
   useCreateSnapshotMutation,
   useDbBackupsQuery,
   useSendDbBackupToSlackMutation,
@@ -20,6 +23,7 @@ import {
   formatDateTime,
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
+import { DeleteDialog } from '../../components/DeleteDialog';
 import { he } from '../../i18n/he';
 
 export function BackupsPage() {
@@ -46,6 +50,8 @@ function SnapshotPanel() {
   const [createSnapshot, createState] = useCreateSnapshotMutation();
   const toast = useToast();
   const [sendSlack] = useSendSnapshotToSlackMutation();
+  const [remove, removeState] = useDeleteSnapshotMutation();
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   return (
     <div className="space-y-3">
@@ -95,6 +101,7 @@ function SnapshotPanel() {
                   <Th numeric>{he.backups.size}</Th>
                   <Th>{he.backups.slack}</Th>
                   <Th />
+                  <Th />
                 </tr>
               </thead>
               <tbody>
@@ -130,6 +137,14 @@ function SnapshotPanel() {
                         {he.backups.download}
                       </a>
                     </Td>
+                    <Td>
+                      <button
+                        onClick={() => setDeleting(s.id)}
+                        className="text-meta font-semibold text-oxide hover:underline"
+                      >
+                        {he.backups.delete}
+                      </button>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -137,6 +152,21 @@ function SnapshotPanel() {
           </TableScroll>
         )}
       </Panel>
+      {deleting && (
+        <DeleteDialog
+          title={he.backups.deleteTitle}
+          body={he.backups.deleteBody}
+          isLoading={removeState.isLoading}
+          onCancel={() => setDeleting(null)}
+          onConfirm={() =>
+            void remove(deleting).then((r) => {
+              setDeleting(null);
+              if ('data' in r && r.data) toast.success({ title: he.backups.deleted });
+              else toast.error({ title: he.toast.failed, detail: apiErrorMessage('error' in r ? r.error : undefined) ?? undefined });
+            })
+          }
+        />
+      )}
     </div>
   );
 }
@@ -152,6 +182,8 @@ function DbBackupPanel() {
   const { data, isLoading } = useDbBackupsQuery();
   const [createBackup, createState] = useCreateDbBackupMutation();
   const [sendSlack] = useSendDbBackupToSlackMutation();
+  const [remove, removeState] = useDeleteDbBackupMutation();
+  const [deleting, setDeleting] = useState<string | null>(null);
   const toast = useToast();
 
   return (
@@ -193,6 +225,7 @@ function DbBackupPanel() {
                   <Th numeric>{he.backups.size}</Th>
                   <Th>{he.backups.slack}</Th>
                   <Th />
+                  <Th />
                 </tr>
               </thead>
               <tbody>
@@ -225,6 +258,14 @@ function DbBackupPanel() {
                         {he.backups.download}
                       </a>
                     </Td>
+                    <Td>
+                      <button
+                        onClick={() => setDeleting(b.id)}
+                        className="text-meta font-semibold text-oxide hover:underline"
+                      >
+                        {he.backups.delete}
+                      </button>
+                    </Td>
                   </tr>
                 ))}
               </tbody>
@@ -232,6 +273,21 @@ function DbBackupPanel() {
           </TableScroll>
         )}
       </Panel>
+      {deleting && (
+        <DeleteDialog
+          title={he.backups.deleteTitle}
+          body={he.backups.deleteBody}
+          isLoading={removeState.isLoading}
+          onCancel={() => setDeleting(null)}
+          onConfirm={() =>
+            void remove(deleting).then((r) => {
+              setDeleting(null);
+              if ('data' in r && r.data) toast.success({ title: he.backups.deleted });
+              else toast.error({ title: he.toast.failed, detail: apiErrorMessage('error' in r ? r.error : undefined) ?? undefined });
+            })
+          }
+        />
+      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { CountShift } from '@prisma/client';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CountsService } from './counts.service';
 import { SaveCountDto } from './dto/save-count.dto';
+import { DeleteCountDto } from './dto/delete-count.dto';
 import { ReopenCountDto } from './dto/reopen-count.dto';
 import { renderCountSession } from './count-session.html';
 import { sendPrintPage } from '../common/print-page';
@@ -49,6 +50,12 @@ export class CountsController {
   }
 
   /** Admin only: cancels a closed count (a mistake), clears its signatures and logs why. */
+  @Delete(':id')
+  @Roles('admin')
+  remove(@Param('id') id: string, @Body() dto: DeleteCountDto, @CurrentUser() actor: AuthUser) {
+    return this.counts.remove(id, dto.reason, actor);
+  }
+
   @Post(':id/reopen')
   @Roles('admin')
   reopen(@Param('id') id: string, @Body() dto: ReopenCountDto, @CurrentUser() actor: AuthUser) {

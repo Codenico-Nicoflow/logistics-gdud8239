@@ -35,6 +35,7 @@ const cookie = (res: request.Response) =>
 
 async function cleanup(): Promise<void> {
   await prisma.countSession.deleteMany({ where: { sessionDate: { in: [new Date(DAY), new Date(NEXT)] } } });
+  await prisma.countSessionDeletion.deleteMany({ where: { reason: { startsWith: 'E2E' } } });
   await prisma.dailySummaryLine.deleteMany({ where: { item: { name: ITEM } } });
   await prisma.item.deleteMany({ where: { name: ITEM } });
 }
@@ -265,5 +266,53 @@ describe('a night is the evening plus the morning after', () => {
     const { header, names } = await countSheetRows();
     expect(header).toBe('ספירת ערב · 14.03 | ספירת בוקר · 15.03');
     expect(names).toEqual(['—', 'בוקר-שם']);
+  });
+});
+
+describe('deleting a count', () => {
+  const del = (jar: string, id: string, body: object) =>
+    request(app.getHttpServer()).delete(`/api/counts/${id}`).set('Cookie', jar).send(body);
+
+  it('is admin-only and needs a reason', async () => {
+    await cleanup();
+    const open = await openSession(DAY, 'EVENING', 'ערב-שם', false);
+    await del(staffJar, open.id, { reason: 'E2E ניקוי' }).expect(403);
+    await del(adminJar, open.id, {}).expect(400);
+    expect(await prisma.countSession.count({ where: { id: open.id } })).toBe(1);
+  });
+
+  it('refuses a closed count — it must be cancelled first', async () => {
+    await cleanup();
+    const closed = await openSession(DAY, 'EVENING', 'ערב-שם', true);
+    await del(adminJar, closed.id, { reason: 'E2E ניקוי' }).expect(400);
+    expect(await prisma.countSession.count({ where: { id: closed.id } })).toBe(1);
+  });
+
+  it('deletes an open count and leaves a record that outlives it', async () => {
+    await cleanup();
+    const open = await openSession(DAY, 'EVENING', 'ערב-שם', false);
+    await del(adminJar, open.id, { reason: 'E2E נתוני בדיקה' }).expect(200);
+    expect(await prisma.countSession.count({ where: { id: open.id } })).toBe(0);
+    const log = await prisma.countSessionDeletion.findMany({ where: { reason: 'E2E נתוני בדיקה' } });
+    expect(log).toHaveLength(1);
+    expect(log[0]?.deletedByName).toBe('מנהל ספירה');
+    expect(log[0]?.responsibleName).toBe('ערב-שם');
+  });
+});
+
+describe('deleting a backup', () => {
+  it('is admin-only and removes the row', async () => {
+    const row = await prisma.snapshot.create({
+      data: { kind: 'manual', filePath: '/tmp/e2e-nonexistent.xlsx', sizeBytes: 1 },
+    });
+    await request(app.getHttpServer()).delete(`/api/snapshots/${row.id}`).set('Cookie', staffJar).expect(403);
+    await request(app.getHttpServer()).delete(`/api/snapshots/${row.id}`).set('Cookie', adminJar).expect(200);
+    expect(await prisma.snapshot.count({ where: { id: row.id } })).toBe(0);
+
+    const db = await prisma.dbBackup.create({
+      data: { kind: 'manual', filePath: '/tmp/e2e-nonexistent.sql.gz', sizeBytes: 1 },
+    });
+    await request(app.getHttpServer()).delete(`/api/db-backups/${db.id}`).set('Cookie', adminJar).expect(200);
+    expect(await prisma.dbBackup.count({ where: { id: db.id } })).toBe(0);
   });
 });
