@@ -19,6 +19,10 @@ describe('validateEnv in production', () => {
     expect(() => validateEnv({ ...prod, WEB_ORIGIN: undefined })).toThrow(/WEB_ORIGIN/);
   });
 
+  it('refuses a WEB_ORIGIN that is not an address', () => {
+    expect(() => validateEnv({ ...prod, WEB_ORIGIN: 'logistics' })).toThrow(/full address/);
+  });
+
   it('refuses to boot unless cookies are Secure', () => {
     expect(() => validateEnv({ ...prod, COOKIE_SECURE: 'false' })).toThrow(/COOKIE_SECURE/);
     expect(() => validateEnv({ ...prod, COOKIE_SECURE: undefined })).toThrow(/COOKIE_SECURE/);
