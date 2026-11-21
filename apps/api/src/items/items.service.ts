@@ -283,20 +283,4 @@ export class ItemsService {
     await this.prisma.item.delete({ where: { id } });
     return { deleted: true };
   }
-
-  /** Signatures imported with a known problem — powers the "דרוש טיפול" tab. */
-  async needsAttention() {
-    const [issues, signatures] = await Promise.all([
-      this.prisma.importIssue.findMany({
-        where: { resolvedAt: null },
-        orderBy: [{ kind: 'asc' }, { rowNumber: 'asc' }],
-      }),
-      this.prisma.signature.findMany({
-        where: { needsAttention: true, returnedAt: null },
-        include: { soldier: true, item: true, itemInstance: true },
-        orderBy: { signedAt: 'asc' },
-      }),
-    ]);
-    return { issues, signatures };
-  }
 }

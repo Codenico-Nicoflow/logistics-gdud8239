@@ -44,15 +44,4 @@ export class SignaturesController {
   ) {
     return this.signatures.return(id, dto, actor);
   }
-
-  /** Completes a serial missing from the Excel import. */
-  @Post(':id/backfill-serial')
-  @Roles('admin', 'logistics')
-  backfillSerial(
-    @Param('id') id: string,
-    @Body() body: { serial: string },
-    @CurrentUser() actor: AuthUser,
-  ) {
-    return this.signatures.backfillSerial(id, body.serial, actor);
-  }
 }
