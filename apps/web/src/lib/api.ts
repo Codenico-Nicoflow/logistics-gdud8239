@@ -109,7 +109,17 @@ export const api = createApi({
     }),
     login: build.mutation<LoginResult, { username: string; password: string }>({
       query: (body) => ({ url: '/auth/login', method: 'POST', body }),
-      invalidatesTags: ['Auth'],
+      // Only a login that created a session re-checks who is signed in. When the answer is "now enter
+      // your code" there is no session yet, so the re-check 401s, the app shows a spinner, and the
+      // login page is rebuilt — throwing the second step away before the person can use it.
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          if ('user' in data) dispatch(api.util.invalidateTags(['Auth']));
+        } catch {
+          // A refused login is reported by the mutation's own error state; nothing to re-check.
+        }
+      },
     }),
     logout: build.mutation<{ ok: true }, void>({
       query: () => ({ url: '/auth/logout', method: 'POST' }),
@@ -564,7 +574,15 @@ export const api = createApi({
     }),
     completeSetup: build.mutation<LoginResult, { token: string; password: string }>({
       query: ({ token, ...body }) => ({ url: `/auth/setup/${encodeURIComponent(token)}`, method: 'POST', body }),
-      invalidatesTags: ['Auth'],
+      // Same rule as `login`: only a finished sign-in re-checks the session.
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          if ('user' in data) dispatch(api.util.invalidateTags(['Auth']));
+        } catch {
+          // A refused login is reported by the mutation's own error state; nothing to re-check.
+        }
+      },
     }),
     unlockUser: build.mutation<void, string>({
       query: (id) => ({ url: `/users/${id}/unlock`, method: 'POST' }),
