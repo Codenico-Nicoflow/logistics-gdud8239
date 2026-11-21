@@ -470,9 +470,14 @@ function DocumentDialog({ id, onClose }: { id: string; onClose: () => void }) {
             )}
           </>
         )}
-        <Button variant="quiet" onClick={onClose}>
-          {he.common.close}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => window.open(`/api/ifsun/${id}/print`, '_blank')} disabled={!r}>
+            {he.ifsun.printDocument}
+          </Button>
+          <Button variant="quiet" onClick={onClose}>
+            {he.common.close}
+          </Button>
+        </div>
       </div>
     </Modal>
   );
