@@ -22,6 +22,10 @@ export function SignaturePad({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const [hasInk, setHasInk] = useState(false);
+  // Held in a ref so the effect below never re-runs just because a parent passed a new
+  // function: re-running it re-sizes the canvas, which erases the signature mid-draw.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   /**
    * The canvas is sized to its own box times the device pixel ratio, so a
@@ -51,11 +55,11 @@ export function SignaturePad({
     const onResize = (): void => {
       fit();
       setHasInk(false);
-      onChange(null);
+      onChangeRef.current(null);
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [fit, onChange]);
+  }, [fit]);
 
   function pointIn(e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } {
     const rect = e.currentTarget.getBoundingClientRect();
