@@ -12,7 +12,6 @@ import type {
   PublicUser,
   TeamMember,
   Week,
-  ImportPreview,
   Item,
   ItemInstance,
   MatrixRow,
@@ -620,23 +619,6 @@ export const api = createApi({
       query: (body) => ({ url: '/intake', method: 'POST', body }),
       invalidatesTags: ['Items', 'Reports'],
     }),
-
-    // --- excel ---
-    previewImport: build.mutation<ImportPreview, FormData>({
-      query: (body) => ({ url: '/excel/import/preview', method: 'POST', body }),
-    }),
-    commitImport: build.mutation<ImportPreview & { committed: true }, FormData>({
-      query: (body) => ({ url: '/excel/import/commit', method: 'POST', body }),
-      invalidatesTags: [
-        'Signatures',
-        'Soldiers',
-        'Items',
-        'Reports',
-        'Movements',
-        'Attention',
-        'Snapshots',
-      ],
-    }),
   }),
 });
 
@@ -667,8 +649,6 @@ export const {
   useDbBackupsQuery,
   useCreateDbBackupMutation,
   useSendDbBackupToSlackMutation,
-  usePreviewImportMutation,
-  useCommitImportMutation,
   useCountSheetQuery,
   useSaveCountMutation,
   useCloseCountMutation,

@@ -367,17 +367,6 @@ export type DbBackup = {
   createdBy: { displayName: string } | null;
 };
 
-export type ImportPreview = {
-  totalRows: number;
-  soldiers: number;
-  signatures: number;
-  instances: number;
-  mergedIntoQuantity: number;
-  issues: { kind: IssueKind; count: number; examples: string[] }[];
-  perItem: { itemName: string; count: number }[];
-  perCompany: { company: string; count: number }[];
-};
-
 // --- תקופת שרות: battalion/company allocations, and signed handover forms ---
 
 export type ServicePeriodStatus = 'PLANNING' | 'ACTIVE' | 'CLOSED';
