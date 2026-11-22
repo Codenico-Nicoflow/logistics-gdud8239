@@ -1,6 +1,4 @@
-import type { KitLineMode } from '@prisma/client';
-
-export type KitLineSpec = { itemId: string; quantity: number; mode: KitLineMode };
+export type KitLineSpec = { itemId: string; quantity: number };
 
 /** base item id → its lines. An item with no entry has no kit. */
 export type KitMap = ReadonlyMap<string, readonly KitLineSpec[]>;
@@ -40,28 +38,19 @@ export function findGraphProblem(kits: KitMap, startId: string): GraphProblem | 
   return null;
 }
 
-export type ExpandOptions = {
-  /** false = only ALWAYS lines (the entitlement pick-list already shows the optional ones as rows). */
-  includeOptional: boolean;
-  /** Items the soldier has a nonzero allocation for in the active period. */
-  allocatedItemIds: ReadonlySet<string>;
-};
-
 /**
- * Everything that rides along with `rootId`: its own lines, then the lines of any kit those lines are
- * themselves the base of, multiplying quantities down the chain and merging repeats. The root itself
- * is never part of the result. Insertion order is kept so the basket lists lines the way the kit does.
+ * Everything that always goes out with `rootId`: its own lines, then the lines of any kit those lines are
+ * themselves the base of (מטולון → M-203), multiplying quantities down the chain and merging repeats. The
+ * root itself is never part of the result. Insertion order is kept so the basket lists lines the way the
+ * kit does.
  */
-export function expandKit(kits: KitMap, rootId: string, options: ExpandOptions): Map<string, number> {
+export function expandKit(kits: KitMap, rootId: string): Map<string, number> {
   const out = new Map<string, number>();
 
   const walk = (id: string, multiplier: number, depth: number): void => {
     if (depth > MAX_KIT_DEPTH) return;
     for (const line of kits.get(id) ?? []) {
       if (line.itemId === rootId) continue;
-      if (line.mode === 'IF_ALLOCATED' && !(options.includeOptional && options.allocatedItemIds.has(line.itemId))) {
-        continue;
-      }
       const quantity = line.quantity * multiplier;
       out.set(line.itemId, (out.get(line.itemId) ?? 0) + quantity);
       walk(line.itemId, quantity, depth + 1);

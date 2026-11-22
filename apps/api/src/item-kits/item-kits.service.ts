@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Item, KitLineMode, Prisma } from '@prisma/client';
+import type { Item, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
 import { SaveKitDto } from './dto/save-kit.dto';
 import { expandKit, findGraphProblem, type KitMap } from './kit-graph';
 
-type Snapshot = { itemName: string; quantity: number; mode: KitLineMode }[];
+type Snapshot = { itemName: string; quantity: number }[];
 type Tx = Prisma.TransactionClient;
 
 @Injectable()
@@ -30,7 +30,7 @@ export class ItemKitsService {
     });
     return {
       baseItem,
-      lines: (kit?.lines ?? []).map((l) => ({ item: l.item, quantity: l.quantity, mode: l.mode })),
+      lines: (kit?.lines ?? []).map((l) => ({ item: l.item, quantity: l.quantity })),
       updatedAt: kit?.updatedAt ?? null,
     };
   }
@@ -80,7 +80,6 @@ export class ItemKitsService {
       const after: Snapshot = dto.lines.map((l) => ({
         itemName: byId.get(l.itemId)?.name ?? '',
         quantity: l.quantity,
-        mode: l.mode,
       }));
 
       await tx.itemKit.deleteMany({ where: { baseItemId } });
@@ -92,7 +91,6 @@ export class ItemKitsService {
               create: dto.lines.map((l, position) => ({
                 itemId: l.itemId,
                 quantity: l.quantity,
-                mode: l.mode,
                 position,
               })),
             },
@@ -125,33 +123,15 @@ export class ItemKitsService {
     return lines.map((l) => l.kit.baseItem.name).sort((a, b) => a.localeCompare(b, 'he'));
   }
 
-  /**
-   * The basket lines that ride along with `itemName`. `soldierId` null means no eligibility is known, so
-   * only ALWAYS lines can apply — same as `alwaysOnly`.
-   */
-  async resolve(itemName: string, soldierId: string | null, alwaysOnly: boolean) {
+  /** The basket lines that always go out with `itemName`, nested kits included. */
+  async resolve(itemName: string) {
     const root = await this.prisma.item.findUnique({ where: { name: itemName } });
     if (!root) return [];
 
     const kits = await this.loadKitMap();
     if (!kits.has(root.id)) return [];
 
-    const allocatedItemIds = new Set<string>();
-    if (!alwaysOnly && soldierId) {
-      const period = await this.prisma.servicePeriod.findFirst({ where: { status: 'ACTIVE' } });
-      if (period) {
-        const rows = await this.prisma.soldierAllocation.findMany({
-          where: { servicePeriodId: period.id, soldierId, quantity: { gt: 0 } },
-          select: { itemId: true },
-        });
-        for (const r of rows) allocatedItemIds.add(r.itemId);
-      }
-    }
-
-    const wanted = expandKit(kits, root.id, {
-      includeOptional: !alwaysOnly && soldierId !== null,
-      allocatedItemIds,
-    });
+    const wanted = expandKit(kits, root.id);
     if (wanted.size === 0) return [];
 
     const items = await this.prisma.item.findMany({ where: { id: { in: [...wanted.keys()] }, isActive: true } });
@@ -164,7 +144,7 @@ export class ItemKitsService {
   private async loadKitMap(): Promise<KitMap> {
     const kits = await this.prisma.itemKit.findMany({ include: { lines: { orderBy: { position: 'asc' } } } });
     return new Map(
-      kits.map((k) => [k.baseItemId, k.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, mode: l.mode }))]),
+      kits.map((k) => [k.baseItemId, k.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity }))]),
     );
   }
 
@@ -180,7 +160,7 @@ export class ItemKitsService {
       where: { baseItemId },
       include: { lines: { include: { item: true }, orderBy: { position: 'asc' } } },
     });
-    return (kit?.lines ?? []).map((l) => ({ itemName: l.item.name, quantity: l.quantity, mode: l.mode }));
+    return (kit?.lines ?? []).map((l) => ({ itemName: l.item.name, quantity: l.quantity }));
   }
 
   private record(tx: Tx, base: Item, actorName: string, before: Snapshot, after: Snapshot) {

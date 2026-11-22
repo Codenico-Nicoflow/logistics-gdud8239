@@ -260,19 +260,17 @@ export type RecentCountSession = {
   recordedBy: { displayName: string } | null;
 };
 
-export type KitLineMode = 'ALWAYS' | 'IF_ALLOCATED';
-
 export type ItemKitSummary = {
   baseItem: { id: string; name: string; category: ItemCategory };
   lineCount: number;
   updatedAt: string;
 };
 
-export type ItemKitLine = { item: Item; quantity: number; mode: KitLineMode };
+export type ItemKitLine = { item: Item; quantity: number };
 
 export type ItemKitDetail = { baseItem: Item; lines: ItemKitLine[]; updatedAt: string | null };
 
-export type KitSnapshotLine = { itemName: string; quantity: number; mode: KitLineMode };
+export type KitSnapshotLine = { itemName: string; quantity: number };
 
 export type ItemKitChange = {
   id: string;

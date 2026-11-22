@@ -22,12 +22,9 @@ import {
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { itemMatches, normalizeSearch } from '../../lib/search';
-import type { Item, ItemKitDetail, KitLineMode, KitSnapshotLine } from '../../lib/types';
+import type { Item, ItemKitDetail, KitSnapshotLine } from '../../lib/types';
 
-type DraftLine = { item: Item; quantity: string; mode: KitLineMode };
-
-const modeLabel = (mode: KitLineMode): string =>
-  mode === 'ALWAYS' ? he.kits.modeAlways : he.kits.modeIfAllocated;
+type DraftLine = { item: Item; quantity: string };
 
 function quantityOf(line: DraftLine): number | null {
   const n = Number(line.quantity);
@@ -68,7 +65,7 @@ export function KitsPage() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
         <div className="space-y-3">
-          <SearchField value={query} onSearch={setQuery} placeholder={he.kits.searchPlaceholder} />
+          <SearchField value={query} onSearch={setQuery} placeholder={he.kits.searchPlaceholder} debounceMs={0} />
           <Panel>
             <ul className="max-h-[60vh] divide-y divide-rule overflow-y-auto">
               {catalog.map((item) => {
@@ -115,26 +112,26 @@ function KitDraft({ kit, allItems }: { kit: ItemKitDetail; allItems: Item[] }) {
   const toast = useToast();
   const [save, { isLoading, error }] = useSaveItemKitMutation();
   const initial = useMemo<DraftLine[]>(
-    () => kit.lines.map((l) => ({ item: l.item, quantity: String(l.quantity), mode: l.mode })),
+    () => kit.lines.map((l) => ({ item: l.item, quantity: String(l.quantity) })),
     [kit.lines],
   );
   const [lines, setLines] = useState<DraftLine[]>(initial);
 
-  const dirty = JSON.stringify(lines.map((l) => [l.item.id, l.quantity, l.mode])) !==
-    JSON.stringify(initial.map((l) => [l.item.id, l.quantity, l.mode]));
+  const dirty = JSON.stringify(lines.map((l) => [l.item.id, l.quantity])) !==
+    JSON.stringify(initial.map((l) => [l.item.id, l.quantity]));
   const valid = lines.every((l) => quantityOf(l) !== null);
 
   const taken = new Set(lines.map((l) => l.item.id));
   const addable = allItems.filter((i) => i.isActive && i.id !== kit.baseItem.id && !taken.has(i.id));
 
-  function update(id: string, patch: Partial<Pick<DraftLine, 'quantity' | 'mode'>>): void {
-    setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, ...patch } : l)));
+  function setQuantity(id: string, quantity: string): void {
+    setLines((cur) => cur.map((l) => (l.item.id === id ? { ...l, quantity } : l)));
   }
 
   async function submit(): Promise<void> {
     const result = await save({
       baseItemId: kit.baseItem.id,
-      lines: lines.map((l) => ({ itemId: l.item.id, quantity: quantityOf(l) ?? 1, mode: l.mode })),
+      lines: lines.map((l) => ({ itemId: l.item.id, quantity: quantityOf(l) ?? 1 })),
     });
     if (result.data) {
       toast.success({ title: lines.length === 0 ? he.kits.removed : he.kits.saved, detail: kit.baseItem.name });
@@ -154,24 +151,15 @@ function KitDraft({ kit, allItems }: { kit: ItemKitDetail; allItems: Item[] }) {
           ) : (
             <ul className="divide-y divide-rule">
               {lines.map((l) => (
-                <li key={l.item.id} className="grid items-end gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_14rem_auto]">
+                <li key={l.item.id} className="grid items-end gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_auto]">
                   <div className="font-semibold">{l.item.name}</div>
                   <TextField
                     label={he.kits.quantity}
                     value={l.quantity}
                     inputMode="numeric"
                     required
-                    onChange={(v) => update(l.item.id, { quantity: v })}
+                    onChange={(v) => setQuantity(l.item.id, v)}
                     error={quantityOf(l) === null ? ' ' : undefined}
-                  />
-                  <Select<KitLineMode>
-                    label={he.kits.mode}
-                    value={l.mode}
-                    onChange={(v) => v && update(l.item.id, { mode: v })}
-                    options={[
-                      { value: 'ALWAYS', label: he.kits.modeAlways },
-                      { value: 'IF_ALLOCATED', label: he.kits.modeIfAllocated },
-                    ]}
                   />
                   <Button
                     variant="quiet"
@@ -190,7 +178,7 @@ function KitDraft({ kit, allItems }: { kit: ItemKitDetail; allItems: Item[] }) {
             value=""
             onChange={(id) => {
               const item = allItems.find((i) => i.id === id);
-              if (item) setLines((cur) => [...cur, { item, quantity: '1', mode: 'ALWAYS' }]);
+              if (item) setLines((cur) => [...cur, { item, quantity: '1' }]);
             }}
             options={[{ value: '', label: he.kits.addPlaceholder }, ...addable.map((i) => ({ value: i.id, label: i.name }))]}
           />
@@ -221,7 +209,7 @@ function KitHistory({ baseItemId }: { baseItemId: string }) {
   const describe = (lines: KitSnapshotLine[]): string =>
     lines.length === 0
       ? he.kits.historyNone
-      : lines.map((l) => he.kits.historyLine(l.itemName, l.quantity, modeLabel(l.mode))).join('، ');
+      : lines.map((l) => he.kits.historyLine(l.itemName, l.quantity)).join('، ');
 
   return (
     <Panel>

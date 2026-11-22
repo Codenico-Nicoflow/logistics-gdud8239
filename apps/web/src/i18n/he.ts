@@ -672,7 +672,7 @@ export const he = {
 
   kits: {
     title: 'ערכות',
-    subtitle: 'מה מתווסף אוטומטית לסל הניפוק כשמנפקים פריט, למשל מחסניות ורצועה עם הרובה',
+    subtitle: 'מה יוצא תמיד יחד עם פריט, ומתווסף אוטומטית לסל הניפוק, למשל מחסניות ורצועה עם הרובה. מה שחייל זכאי לו (מטולון, אופטיקה) נקבע בחלוקה לפי חייל, לא כאן',
     searchPlaceholder: 'חיפוש פריט',
     pickPrompt: 'בחרו פריט כדי לראות או לערוך את הערכה שלו',
     hasKit: (n: number) => `${n} שורות`,
@@ -681,9 +681,6 @@ export const he = {
     empty: 'אין שורות בערכה. הוסיפו פריט, או שמרו כך כדי להסיר את הערכה.',
     item: 'פריט',
     quantity: 'כמות',
-    mode: 'מתי מתווסף',
-    modeAlways: 'תמיד',
-    modeIfAllocated: 'רק אם החייל מוקצה לו בתקופה',
     addLine: 'הוספת פריט לערכה',
     addPlaceholder: 'בחרו פריט להוספה',
     removeLine: (name: string) => `הסרת ${name} מהערכה`,
@@ -698,7 +695,7 @@ export const he = {
     historyNone: 'ללא שורות',
     before: 'לפני:',
     after: 'אחרי:',
-    historyLine: (name: string, qty: number, mode: string) => `${name} × ${qty} (${mode})`,
+    historyLine: (name: string, qty: number) => `${name} × ${qty}`,
     nestedHint: 'פריט שיש לו ערכה משלו מביא אותה איתו, עד 3 רמות',
   },
 

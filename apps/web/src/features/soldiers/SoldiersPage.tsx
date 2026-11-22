@@ -173,7 +173,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
         </div>
       </Panel>
 
-      <Panel>
+      <Panel busy={isFetching && !isLoading}>
         {isLoading ? (
           <Spinner />
         ) : rows.length === 0 ? (

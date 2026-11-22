@@ -38,11 +38,7 @@ const api = (jar: string) => ({
   del: (url: string) => request(app.getHttpServer()).delete(`/api${url}`).set('Cookie', jar),
 });
 
-const line = (name: string, quantity: number, mode: 'ALWAYS' | 'IF_ALLOCATED' = 'ALWAYS') => ({
-  itemId: id[name],
-  quantity,
-  mode,
-});
+const line = (name: string, quantity: number) => ({ itemId: id[name], quantity });
 
 async function cleanup(): Promise<void> {
   const items = await prisma.item.findMany({ where: { name: { startsWith: PREFIX } }, select: { id: true } });
@@ -106,11 +102,11 @@ describe('access', () => {
 describe('saving a kit', () => {
   it('saves lines in order and reads them back', async () => {
     const admin = api(adminJar);
-    await admin.put(`/item-kits/${id['רובה']}`, { lines: [line('מחסנית', 5), line('אופטיקה', 1, 'IF_ALLOCATED')] }).expect(200);
+    await admin.put(`/item-kits/${id['רובה']}`, { lines: [line('מחסנית', 5), line('אופטיקה', 1)] }).expect(200);
     const res = await admin.get(`/item-kits/${id['רובה']}`).expect(200);
-    expect(res.body.lines.map((l: { item: { name: string }; quantity: number; mode: string }) => [l.item.name, l.quantity, l.mode])).toEqual([
-      [PREFIX + 'מחסנית', 5, 'ALWAYS'],
-      [PREFIX + 'אופטיקה', 1, 'IF_ALLOCATED'],
+    expect(res.body.lines.map((l: { item: { name: string }; quantity: number }) => [l.item.name, l.quantity])).toEqual([
+      [PREFIX + 'מחסנית', 5],
+      [PREFIX + 'אופטיקה', 1],
     ]);
   });
 
@@ -119,15 +115,14 @@ describe('saving a kit', () => {
     expect(res.body.lines).toEqual([]);
   });
 
-  it('refuses a duplicate line, the base item itself, a missing item, a bad quantity and an unknown mode', async () => {
+  it('refuses a duplicate line, the base item itself, a missing item, a bad quantity and an unknown field', async () => {
     const admin = api(adminJar);
     const url = `/item-kits/${id['רובה']}`;
     await admin.put(url, { lines: [line('מחסנית', 1), line('מחסנית', 2)] }).expect(400);
     await admin.put(url, { lines: [line('רובה', 1)] }).expect(400);
-    await admin.put(url, { lines: [{ itemId: '00000000-0000-4000-8000-000000000000', quantity: 1, mode: 'ALWAYS' }] }).expect(400);
+    await admin.put(url, { lines: [{ itemId: '00000000-0000-4000-8000-000000000000', quantity: 1 }] }).expect(400);
     await admin.put(url, { lines: [{ ...line('מחסנית', 1), quantity: 0 }] }).expect(400);
     await admin.put(url, { lines: [{ ...line('מחסנית', 1), quantity: 100 }] }).expect(400);
-    await admin.put(url, { lines: [{ ...line('מחסנית', 1), mode: 'SOMETIMES' }] }).expect(400);
     await admin.put(url, { lines: [{ ...line('מחסנית', 1), extra: true }] }).expect(400);
   });
 
@@ -161,38 +156,26 @@ describe('loops and depth', () => {
 });
 
 describe('what a kit pre-fills', () => {
-  const soldier = '00000000-0000-4000-8000-000000000001';
-  const bundle = async (name: string, alwaysOnly: boolean) => {
-    const res = await api(adminJar)
-      .get(`/issue-bundle?itemName=${encodeURIComponent(PREFIX + name)}&soldierId=${soldier}&alwaysOnly=${alwaysOnly}`)
-      .expect(200);
+  const bundle = async (name: string) => {
+    const res = await api(adminJar).get(`/issue-bundle?itemName=${encodeURIComponent(PREFIX + name)}`).expect(200);
     return Object.fromEntries(res.body.map((l: { item: { name: string }; quantity: number }) => [l.item.name, l.quantity]));
   };
 
   it('expands nested kits, multiplies quantities and merges repeated items', async () => {
     const admin = api(adminJar);
     await admin.put(`/item-kits/${id['נרתיק']}`, { lines: [line('מחסנית', 3)] }).expect(200);
-    await admin.put(`/item-kits/${id['רובה']}`, { lines: [line('נרתיק', 2), line('מחסנית', 1), line('אופטיקה', 1, 'IF_ALLOCATED')] }).expect(200);
-    expect(await bundle('רובה', false)).toEqual({ [PREFIX + 'נרתיק']: 2, [PREFIX + 'מחסנית']: 7 });
+    await admin.put(`/item-kits/${id['רובה']}`, { lines: [line('נרתיק', 2), line('מחסנית', 1), line('אופטיקה', 1)] }).expect(200);
+    expect(await bundle('רובה')).toEqual({ [PREFIX + 'נרתיק']: 2, [PREFIX + 'מחסנית']: 7, [PREFIX + 'אופטיקה']: 1 });
   });
 
-  it('leaves an IF_ALLOCATED line out for a soldier who has no allocation for it', async () => {
-    expect(await bundle('רובה', false)).not.toHaveProperty(PREFIX + 'אופטיקה');
-  });
-
-  it('returns the same always-lines in always-only mode', async () => {
-    expect(await bundle('רובה', true)).toEqual({ [PREFIX + 'נרתיק']: 2, [PREFIX + 'מחסנית']: 7 });
+  it('returns the kit of a nested item on its own', async () => {
+    expect(await bundle('נרתיק')).toEqual({ [PREFIX + 'מחסנית']: 3 });
   });
 
   it('returns nothing for an item with no kit, and for an unknown name', async () => {
-    expect(await bundle('אופטיקה', false)).toEqual({});
-    const res = await api(adminJar).get(`/issue-bundle?itemName=${encodeURIComponent('לא קיים')}&soldierId=${soldier}`).expect(200);
+    expect(await bundle('כדור')).toEqual({});
+    const res = await api(adminJar).get(`/issue-bundle?itemName=${encodeURIComponent('לא קיים')}`).expect(200);
     expect(res.body).toEqual([]);
-  });
-
-  it('serves item-pairings from the same kit', async () => {
-    const res = await api(adminJar).get(`/item-pairings?itemName=${encodeURIComponent(PREFIX + 'נרתיק')}`).expect(200);
-    expect(res.body.map((l: { item: { name: string } }) => l.item.name)).toEqual([PREFIX + 'מחסנית']);
   });
 });
 
@@ -209,7 +192,7 @@ describe('history', () => {
   it('writes no row when a save changes nothing', async () => {
     const admin = api(adminJar);
     const before = (await admin.get(`/item-kits/${id['רובה']}/history`).expect(200)).body.length;
-    await admin.put(`/item-kits/${id['רובה']}`, { lines: [line('נרתיק', 2), line('מחסנית', 1), line('אופטיקה', 1, 'IF_ALLOCATED')] }).expect(200);
+    await admin.put(`/item-kits/${id['רובה']}`, { lines: [line('נרתיק', 2), line('מחסנית', 1), line('אופטיקה', 1)] }).expect(200);
     expect((await admin.get(`/item-kits/${id['רובה']}/history`).expect(200)).body).toHaveLength(before);
   });
 

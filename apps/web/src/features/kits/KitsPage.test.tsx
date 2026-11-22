@@ -23,8 +23,8 @@ const SCOPE = item('scope', 'מכפל');
 const KIT = {
   baseItem: RIFLE,
   lines: [
-    { item: MAG, quantity: 5, mode: 'ALWAYS' },
-    { item: SCOPE, quantity: 1, mode: 'IF_ALLOCATED' },
+    { item: MAG, quantity: 5 },
+    { item: SCOPE, quantity: 1 },
   ],
   updatedAt: '2026-11-22T10:00:00.000Z',
 };
@@ -40,8 +40,8 @@ function show(over: Record<string, unknown> = {}): void {
       body: [
         {
           id: 'h1', at: '2026-11-22T10:00:00.000Z', baseItemName: 'M-4', actorName: 'שונם',
-          before: [{ itemName: 'מחסנית', quantity: 4, mode: 'ALWAYS' }],
-          after: [{ itemName: 'מחסנית', quantity: 5, mode: 'ALWAYS' }],
+          before: [{ itemName: 'מחסנית', quantity: 4 }],
+          after: [{ itemName: 'מחסנית', quantity: 5 }],
         },
       ],
     },
@@ -74,12 +74,12 @@ describe('KitsPage', () => {
     expect(screen.getByText(he.kits.pickPrompt)).toBeTruthy();
   });
 
-  it('shows the lines of the picked kit, with their quantity and mode', async () => {
+  it('shows the lines of the picked kit, with their quantity', async () => {
     show();
     await pick('M-4');
     expect(await screen.findByText(he.kits.editing('M-4'))).toBeTruthy();
     expect((screen.getAllByLabelText(he.kits.quantity) as HTMLInputElement[]).map((i) => i.value)).toEqual(['5', '1']);
-    expect((screen.getAllByLabelText(he.kits.mode) as HTMLSelectElement[]).map((s) => s.value)).toEqual(['ALWAYS', 'IF_ALLOCATED']);
+    expect(screen.queryByLabelText(/מתי מתווסף/)).toBeNull();
   });
 
   it('keeps save disabled until something changes, and discard puts it back', async () => {
@@ -104,8 +104,8 @@ describe('KitsPage', () => {
     await waitFor(() => expect(puts()).toHaveLength(1));
     expect(puts()[0]?.body).toEqual({
       lines: [
-        { itemId: 'mag', quantity: 6, mode: 'ALWAYS' },
-        { itemId: 'scope', quantity: 1, mode: 'IF_ALLOCATED' },
+        { itemId: 'mag', quantity: 6 },
+        { itemId: 'scope', quantity: 1 },
       ],
     });
     expect(await screen.findByText(he.kits.saved)).toBeTruthy();
@@ -123,8 +123,8 @@ describe('KitsPage', () => {
     await waitFor(() => expect(puts()).toHaveLength(1));
     expect(puts()[0]?.body).toEqual({
       lines: [
-        { itemId: 'mag', quantity: 5, mode: 'ALWAYS' },
-        { itemId: 'sling', quantity: 1, mode: 'ALWAYS' },
+        { itemId: 'mag', quantity: 5 },
+        { itemId: 'sling', quantity: 1 },
       ],
     });
   });
@@ -162,7 +162,7 @@ describe('KitsPage', () => {
     await pick('M-4');
     expect(await screen.findByText(he.kits.history)).toBeTruthy();
     expect(await screen.findByText(literal(he.kits.historyBy('שונם')))).toBeTruthy();
-    expect(screen.getByText(literal(he.kits.historyLine('מחסנית', 4, he.kits.modeAlways)))).toBeTruthy();
-    expect(screen.getByText(literal(he.kits.historyLine('מחסנית', 5, he.kits.modeAlways)))).toBeTruthy();
+    expect(screen.getByText(literal(he.kits.historyLine('מחסנית', 4)))).toBeTruthy();
+    expect(screen.getByText(literal(he.kits.historyLine('מחסנית', 5)))).toBeTruthy();
   });
 });

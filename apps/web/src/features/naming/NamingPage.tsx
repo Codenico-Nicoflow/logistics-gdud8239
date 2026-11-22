@@ -44,7 +44,7 @@ export function NamingPage() {
         <p className="mt-1 text-ink-soft">{he.naming.subtitle}</p>
       </div>
 
-      <SearchField value={query} onSearch={setQuery} placeholder={he.naming.searchPlaceholder} />
+      <SearchField value={query} onSearch={setQuery} placeholder={he.naming.searchPlaceholder} debounceMs={0} />
 
       {/* A list, not a table: an item and its names fit one stacked row at any width, and chips with a delete
           mark and an add box wrap naturally instead of being squeezed into a column. */}

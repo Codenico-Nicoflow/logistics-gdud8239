@@ -8,7 +8,6 @@ import type {
   ItemKitChange,
   ItemKitDetail,
   ItemKitSummary,
-  KitLineMode,
   ItemCategory,
   InstanceStatus,
   DbBackup,
@@ -447,7 +446,7 @@ export const api = createApi({
     }),
     saveItemKit: build.mutation<
       ItemKitDetail,
-      { baseItemId: string; lines: { itemId: string; quantity: number; mode: KitLineMode }[] }
+      { baseItemId: string; lines: { itemId: string; quantity: number }[] }
     >({
       query: ({ baseItemId, lines }) => ({ url: `/item-kits/${baseItemId}`, method: 'PUT', body: { lines } }),
       invalidatesTags: ['Kits'],
@@ -715,21 +714,10 @@ export const api = createApi({
       invalidatesTags: ['Allocations'],
     }),
 
-    // A personal weapon or נגב going into the basket pulls in its standard
-    // accessories plus anything the soldier's own חלוקה לפי חייל says he's
-    // getting this period (מטולון, מכפל, שחמ, etc). Every soldier allocation
-    // mutation invalidates `Allocations`, so this refetches whenever a
-    // סגן מפקד פלוגה changes what the soldier is eligible for.
-    issueBundle: build.query<IssueBundleLine[], { itemName: string; soldierId: string; alwaysOnly?: boolean }>({
-      query: ({ itemName, soldierId, alwaysOnly }) => ({
-        url: '/issue-bundle',
-        params: { itemName, soldierId, ...(alwaysOnly ? { alwaysOnly: 'true' } : {}) },
-      }),
-      providesTags: ['Allocations'],
-    }),
-    itemPairings: build.query<IssueBundleLine[], string>({
-      query: (itemName) => ({ url: '/item-pairings', params: { itemName } }),
-      providesTags: ['Allocations'],
+    // What always goes out with an item added to the basket: its kit (ערכות), nested kits included.
+    issueBundle: build.query<IssueBundleLine[], string>({
+      query: (itemName) => ({ url: '/issue-bundle', params: { itemName } }),
+      providesTags: ['Kits'],
     }),
 
     // Everything this soldier is entitled to this period — drives the
@@ -867,7 +855,6 @@ export const {
   useSetSoldierAllocationMutation,
   useIssueBundleQuery,
   useLazyIssueBundleQuery,
-  useLazyItemPairingsQuery,
   useSoldierEntitlementQuery,
   useIssueFormsQuery,
   useIssueFormQuery,

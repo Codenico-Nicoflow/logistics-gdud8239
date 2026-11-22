@@ -113,17 +113,7 @@ export class AllocationsController {
 
   @Get('issue-bundle')
   @RequirePermission('allocations.battalion', 'READ', ['logistics', 'SHLISHUT'])
-  findIssueBundle(
-    @Query('itemName') itemName: string,
-    @Query('soldierId') soldierId: string,
-    @Query('alwaysOnly') alwaysOnly?: string,
-  ) {
-    return this.allocations.findIssueBundle(itemName, soldierId, alwaysOnly === 'true');
-  }
-
-  @Get('item-pairings')
-  @RequirePermission('allocations.battalion', 'READ', ['logistics', 'SHLISHUT'])
-  findItemPairings(@Query('itemName') itemName: string) {
-    return this.allocations.findItemPairings(itemName);
+  findIssueBundle(@Query('itemName') itemName: string) {
+    return this.allocations.findIssueBundle(itemName);
   }
 }

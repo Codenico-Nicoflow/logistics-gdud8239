@@ -13,6 +13,7 @@ import {
   formatDateTime,
   Modal,
   Panel,
+  Refreshing,
   SearchField,
   Serial,
   Select,
@@ -162,6 +163,7 @@ export function IfsunPage() {
           </div>
         )}
 
+        <Refreshing active={isFetching && !isLoading}>
         {isLoading ? (
           <Spinner />
         ) : rows.length === 0 ? (
@@ -226,6 +228,7 @@ export function IfsunPage() {
             ))}
           </ul>
         )}
+        </Refreshing>
         {total > PAGE_SIZE && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-rule px-4 py-3">
             <span className="text-meta text-graphite">{he.ifsun.pageOf(page + 1, pages, total)}</span>

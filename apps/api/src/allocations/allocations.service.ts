@@ -399,15 +399,10 @@ export class AllocationsService {
   }
 
   /**
-   * What rides along with an item in the 1008 basket — the kit an admin built on the ערכות screen.
-   * `alwaysOnly` is for the entitlement pick-list, where every optional item is already its own row.
+   * What always goes out with an item in the 1008 basket — the kit an admin built on the ערכות screen.
+   * Optics and the like are not kit: a soldier gets those through his own entitlement.
    */
-  findIssueBundle(baseItemName: string, soldierId: string, alwaysOnly = false) {
-    return this.itemKits.resolve(baseItemName, soldierId, alwaysOnly);
-  }
-
-  /** The always-lines of an item's kit, with no soldier in play (מטולון → M-203). */
-  findItemPairings(itemName: string) {
-    return this.itemKits.resolve(itemName, null, true);
+  findIssueBundle(itemName: string) {
+    return this.itemKits.resolve(itemName);
   }
 }

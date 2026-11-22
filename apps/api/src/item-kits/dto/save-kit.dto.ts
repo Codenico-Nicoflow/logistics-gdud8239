@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsEnum, IsInt, IsUUID, Max, Min, ValidateNested } from 'class-validator';
-import { KitLineMode } from '@prisma/client';
+import { ArrayMaxSize, IsArray, IsInt, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 
 export class KitLineDto {
   @IsUUID()
@@ -10,9 +9,6 @@ export class KitLineDto {
   @Min(1)
   @Max(99)
   quantity!: number;
-
-  @IsEnum(KitLineMode)
-  mode!: KitLineMode;
 }
 
 export class SaveKitDto {
