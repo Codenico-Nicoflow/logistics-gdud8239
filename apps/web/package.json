@@ -11,7 +11,7 @@
     "test": "vitest run",
     "e2e:probe": "node e2e/api-probe.mjs",
     "e2e:smoke": "node e2e/smoke.mjs",
-    "e2e:flows": "node e2e/flows-admin.mjs && node e2e/flows-issue.mjs && node e2e/flows-break.mjs && node e2e/flows-misc.mjs"
+    "e2e:flows": "node e2e/flows-admin.mjs && node e2e/flows-issue.mjs && node e2e/flows-break.mjs && node e2e/flows-misc.mjs && node e2e/flows-kits.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

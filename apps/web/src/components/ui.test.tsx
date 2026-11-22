@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, act } from '@testing-library/react';
 import { useState } from 'react';
-import { Button, Modal, Select, SearchField, TextField, Tag, apiErrorMessage, formatBytes } from './ui';
+import { Button, Modal, Panel, Refreshing, Select, SearchField, SEARCH_DEBOUNCE_MS, TextField, Tag, apiErrorMessage, formatBytes } from './ui';
 import { DeleteDialog } from './DeleteDialog';
 import { ToastProvider, useToast } from './toast';
 import { SignaturePad } from './SignaturePad';
@@ -98,20 +98,100 @@ describe('Select', () => {
 });
 
 describe('SearchField', () => {
-  it('searches on Enter and on the button, never per keystroke', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('searches at once on Enter and on the button', () => {
     const onSearch = vi.fn();
     render(<SearchField value="" onSearch={onSearch} />);
     const box = screen.getByRole('textbox');
     fireEvent.change(box, { target: { value: 'M4' } });
-    expect(onSearch).not.toHaveBeenCalled();
     fireEvent.keyDown(box, { key: 'Enter' });
     expect(onSearch).toHaveBeenCalledWith('M4');
   });
+
+  it('searches by itself once typing pauses, not per keystroke', () => {
+    vi.useFakeTimers();
+    const onSearch = vi.fn();
+    render(<SearchField value="" onSearch={onSearch} />);
+    const box = screen.getByRole('textbox');
+    fireEvent.change(box, { target: { value: 'ד' } });
+    vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS - 50);
+    fireEvent.change(box, { target: { value: 'דנ' } });
+    vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS - 50);
+    fireEvent.change(box, { target: { value: 'דנה' } });
+    expect(onSearch).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS);
+    expect(onSearch).toHaveBeenCalledTimes(1);
+    expect(onSearch).toHaveBeenCalledWith('דנה');
+  });
+
+  it('does not search again for text that is already the committed search', () => {
+    vi.useFakeTimers();
+    const onSearch = vi.fn();
+    render(<SearchField value="abc" onSearch={onSearch} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'abc ' } });
+    vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS * 2);
+    expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it('keeps a trailing space while typing a second word, even after the first word searched', () => {
+    vi.useFakeTimers();
+    function Harness() {
+      const [q, setQ] = useState('');
+      return <SearchField value={q} onSearch={setQ} />;
+    }
+    render(<Harness />);
+    const box = screen.getByRole('textbox') as HTMLInputElement;
+    fireEvent.change(box, { target: { value: 'דנה ' } });
+    act(() => { vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS); });
+    expect(box.value).toBe('דנה ');
+  });
+
+  it('with debounceMs 0 follows every key (for filters that run in the browser)', () => {
+    vi.useFakeTimers();
+    const onSearch = vi.fn();
+    render(<SearchField value="" onSearch={onSearch} debounceMs={0} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'a' } });
+    vi.advanceTimersByTime(0);
+    expect(onSearch).toHaveBeenCalledWith('a');
+  });
+
+  it('Enter right after typing searches once, not again when the pause ends', () => {
+    vi.useFakeTimers();
+    function Harness({ spy }: { spy: (v: string) => void }) {
+      const [q, setQ] = useState('');
+      return <SearchField value={q} onSearch={(v) => { spy(v); setQ(v); }} />;
+    }
+    const spy = vi.fn();
+    render(<Harness spy={spy} />);
+    const box = screen.getByRole('textbox');
+    fireEvent.change(box, { target: { value: 'x' } });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    act(() => { vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS * 2); });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
   it('follows a value that is cleared from outside', () => {
     const { rerender } = render(<SearchField value="abc" onSearch={() => {}} />);
     expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('abc');
     rerender(<SearchField value="" onSearch={() => {}} />);
     expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');
+  });
+});
+
+describe('Refreshing and Panel busy', () => {
+  it('shows a loading status over the results while active, and none otherwise', () => {
+    const { rerender } = render(<Refreshing active={false}><p>rows</p></Refreshing>);
+    expect(screen.queryByRole('status')).toBeNull();
+    rerender(<Refreshing active><p>rows</p></Refreshing>);
+    expect(screen.getByRole('status').textContent).toContain(he.common.loading);
+    expect(screen.getByText('rows')).toBeTruthy();
+  });
+  it('Panel only gains the overlay when busy is passed', () => {
+    const { rerender } = render(<Panel><p>rows</p></Panel>);
+    expect(document.querySelector('[aria-busy]')).toBeNull();
+    rerender(<Panel busy><p>rows</p></Panel>);
+    expect(screen.getByRole('status')).toBeTruthy();
   });
 });
 

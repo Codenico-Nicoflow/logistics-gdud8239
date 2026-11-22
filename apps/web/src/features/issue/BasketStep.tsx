@@ -5,7 +5,6 @@ import {
   useCompanyAllocationsQuery,
   useItemsQuery,
   useLazyIssueBundleQuery,
-  useLazyItemPairingsQuery,
   useSoldierEntitlementQuery,
 } from '../../lib/api';
 import { Button, CategoryDot, Modal, Panel, Serial, Tag, TextField } from '../../components/ui';
@@ -23,17 +22,7 @@ export type BasketLine = {
   lineNotes: string;
 };
 
-/**
- * How much rides along automatically with a just-added item:
- * - `full`: search-box add — always load + eligible accessories + pairings.
- * - `entitlement`: row ticked from the entitlement list — always load (for a
- *   personal rifle) + its hard pairing (e.g. מטולון → M-203), but never the
- *   optional accessories, since those are already their own separate rows
- *   in that same list for the operator to tick on their own.
- */
-type AddMode = 'full' | 'entitlement';
-
-type AddRequest = { item: Item; mode: AddMode; quantity?: number };
+type AddRequest = { item: Item; quantity?: number };
 
 /** A pause in adding an item that needs the operator's yes before it continues. */
 type Prompt =
@@ -76,7 +65,6 @@ export function BasketStep({
   const latest = useRef(lines);
   latest.current = lines;
   const [fetchBundle] = useLazyIssueBundleQuery();
-  const [fetchPairings] = useLazyItemPairingsQuery();
 
   // A weapon's cap comes from the active תקופת שרות's חלוקה לפלוגות, not
   // anything on this screen — so the check only ever applies while a period
@@ -116,34 +104,13 @@ export function BasketStep({
 
   /** The lines to add for one item: the row itself plus whatever rides along with it. */
   async function build(req: AddRequest, current: BasketLine[]): Promise<BasketLine[]> {
-    const { item, mode, quantity } = req;
+    const { item, quantity } = req;
     const base = newLine(item, quantity ?? item.defaultQty);
 
-    let extra: { item: Item; quantity: number }[] = [];
-    if (mode === 'full') {
-      // Added via the picker: the full bundle rides along — standard
-      // load always, plus anything the soldier's own חלוקה לפי חייל makes
-      // him eligible for (מטולון, מכפל, שחמ, …), plus hard pairings chained
-      // off whichever of those got included (מטולון → M-203). The server
-      // already folds pairings into this response.
-      const result = await fetchBundle({ itemName: item.name, soldierId: soldier.id });
-      extra = result.data ?? [];
-    } else {
-      // Checked as a row in the entitlement list: only the non-optional load
-      // comes along automatically (`bundleRuleFor` is null for anything that
-      // isn't a personal rifle, so this is a no-op there) — every optional
-      // accessory is already its own separate row in that same list for the
-      // operator to tick on its own. Then always layer the item's own hard
-      // pairing on top regardless of what kind of item it is: a personal
-      // rifle has none, מטולון always pulls M-203, and so on — this must not
-      // be gated on category, since מטולון's own catalog category is
-      // WEAPON too despite not being a bundleRuleFor base item.
-      const [bundleResult, pairingResult] = await Promise.all([
-        fetchBundle({ itemName: item.name, soldierId: soldier.id, alwaysOnly: true }),
-        fetchPairings(item.name),
-      ]);
-      extra = [...(bundleResult.data ?? []), ...(pairingResult.data ?? [])];
-    }
+    // Whatever always goes out with this item — its kit from the ערכות screen, nested kits included
+    // (M-4 → מחסניות, רצועה…; מטולון → M-203). Optics and the like are not kit: the soldier's own
+    // entitlement list offers those as separate rows.
+    const extra = (await fetchBundle(item.name)).data ?? [];
 
     const taken = new Set(current.map((l) => l.item.id));
     taken.add(item.id);
@@ -191,8 +158,8 @@ export function BasketStep({
     }
   }
 
-  function addItem(item: Item, mode: AddMode = 'full', quantity?: number): void {
-    void addItems([{ item, mode, quantity }]);
+  function addItem(item: Item, quantity?: number): void {
+    void addItems([{ item, quantity }]);
   }
 
   function patch(lineId: string, changes: Partial<BasketLine>): void {
@@ -235,7 +202,7 @@ export function BasketStep({
               removeItemLines(item.id);
               return;
             }
-            addItem(item, 'entitlement', quantity);
+            addItem(item, quantity);
           }}
         />
       )}
@@ -268,7 +235,7 @@ export function BasketStep({
             <ItemPicker
               catalog={catalog}
               lines={lines}
-              onAdd={(picked) => void addItems(picked.map((item) => ({ item, mode: 'full' as const })))}
+              onAdd={(picked) => void addItems(picked.map((item) => ({ item })))}
             />
           </div>
 

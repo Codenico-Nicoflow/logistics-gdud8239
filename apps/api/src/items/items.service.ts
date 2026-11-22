@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InstanceStatus, Item, Prisma } from '@prisma/client';
+import { ItemKitsService } from '../item-kits/item-kits.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { syncAuthorizedQty } from './sync-authorized-qty';
 import type { CreateItemDto } from './dto/create-item.dto';
@@ -14,7 +15,10 @@ import { ITEM_ORDER } from '../common/item-order';
 
 @Injectable()
 export class ItemsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly itemKits: ItemKitsService,
+  ) {}
 
   findAll(includeInactive = false): Promise<Item[]> {
     return this.prisma.item.findMany({
@@ -95,6 +99,15 @@ export class ItemsService {
       throw new BadRequestException(
         `לא ניתן להשבית פריט שמנופקים ממנו ${item._count.signatures} יחידות`,
       );
+    }
+
+    // A deactivated item vanishes from the basket, so a kit that still lists it would quietly hand the
+    // soldier less than the kit says. Make the admin take it out of the kits first.
+    if (dto.isActive === false && item.isActive) {
+      const kits = await this.itemKits.kitsContaining(id);
+      if (kits.length > 0) {
+        throw new BadRequestException(`לא ניתן להשבית פריט שמופיע בערכות: ${kits.join(', ')}. יש להסיר אותו מהערכות קודם.`);
+      }
     }
 
     // מצבה for a serialized item is derived from its מסדים, never typed in —
@@ -242,29 +255,34 @@ export class ItemsService {
     issuedCount: number;
     instanceCount: number;
     historyCount: number;
+    /** Base items whose kit lists this item as a line. */
+    inKits: string[];
     reasons: string[];
   }> {
     const item = await this.prisma.item.findUnique({ where: { id } });
     if (!item) throw new NotFoundException('הפריט אינו קיים');
 
-    const [issuedCount, instanceCount, historyCount] = await Promise.all([
+    const [issuedCount, instanceCount, historyCount, inKits] = await Promise.all([
       this.prisma.signature.count({ where: { itemId: id, returnedAt: null } }),
       this.prisma.itemInstance.count({ where: { itemId: id } }),
       this.prisma.movement.count({ where: { itemId: id } }),
+      this.itemKits.kitsContaining(id),
     ]);
 
     const reasons: string[] = [];
     if (issuedCount > 0) reasons.push(`${issuedCount} יחידות מנופקות לחיילים`);
     if (instanceCount > 0) reasons.push(`${instanceCount} מסדים רשומים`);
     if (historyCount > 0) reasons.push(`${historyCount} תנועות בדוח התנועות`);
+    if (inKits.length > 0) reasons.push(`מופיע בערכות: ${inKits.join(', ')}`);
 
     return {
       // History alone does not block: the item can be deactivated instead, and
       // the movement rows keep their own name snapshot.
-      canDelete: issuedCount === 0 && instanceCount === 0 && historyCount === 0,
+      canDelete: issuedCount === 0 && instanceCount === 0 && historyCount === 0 && inKits.length === 0,
       issuedCount,
       instanceCount,
       historyCount,
+      inKits,
       reasons,
     };
   }
@@ -273,14 +291,19 @@ export class ItemsService {
    * Removes an item outright. Only possible when nothing references it; an item
    * with history is deactivated instead, so the audit trail stays readable.
    */
-  async remove(id: string): Promise<{ deleted: true }> {
+  async remove(id: string, actorName: string): Promise<{ deleted: true }> {
     const check = await this.deletionCheck(id);
     if (!check.canDelete) {
       throw new BadRequestException(
         `לא ניתן למחוק את הפריט: ${check.reasons.join(', ')}. ניתן להשבית אותו במקום.`,
       );
     }
-    await this.prisma.item.delete({ where: { id } });
+    // The item's own kit (if it is a base) goes with it; log that first so the history keeps the answer.
+    await this.prisma.$transaction(async (tx) => {
+      const item = await tx.item.findUnique({ where: { id } });
+      if (item) await this.itemKits.recordRemovalWithItem(tx, item, actorName);
+      await tx.item.delete({ where: { id } });
+    });
     return { deleted: true };
   }
 }

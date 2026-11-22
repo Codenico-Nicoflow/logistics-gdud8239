@@ -260,11 +260,33 @@ export type RecentCountSession = {
   recordedBy: { displayName: string } | null;
 };
 
+export type ItemKitSummary = {
+  baseItem: { id: string; name: string; category: ItemCategory };
+  lineCount: number;
+  updatedAt: string;
+};
+
+export type ItemKitLine = { item: Item; quantity: number };
+
+export type ItemKitDetail = { baseItem: Item; lines: ItemKitLine[]; updatedAt: string | null };
+
+export type KitSnapshotLine = { itemName: string; quantity: number };
+
+export type ItemKitChange = {
+  id: string;
+  at: string;
+  baseItemName: string;
+  actorName: string;
+  before: KitSnapshotLine[];
+  after: KitSnapshotLine[];
+};
+
 export type DeletionCheck = {
   canDelete: boolean;
   issuedCount: number;
   instanceCount: number;
   historyCount: number;
+  inKits: string[];
   reasons: string[];
 };
 

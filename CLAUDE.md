@@ -69,6 +69,8 @@ In the UI (`apps/web/src/features/catalog/CatalogPage.tsx`), the edit-item dialo
 
 **No `any` type, anywhere in this codebase.** Hard requirement, not a style preference — treat a surfaced `any` as a bug to fix, not tech debt to leave.
 
+**What rides along with an item at ניפוק is data, not code.** Kits (`ItemKit`/`ItemKitLine`, edited on the admin-only ערכות screen, see `docs/feat-editable-item-kits.md`) replaced the hardcoded `issue-bundle-rules.ts`. Do not reintroduce rules keyed by item name in code; add or change a kit instead. `item_kit_changes` is append-only like `movements`.
+
 **ניפוק must always warn before handing out a weapon beyond its company's allocation.** When adding a `WEAPON`-category item to the basket in `BasketStep.tsx`, if the soldier's company has no quantity left under the active תקופת שרות's חלוקה לפלוגות (`CompanyAllocationGrid`'s plan, via `remaining[company]` from `GET /service-periods/:id/company-allocations`), a confirmation dialog must appear before the line is actually added — never add it silently. This is a soft gate (the samgad's plan can be wrong or stale), not a hard block like the בפועל cap in `AllocationsService`, so the dialog lets the operator proceed on purpose. Keep this working for every future change to the issue flow or the allocation model — it is a standing product requirement, not a one-off feature.
 
 ## Current nav/feature scope

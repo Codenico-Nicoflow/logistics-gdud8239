@@ -147,6 +147,14 @@ function NamingIcon() {
     </svg>
   );
 }
+function KitsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
+      <rect x="3" y="7" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 7V5.5A1.5 1.5 0 0 1 8.5 4h3A1.5 1.5 0 0 1 13 5.5V7M3 11h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
 function SecurityIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -238,6 +246,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
     items: [
       { to: '/catalog', label: he.nav.catalog, icon: <CatalogIcon />, roles: ['admin'] },
       { to: '/intake', label: he.nav.intake, icon: <IntakeIcon />, roles: ['admin'] },
+      { to: '/kits', label: he.nav.kits, icon: <KitsIcon />, roles: ['admin'] },
       { to: '/naming', label: he.nav.naming, icon: <NamingIcon />, roles: ['admin'] },
       { to: '/users', label: he.nav.users, icon: <UsersIcon />, roles: ['admin'] },
       { to: '/backups', label: he.nav.backups, icon: <BackupsIcon />, roles: ['admin'] },

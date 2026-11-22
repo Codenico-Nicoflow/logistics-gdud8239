@@ -5,6 +5,9 @@ import type {
   CountSheet,
   CountShift,
   DeletionCheck,
+  ItemKitChange,
+  ItemKitDetail,
+  ItemKitSummary,
   ItemCategory,
   InstanceStatus,
   DbBackup,
@@ -100,6 +103,7 @@ export const api = createApi({
     'ServicePeriods',
     'Allocations',
     'IssueForms',
+    'Kits',
   ],
   endpoints: (build) => ({
     // --- auth ---
@@ -418,14 +422,34 @@ export const api = createApi({
     }),
     updateItem: build.mutation<Item, { id: string } & Partial<Item>>({
       query: ({ id, ...body }) => ({ url: `/items/${id}`, method: 'PATCH', body }),
-      invalidatesTags: ['Items', 'Reports'],
+      invalidatesTags: ['Items', 'Reports', 'Kits'],
     }),
     deletionCheck: build.query<DeletionCheck, string>({
       query: (id) => `/items/${id}/deletion-check`,
     }),
     deleteItem: build.mutation<{ deleted: true }, string>({
       query: (id) => ({ url: `/items/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Items', 'Reports'],
+      invalidatesTags: ['Items', 'Reports', 'Kits'],
+    }),
+    // --- kits (ערכות) ---
+    itemKits: build.query<ItemKitSummary[], void>({
+      query: () => '/item-kits',
+      providesTags: ['Kits'],
+    }),
+    itemKit: build.query<ItemKitDetail, string>({
+      query: (baseItemId) => `/item-kits/${baseItemId}`,
+      providesTags: ['Kits'],
+    }),
+    itemKitHistory: build.query<ItemKitChange[], string>({
+      query: (baseItemId) => `/item-kits/${baseItemId}/history`,
+      providesTags: ['Kits'],
+    }),
+    saveItemKit: build.mutation<
+      ItemKitDetail,
+      { baseItemId: string; lines: { itemId: string; quantity: number }[] }
+    >({
+      query: ({ baseItemId, lines }) => ({ url: `/item-kits/${baseItemId}`, method: 'PUT', body: { lines } }),
+      invalidatesTags: ['Kits'],
     }),
     addInstance: build.mutation<ItemInstance, { itemId: string; serial: string }>({
       query: ({ itemId, serial }) => ({
@@ -690,21 +714,10 @@ export const api = createApi({
       invalidatesTags: ['Allocations'],
     }),
 
-    // A personal weapon or נגב going into the basket pulls in its standard
-    // accessories plus anything the soldier's own חלוקה לפי חייל says he's
-    // getting this period (מטולון, מכפל, שחמ, etc). Every soldier allocation
-    // mutation invalidates `Allocations`, so this refetches whenever a
-    // סגן מפקד פלוגה changes what the soldier is eligible for.
-    issueBundle: build.query<IssueBundleLine[], { itemName: string; soldierId: string; alwaysOnly?: boolean }>({
-      query: ({ itemName, soldierId, alwaysOnly }) => ({
-        url: '/issue-bundle',
-        params: { itemName, soldierId, ...(alwaysOnly ? { alwaysOnly: 'true' } : {}) },
-      }),
-      providesTags: ['Allocations'],
-    }),
-    itemPairings: build.query<IssueBundleLine[], string>({
-      query: (itemName) => ({ url: '/item-pairings', params: { itemName } }),
-      providesTags: ['Allocations'],
+    // What always goes out with an item added to the basket: its kit (ערכות), nested kits included.
+    issueBundle: build.query<IssueBundleLine[], string>({
+      query: (itemName) => ({ url: '/issue-bundle', params: { itemName } }),
+      providesTags: ['Kits'],
     }),
 
     // Everything this soldier is entitled to this period — drives the
@@ -787,6 +800,10 @@ export const {
   useCreateItemMutation,
   useUpdateItemMutation,
   useLazyDeletionCheckQuery,
+  useItemKitQuery,
+  useItemKitsQuery,
+  useItemKitHistoryQuery,
+  useSaveItemKitMutation,
   useDeleteItemMutation,
   useAddInstanceMutation,
   useRemoveInstanceMutation,
@@ -838,7 +855,6 @@ export const {
   useSetSoldierAllocationMutation,
   useIssueBundleQuery,
   useLazyIssueBundleQuery,
-  useLazyItemPairingsQuery,
   useSoldierEntitlementQuery,
   useIssueFormsQuery,
   useIssueFormQuery,

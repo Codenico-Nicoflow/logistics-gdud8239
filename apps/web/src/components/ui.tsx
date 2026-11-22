@@ -71,17 +71,41 @@ export function Modal({
   );
 }
 
+/**
+ * Wraps results that are being reloaded after a search or filter changed: dims them and shows a spinner
+ * on top, so stale rows never look like the answer. Wrap only the results, not the controls that
+ * triggered the reload — it blocks pointer input while active.
+ */
+export function Refreshing({ active, children }: { active: boolean; children: ReactNode }) {
+  return (
+    <div className="relative" aria-busy={active}>
+      <div className={active ? 'pointer-events-none opacity-50 transition-opacity' : 'transition-opacity'}>{children}</div>
+      {active && (
+        <div role="status" className="pointer-events-none absolute inset-x-0 top-10 flex justify-center">
+          <span className="flex items-center gap-2 rounded-ctl border border-rule bg-card-raised px-3 py-1.5 text-meta text-graphite shadow-panel">
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-rule-strong border-t-field" />
+            {he.common.loading}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** A titled panel. One radius for panels, another for controls, by design. */
 export function Panel({
   title,
   action,
   children,
   className = '',
+  busy,
 }: {
   title?: string;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** A search or filter is reloading what the panel shows: dim it and say so, instead of leaving stale rows looking final. */
+  busy?: boolean;
 }) {
   return (
     <section
@@ -93,7 +117,7 @@ export function Panel({
           {action}
         </header>
       )}
-      {children}
+      {busy === undefined ? children : <Refreshing active={busy}>{children}</Refreshing>}
     </section>
   );
 }
@@ -294,12 +318,16 @@ export function TextField({
   );
 }
 
+/** How long typing must pause before a search runs on its own. */
+export const SEARCH_DEBOUNCE_MS = 350;
+
 /**
- * A search box that submits on Enter rather than on each keystroke.
+ * A search box that searches when typing pauses, or at once on Enter or the button.
  *
- * Searching per character issued a request for every letter typed, which both
- * wasted the rate-limit budget and made results flicker mid-word. The visible
- * text is local; `onSearch` fires on Enter or on the button.
+ * Searching per character issued a request for every letter typed, which both wasted the rate-limit
+ * budget and made results flicker mid-word. The visible text is local; `onSearch` fires after a short
+ * pause (`debounceMs`, 0 for a filter that runs in the browser and can follow every key), on Enter, or
+ * on the button.
  */
 export function SearchField({
   value,
@@ -307,19 +335,31 @@ export function SearchField({
   placeholder,
   autoFocus,
   className = '',
+  debounceMs = SEARCH_DEBOUNCE_MS,
 }: {
   value: string;
   onSearch: (value: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
   className?: string;
+  debounceMs?: number;
 }) {
   const [draft, setDraft] = useState(value);
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
 
-  // Keep in step when the committed value is changed elsewhere, e.g. cleared.
+  // Keep in step when the committed value is changed elsewhere, e.g. cleared. Not when it is merely the
+  // trimmed echo of what is being typed, or a trailing space ("דנה ") would be eaten mid-name.
   useEffect(() => {
-    setDraft(value);
+    setDraft((current) => (current.trim() === value ? current : value));
   }, [value]);
+
+  useEffect(() => {
+    const next = draft.trim();
+    if (next === value) return;
+    const timer = setTimeout(() => onSearchRef.current(next), debounceMs);
+    return () => clearTimeout(timer);
+  }, [draft, value, debounceMs]);
 
   function commit(): void {
     onSearch(draft.trim());

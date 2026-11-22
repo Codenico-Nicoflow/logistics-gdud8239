@@ -124,23 +124,23 @@ enum DbBackupKind {
 // ---------- auth ----------
 
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
+  id                String    @id @default(uuid())
+  username          String    @unique
   /// Null until a new user opens his invite link and chooses his own password: nobody else ever
   /// knows or sets it, and a user without one cannot log in.
-  passwordHash String?  @map("password_hash")
-  displayName  String   @map("display_name")
-  role         Role
-  companyScope Company? @map("company_scope")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
+  passwordHash      String?   @map("password_hash")
+  displayName       String    @map("display_name")
+  role              Role
+  companyScope      Company?  @map("company_scope")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
   /// A single top-level admin above the regular `admin` role — can edit or
   /// deactivate any user including other admins. A regular admin cannot
   /// touch a super-admin's account or grant this flag to anyone; only
   /// a super-admin can. Role stays `admin` either way, so every existing
   /// `admin`-scoped guard and permission check keeps working unchanged —
   /// this only widens what a super-admin may additionally do in users.service.
-  isSuperAdmin Boolean  @default(false) @map("is_super_admin")
+  isSuperAdmin      Boolean   @default(false) @map("is_super_admin")
   /// Consecutive wrong passwords. Past a threshold the account is locked for a growing
   /// time (`lockedUntil`), counted per ACCOUNT rather than per IP so an attack spread over
   /// many addresses is still stopped. Reset on a successful login.
@@ -299,8 +299,58 @@ model Item {
   companyAllocations CompanyAllocation[]
   onHandOverrides    ServicePeriodItemOverride[]
   soldierAllocations SoldierAllocation[]
+  /// The kit this item is the base of, and every kit it appears in as a line.
+  kit                ItemKit?
+  kitLines           ItemKitLine[]
 
   @@map("items")
+}
+
+/// What always rides along into the 1008 basket when `baseItem` is issued (M-4 → 5 מחסניות, מק פורק, רצועה,
+/// 3 מתפסים) — edited by an admin on the ערכות screen. Optics and the like are NOT kit: a soldier gets those
+/// through his own allocation. Replaces the rules that used to be hardcoded in `issue-bundle-rules.ts`.
+model ItemKit {
+  id         String   @id @default(uuid())
+  baseItemId String   @unique @map("base_item_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  baseItem Item          @relation(fields: [baseItemId], references: [id], onDelete: Cascade)
+  lines    ItemKitLine[]
+
+  @@map("item_kits")
+}
+
+model ItemKitLine {
+  id       String      @id @default(uuid())
+  kitId    String      @map("kit_id")
+  itemId   String      @map("item_id")
+  quantity Int
+  position Int
+
+  kit  ItemKit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  /// Restrict: an item that is still in a kit cannot be deleted from under it.
+  item Item    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([kitId, itemId])
+  @@index([itemId])
+  @@map("item_kit_lines")
+}
+
+/// Append-only history of kit edits (DB trigger, like movements). Holds names, not foreign keys, so
+/// the history stays readable after an item or a user is gone.
+model ItemKitChange {
+  id           String   @id @default(uuid())
+  at           DateTime @default(now())
+  baseItemId   String   @map("base_item_id")
+  baseItemName String   @map("base_item_name")
+  actorName    String   @map("actor_name")
+  /// `[{ itemName, quantity }]` before and after the save.
+  before       Json
+  after        Json
+
+  @@index([baseItemId, at])
+  @@map("item_kit_changes")
 }
 
 model ItemInstance {

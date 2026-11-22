@@ -105,7 +105,7 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
-        <Panel className={selected ? 'hidden lg:block' : ''}>
+        <Panel className={selected ? 'hidden lg:block' : ''} busy={isFetching && !isLoading}>
           {isLoading ? (
             <Spinner />
           ) : (data?.rows.length ?? 0) === 0 ? (
@@ -141,7 +141,6 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
               {data && (
                 <div className="border-t border-rule px-4 py-2.5 text-end text-meta text-graphite">
                   {he.signatures.soldierCount(data.total)}
-                  {isFetching && ` · ${he.common.loading}`}
                 </div>
               )}
             </>
