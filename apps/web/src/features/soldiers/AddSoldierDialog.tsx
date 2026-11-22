@@ -56,7 +56,13 @@ export function AddSoldierDialog({
     // decided, so it is not asked again.
     if (duplicates === null) {
       const found = await checkDuplicate(payload());
-      const matches = 'data' in found ? (found.data ?? []) : [];
+      // A failed check is not "no duplicates": stop and say so, so the operator can retry rather than
+      // creating a soldier the check never looked at.
+      if (!('data' in found) || !found.data) {
+        toast.error({ title: he.soldiers.duplicateCheckFailed, detail: apiErrorMessage('error' in found ? found.error : null) ?? undefined });
+        return;
+      }
+      const matches = found.data;
       if (matches.length > 0) {
         setDuplicates(matches);
         return;
