@@ -489,7 +489,17 @@ export const api = createApi({
     // --- authenticator app: step 2 of signing in (public, with the step token) ---
     mfaVerify: build.mutation<{ user: AuthUser }, { mfaToken: string; code: string }>({
       query: (body) => ({ url: '/auth/mfa/verify', method: 'POST', body }),
-      invalidatesTags: ['Auth'],
+      // Success only. `invalidatesTags` also fires for a REFUSED mutation, so a wrong code re-checked who is
+      // signed in (a 401), the app showed a spinner and rebuilt the login page, and the person was thrown back
+      // to the password form with no message. Same trap as `login` above.
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(api.util.invalidateTags(['Auth']));
+        } catch {
+          // The wrong-code message comes from the mutation's own error state.
+        }
+      },
     }),
     mfaEnrolStart: build.mutation<MfaEnrolStart, { mfaToken: string }>({
       query: (body) => ({ url: '/auth/mfa/enrol/start', method: 'POST', body }),
