@@ -71,6 +71,30 @@ describe('login: the step after the password', () => {
     expect(await screen.findByText('הקוד שגוי או שפג תוקפו. נסו שוב')).toBeTruthy();
   });
 
+  it('a wrong code keeps the code step and its message (does not re-check the session and rebuild the page)', async () => {
+    // Found in the real browser: a refused mutation still invalidates its tags, so the wrong code re-fetched `me`,
+    // the 401 flipped the app to a spinner, and the person landed back on the password form with no message.
+    respond({
+      ...NOT_SIGNED_IN,
+      '/api/auth/login': { status: 200, body: { step: 'totp', mfaToken: 'tok' } },
+      '/api/auth/mfa/verify': { status: 401, body: { message: 'הקוד שגוי או שפג תוקפו. נסו שוב' } },
+    });
+    mount('/');
+    await submitPassword();
+    const code = (await screen.findByLabelText(new RegExp(he.mfa.codeLabel))) as HTMLInputElement;
+    fireEvent.change(code, { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: he.mfa.verify }));
+    await screen.findByText('הקוד שגוי או שפג תוקפו. נסו שוב');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.getByRole('heading', { name: he.mfa.stepTitle })).toBeTruthy();
+    expect(screen.getByText('הקוד שגוי או שפג תוקפו. נסו שוב')).toBeTruthy();
+    expect(document.querySelector('input[type=password]')).toBeNull();
+    const meCalls = (fetch as unknown as { mock: { calls: [Request | string][] } }).mock.calls.filter(([input]) =>
+      (typeof input === 'string' ? input : input.url).includes('/api/auth/me'),
+    );
+    expect(meCalls).toHaveLength(1);
+  });
+
   it('starts setting the app up when it is required and the person has none', async () => {
     respond({
       ...NOT_SIGNED_IN,
