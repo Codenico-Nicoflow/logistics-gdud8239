@@ -6,7 +6,7 @@ import type { CreateServicePeriodDto, UpdateServicePeriodDto } from './dto/servi
 import type { SetCompanyAllocationDto } from './dto/company-allocation.dto';
 import type { SetOnHandOverrideDto } from './dto/on-hand-override.dto';
 import type { SetSoldierAllocationDto } from './dto/soldier-allocation.dto';
-import { bundleRuleFor, pairingsFor } from './issue-bundle-rules';
+import { ItemKitsService } from '../item-kits/item-kits.service';
 import { computeOnHand } from './compute-on-hand';
 
 const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
@@ -19,7 +19,10 @@ const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
  */
 @Injectable()
 export class AllocationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly itemKits: ItemKitsService,
+  ) {}
 
   // ---------- service periods ----------
 
@@ -396,87 +399,15 @@ export class AllocationsService {
   }
 
   /**
-   * Hard pairings only (no eligibility, no weapon-bundle context) — used by
-   * the entitlement pick-list, where each row is added on its own. Toggling
-   * מטולון on there still needs to pull in M-203 (it requires a מסד and the
-   * battalion never hands one out without the other), without also dragging
-   * in the rest of a weapon's optional accessory bundle.
+   * What rides along with an item in the 1008 basket — the kit an admin built on the ערכות screen.
+   * `alwaysOnly` is for the entitlement pick-list, where every optional item is already its own row.
    */
-  async findItemPairings(itemName: string) {
-    const names = pairingsFor(itemName).map((l) => l.itemName);
-    if (names.length === 0) return [];
-    const items = await this.prisma.item.findMany({ where: { name: { in: names }, isActive: true } });
-    const quantityByName = new Map(pairingsFor(itemName).map((l) => [l.itemName, l.quantity]));
-    return items.map((item) => ({ item, quantity: quantityByName.get(item.name) ?? 1 }));
+  findIssueBundle(baseItemName: string, soldierId: string, alwaysOnly = false) {
+    return this.itemKits.resolve(baseItemName, soldierId, alwaysOnly);
   }
 
-  // ---------- ניפוק bundle expansion ----------
-
-  /**
-   * When a personal weapon (M-4/M-16/קלע variants) or נגב goes into the 1008
-   * basket, this returns everything that should ride along with it: the
-   * standard accessories always, plus anything the soldier's own
-   * SoldierAllocation says he's actually getting this period (מטולון, מכפל,
-   * שחמ, etc). Every returned line is a plain basket line afterward — the
-   * operator can still edit the quantity or remove any of them before
-   * signing, same as a manually-added line.
-   *
-   * Eligibility only ever widens what the operator *may* add, never forces a
-   * weapon in — issuing the base item itself still goes through the existing
-   * BasketStep flow (serial, over-allocation warning) untouched.
-   *
-   * `alwaysOnly` skips the eligibility expansion entirely — used when a
-   * weapon is checked from the entitlement pick-list rather than added via
-   * search. There, every optional accessory (מטולון, מכפל, שחמ, …) is
-   * already its own separate row in that same list for the operator to tick
-   * on its own; only the non-optional load (מחסניות, מק פורק, רצועה) should
-   * come along automatically, same as the weapon itself not being a choice
-   * once it's in the basket.
-   */
-  async findIssueBundle(baseItemName: string, soldierId: string, alwaysOnly = false) {
-    const rule = bundleRuleFor(baseItemName);
-    if (!rule) return [];
-
-    const eligibleNames = new Set<string>();
-    if (!alwaysOnly) {
-      const activePeriod = await this.prisma.servicePeriod.findFirst({ where: { status: 'ACTIVE' } });
-      if (activePeriod && rule.ifEligible.length > 0) {
-        const allocations = await this.prisma.soldierAllocation.findMany({
-          where: {
-            servicePeriodId: activePeriod.id,
-            soldierId,
-            quantity: { gt: 0 },
-            item: { name: { in: rule.ifEligible.map((l) => l.itemName) } },
-          },
-          include: { item: true },
-        });
-        for (const a of allocations) eligibleNames.add(a.item.name);
-      }
-    }
-
-    const wantedLines = [
-      ...rule.always,
-      ...rule.ifEligible.filter((l) => eligibleNames.has(l.itemName)),
-    ];
-    // Hard pairings chain off whatever just got included above — right now
-    // that's just מטולון pulling in M-203, regardless of which list מטולון
-    // itself came from.
-    for (const line of [...wantedLines]) {
-      for (const paired of pairingsFor(line.itemName)) {
-        if (!wantedLines.some((l) => l.itemName === paired.itemName)) wantedLines.push(paired);
-      }
-    }
-
-    const wantedNames = wantedLines.map((l) => l.itemName);
-    if (wantedNames.length === 0) return [];
-
-    const items = await this.prisma.item.findMany({ where: { name: { in: wantedNames }, isActive: true } });
-    const itemByName = new Map(items.map((i) => [i.name, i]));
-    const quantityByName = new Map(wantedLines.map((l) => [l.itemName, l.quantity]));
-
-    return wantedNames
-      .map((name) => itemByName.get(name))
-      .filter((item): item is NonNullable<typeof item> => item !== undefined)
-      .map((item) => ({ item, quantity: quantityByName.get(item.name) ?? 1 }));
+  /** The always-lines of an item's kit, with no soldier in play (מטולון → M-203). */
+  findItemPairings(itemName: string) {
+    return this.itemKits.resolve(itemName, null, true);
   }
 }

@@ -16,6 +16,7 @@ import { BackupsPage } from '../features/backups/BackupsPage';
 import { CountsPage } from '../features/counts/CountsPage';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 import { IntakePage } from '../features/intake/IntakePage';
+import { KitsPage } from '../features/kits/KitsPage';
 import { NamingPage } from '../features/naming/NamingPage';
 import { CompanySplitPage } from '../features/allocations/CompanySplitPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -99,6 +100,7 @@ function AuthenticatedApp() {
         )}
         {isAdmin && <Route path="catalog" element={<CatalogPage />} />}
         {isAdmin && <Route path="intake" element={<IntakePage />} />}
+        {isAdmin && <Route path="kits" element={<KitsPage />} />}
         {isAdmin && <Route path="naming" element={<NamingPage />} />}
         {isAdmin && <Route path="users" element={<UsersPage currentUserId={user.id} />} />}
         {isAdmin && <Route path="backups" element={<BackupsPage />} />}

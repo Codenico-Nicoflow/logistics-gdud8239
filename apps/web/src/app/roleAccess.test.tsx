@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 const NAV_BY_ROLE: Record<Role, string[]> = {
-  admin: ['issue', 'documents', 'servicePeriods', 'companySplit', 'companyAllocation', 'ifsun', 'soldiers', 'dailyMovements', 'attendance', 'summary', 'counts', 'catalog', 'intake', 'naming', 'users', 'backups', 'security'],
+  admin: ['issue', 'documents', 'servicePeriods', 'companySplit', 'companyAllocation', 'ifsun', 'soldiers', 'dailyMovements', 'attendance', 'summary', 'counts', 'catalog', 'intake', 'kits', 'naming', 'users', 'backups', 'security'],
   logistics: ['issue', 'documents', 'servicePeriods', 'companySplit', 'ifsun', 'soldiers', 'dailyMovements', 'attendance', 'summary', 'counts', 'security'],
   viewer: ['documents', 'soldiers', 'security'],
   SHLISHUT: ['soldiers', 'security'],

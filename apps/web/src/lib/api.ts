@@ -5,6 +5,10 @@ import type {
   CountSheet,
   CountShift,
   DeletionCheck,
+  ItemKitChange,
+  ItemKitDetail,
+  ItemKitSummary,
+  KitLineMode,
   ItemCategory,
   InstanceStatus,
   DbBackup,
@@ -100,6 +104,7 @@ export const api = createApi({
     'ServicePeriods',
     'Allocations',
     'IssueForms',
+    'Kits',
   ],
   endpoints: (build) => ({
     // --- auth ---
@@ -418,14 +423,34 @@ export const api = createApi({
     }),
     updateItem: build.mutation<Item, { id: string } & Partial<Item>>({
       query: ({ id, ...body }) => ({ url: `/items/${id}`, method: 'PATCH', body }),
-      invalidatesTags: ['Items', 'Reports'],
+      invalidatesTags: ['Items', 'Reports', 'Kits'],
     }),
     deletionCheck: build.query<DeletionCheck, string>({
       query: (id) => `/items/${id}/deletion-check`,
     }),
     deleteItem: build.mutation<{ deleted: true }, string>({
       query: (id) => ({ url: `/items/${id}`, method: 'DELETE' }),
-      invalidatesTags: ['Items', 'Reports'],
+      invalidatesTags: ['Items', 'Reports', 'Kits'],
+    }),
+    // --- kits (ערכות) ---
+    itemKits: build.query<ItemKitSummary[], void>({
+      query: () => '/item-kits',
+      providesTags: ['Kits'],
+    }),
+    itemKit: build.query<ItemKitDetail, string>({
+      query: (baseItemId) => `/item-kits/${baseItemId}`,
+      providesTags: ['Kits'],
+    }),
+    itemKitHistory: build.query<ItemKitChange[], string>({
+      query: (baseItemId) => `/item-kits/${baseItemId}/history`,
+      providesTags: ['Kits'],
+    }),
+    saveItemKit: build.mutation<
+      ItemKitDetail,
+      { baseItemId: string; lines: { itemId: string; quantity: number; mode: KitLineMode }[] }
+    >({
+      query: ({ baseItemId, lines }) => ({ url: `/item-kits/${baseItemId}`, method: 'PUT', body: { lines } }),
+      invalidatesTags: ['Kits'],
     }),
     addInstance: build.mutation<ItemInstance, { itemId: string; serial: string }>({
       query: ({ itemId, serial }) => ({
@@ -787,6 +812,10 @@ export const {
   useCreateItemMutation,
   useUpdateItemMutation,
   useLazyDeletionCheckQuery,
+  useItemKitQuery,
+  useItemKitsQuery,
+  useItemKitHistoryQuery,
+  useSaveItemKitMutation,
   useDeleteItemMutation,
   useAddInstanceMutation,
   useRemoveInstanceMutation,

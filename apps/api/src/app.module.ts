@@ -13,6 +13,7 @@ import { ItemsModule } from './items/items.module';
 import { SignaturesModule } from './signatures/signatures.module';
 import { IssueFormsModule } from './issue-forms/issue-forms.module';
 import { AllocationsModule } from './allocations/allocations.module';
+import { ItemKitsModule } from './item-kits/item-kits.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { IntakeModule } from './intake/intake.module';
 import { MovementsModule } from './movements/movements.module';
@@ -96,6 +97,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     SignaturesModule,
     IssueFormsModule,
     AllocationsModule,
+    ItemKitsModule,
     PermissionsModule,
     IntakeModule,
     MovementsModule,
