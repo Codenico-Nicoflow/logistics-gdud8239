@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { he } from '../i18n/he';
 import type { ItemCategory } from '../lib/types';
 
+/** Open dialogs, oldest first; Escape only reaches the last. */
+const openModals: object[] = [];
+
 /**
  * A modal backdrop + panel. Closes on a genuine click of the backdrop, but
  * not when the mousedown that started the click began inside the panel —
@@ -23,6 +26,25 @@ export function Modal({
   children: ReactNode;
 }) {
   const downOnBackdrop = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // Escape closes the dialog, like a click on the backdrop. Only the topmost one: a confirmation opened over
+  // another dialog must not take the dialog underneath with it.
+  useEffect(() => {
+    const me = {};
+    openModals.push(me);
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape' || e.defaultPrevented || openModals[openModals.length - 1] !== me) return;
+      e.preventDefault();
+      onCloseRef.current();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      openModals.splice(openModals.indexOf(me), 1);
+    };
+  }, []);
 
   return (
     <div
