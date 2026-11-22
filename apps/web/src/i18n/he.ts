@@ -238,6 +238,7 @@ export const he = {
     showInactive: 'כלול לא פעילים',
     inactive: 'לא פעיל',
     attached: 'מסופח',
+    duplicateCheckFailed: 'לא ניתן היה לבדוק אם החייל כבר קיים. נסו שוב.',
     attachedFilter: 'מסופחים בלבד',
     attachedHint: 'מסופח — חייל שמשרת בגדוד זמנית, למשל לתעסוקה מסוימת',
     nothing: '—',
