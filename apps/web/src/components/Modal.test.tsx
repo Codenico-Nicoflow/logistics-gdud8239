@@ -25,10 +25,11 @@ describe('Modal and the Escape key', () => {
     const outer = vi.fn();
     const inner = vi.fn();
     function Stack() {
-      const [showInner, setShowInner] = useState(true);
+      const [showInner, setShowInner] = useState(false);
       return (
         <Modal onClose={outer}>
           <p>outer</p>
+          <button onClick={() => setShowInner(true)}>open inner</button>
           {showInner && (
             <Modal onClose={() => { inner(); setShowInner(false); }}>
               <p>inner</p>
@@ -37,7 +38,9 @@ describe('Modal and the Escape key', () => {
         </Modal>
       );
     }
-    render(<Stack />);
+    const { getByText } = render(<Stack />);
+    // Opened later, like a confirmation raised from inside a dialog.
+    fireEvent.click(getByText('open inner'));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(inner).toHaveBeenCalledTimes(1);
     expect(outer).not.toHaveBeenCalled();
