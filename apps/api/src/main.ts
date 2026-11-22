@@ -1,11 +1,12 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { appValidationPipe } from './common/validation-pipe';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { normalizeOrigin, originCheck } from './common/origin-check.middleware';
 
@@ -55,12 +56,7 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
+    appValidationPipe(),
   );
 
   app.enableShutdownHooks();
