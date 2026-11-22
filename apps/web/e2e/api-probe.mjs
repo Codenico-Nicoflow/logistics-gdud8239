@@ -69,11 +69,10 @@ const MATRIX = [
   ['POST', '/api/ifsun', ['admin', 'logistics'], {}],
   ['POST', '/api/attendance/cells', ['admin'], {}],
   ['POST', '/api/attendance/members', ['admin'], {}],
-  ['POST', '/api/attendance/send-week', ['admin'], {}],
+  // POST /api/attendance/send-week is deliberately NOT here: as an allowed role it really posts to Slack.
   ['POST', '/api/mesakem', ['admin', 'logistics'], {}],
   ['POST', '/api/service-periods', ['admin'], {}],
   ['POST', '/api/permissions', ['admin'], {}],
-  ['POST', '/api/db-backups/' + UUID + '/send-to-slack', ['admin'], {}],
   ['DELETE', `/api/users/${UUID}`, ['admin']],
   ['DELETE', `/api/items/${UUID}`, ['admin']],
   ['DELETE', `/api/counts/${UUID}`, ['admin'], { reason: 'abc' }],

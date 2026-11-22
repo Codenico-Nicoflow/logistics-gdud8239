@@ -8,10 +8,11 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
-    port: 5173,
+    port: Number(process.env.WEB_PORT ?? 5173),
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        // Overridable so the browser e2e run can talk to its own API without disturbing the one on :3000.
+        target: process.env.API_TARGET ?? 'http://localhost:3000',
         changeOrigin: true,
       },
     },
