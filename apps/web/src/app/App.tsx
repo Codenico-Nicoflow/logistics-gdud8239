@@ -39,6 +39,8 @@ function defaultPathFor(role: Role): string {
   if (role === 'SHLISHUT') return '/soldiers';
   if (role === 'SAMGAD') return '/service-periods';
   if (role === 'COMPANY_CMDR') return '/company-allocation';
+  // A viewer has no ניפוק; sending it there bounced between the catch-all and the index forever.
+  if (role === 'viewer') return '/documents';
   return '/issue';
 }
 

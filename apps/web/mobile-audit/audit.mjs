@@ -31,7 +31,7 @@ const ENGINE = arg('engine', 'webkit');
 const ROUTES = [
   '/issue', '/documents', '/service-periods', '/company-split', '/company-allocation', '/ifsun', '/soldiers',
   '/daily-movements', '/attendance', '/summary', '/counts', '/catalog', '/intake', '/naming', '/users',
-  '/backups', '/devices',
+  '/backups', '/security',
 ].filter((r) => !ONLY || ONLY.split(',').includes(r));
 
 /**
@@ -47,7 +47,6 @@ const INTERACTIONS = [
   ['/ifsun', 'new-ifsun', 'אפסון חדש'],
   ['/attendance', 'add-member', 'הוסף חבר צוות'],
   ['/attendance', 'send-week', 'שלח לסלאק'],
-  ['/devices', 'devices', 'הוספת מכשיר'],
 ].filter(([r]) => !ONLY || ONLY.split(',').includes(r));
 
 /**
