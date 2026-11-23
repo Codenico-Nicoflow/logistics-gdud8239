@@ -24,8 +24,8 @@ afterEach(() => {
 });
 
 const NAV_BY_ROLE: Record<Role, string[]> = {
-  admin: ['issue', 'documents', 'servicePeriods', 'companySplit', 'companyAllocation', 'ifsun', 'soldiers', 'dailyMovements', 'attendance', 'summary', 'counts', 'catalog', 'intake', 'kits', 'naming', 'users', 'backups', 'security'],
-  logistics: ['issue', 'documents', 'servicePeriods', 'companySplit', 'ifsun', 'soldiers', 'dailyMovements', 'attendance', 'summary', 'counts', 'security'],
+  admin: ['issue', 'documents', 'servicePeriods', 'companySplit', 'companyAllocation', 'ifsun', 'soldiers', 'dailyMovements', 'attendance', 'summary', 'counts', 'catalog', 'intake', 'kits', 'naming', 'users', 'backups', 'help', 'security'],
+  logistics: ['issue', 'documents', 'servicePeriods', 'companySplit', 'ifsun', 'soldiers', 'dailyMovements', 'attendance', 'summary', 'counts', 'help', 'security'],
   viewer: ['documents', 'soldiers', 'security'],
   SHLISHUT: ['soldiers', 'security'],
   SAMGAD: ['servicePeriods', 'companySplit', 'soldiers', 'security'],
@@ -77,6 +77,9 @@ describe('typing a forbidden address', () => {
     ['viewer', '/users'],
     ['viewer', '/catalog'],
     ['viewer', '/backups'],
+    ['viewer', '/help'],
+    ['SHLISHUT', '/help'],
+    ['SAMGAD', '/help'],
     ['logistics', '/users'],
     ['logistics', '/catalog'],
     ['logistics', '/backups'],

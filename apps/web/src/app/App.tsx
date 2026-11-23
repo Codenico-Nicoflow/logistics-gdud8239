@@ -16,6 +16,7 @@ import { BackupsPage } from '../features/backups/BackupsPage';
 import { CountsPage } from '../features/counts/CountsPage';
 import { CatalogPage } from '../features/catalog/CatalogPage';
 import { IntakePage } from '../features/intake/IntakePage';
+import { HelpPage } from '../features/help/HelpPage';
 import { KitsPage } from '../features/kits/KitsPage';
 import { NamingPage } from '../features/naming/NamingPage';
 import { CompanySplitPage } from '../features/allocations/CompanySplitPage';
@@ -104,6 +105,7 @@ function AuthenticatedApp() {
         {isAdmin && <Route path="naming" element={<NamingPage />} />}
         {isAdmin && <Route path="users" element={<UsersPage currentUserId={user.id} />} />}
         {isAdmin && <Route path="backups" element={<BackupsPage />} />}
+        {can(['admin', 'logistics']) && <Route path="help" element={<HelpPage user={user} />} />}
         <Route path="security" element={<SecurityPage />} />
         <Route path="*" element={<Navigate to={defaultPathFor(user.role)} replace />} />
       </Route>
