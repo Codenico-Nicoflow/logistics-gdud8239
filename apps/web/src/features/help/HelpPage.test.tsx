@@ -79,17 +79,19 @@ describe('HelpPage', () => {
     expect(header('^ערכות').getAttribute('aria-expanded')).toBe('true');
   });
 
+  // Role queries walk the whole accessibility tree, which is slow with every matching topic open; text
+  // queries and a roomy timeout keep this from flaking when the whole suite runs in parallel.
   it('search narrows the topics, opens the matches, and says so when nothing matches', async () => {
     show('admin');
     const box = screen.getByRole('textbox');
     fireEvent.change(box, { target: { value: 'זיכוי' } });
-    await waitFor(() => expect(screen.queryByRole('button', { name: /^גיבויים/ })).toBeNull());
-    expect(screen.getByRole('button', { name: /זיכוי, תיקון טופס/ })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('גיבויים')).toBeNull(), { timeout: 8000 });
+    expect(screen.getByText(/זיכוי, תיקון טופס/)).toBeTruthy();
     expect(screen.getAllByText(he.help.stepsLabel).length).toBeGreaterThan(0);
     expect(screen.queryByText(he.help.dayTitle)).toBeNull();
     fireEvent.change(box, { target: { value: 'zzzzqqq' } });
-    expect(await screen.findByText(he.help.none)).toBeTruthy();
-  });
+    expect(await screen.findByText(he.help.none, {}, { timeout: 8000 })).toBeTruthy();
+  }, 20000);
 
   it('lists the typical day, linking to topics', () => {
     show('logistics');

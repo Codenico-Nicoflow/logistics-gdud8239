@@ -34,7 +34,11 @@ export function HelpPage({ user }: { user: AuthUser }) {
     if (!hash) return;
     const id = hash.slice(1);
     setOpen((cur) => new Set(cur).add(id));
-    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    // `scrollIntoView` is missing in some environments (jsdom), so it is optional rather than assumed.
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }),
+    );
+    return () => cancelAnimationFrame(frame);
   }, [hash]);
 
   const toggle = (id: string): void =>
