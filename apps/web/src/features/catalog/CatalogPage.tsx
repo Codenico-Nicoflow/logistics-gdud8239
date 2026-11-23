@@ -87,6 +87,7 @@ export function CatalogPage() {
                     </div>
                   ))}
                 </dl>
+                <RepairSerialsLine item={item} />
                 <div className="grid grid-cols-3 gap-2">
                   <Button variant="quiet" size="sm" onClick={() => setViewingInstances(item)}>
                     {he.catalog.instances}
@@ -150,7 +151,10 @@ export function CatalogPage() {
                     </button>
                   </Td>
                   <Td numeric>{item.yamahQty}</Td>
-                  <Td numeric>{item.repairQty}</Td>
+                  <Td numeric>
+                    {item.repairQty}
+                    <RepairSerialsLine item={item} compact />
+                  </Td>
                   <Td numeric className="font-semibold">
                     {item.authorizedQty - item.yamahQty - item.repairQty}
                   </Td>
@@ -511,6 +515,7 @@ function ItemDialog({
   const [authorizedQty, setAuthorizedQty] = useState(String(item?.authorizedQty ?? 0));
   const [yamahQty, setYamahQty] = useState(String(item?.yamahQty ?? 0));
   const [repairQty, setRepairQty] = useState(String(item?.repairQty ?? 0));
+  const [repairSerials, setRepairSerials] = useState<string[]>(item?.repairSerials ?? []);
   const [aliases, setAliases] = useState((item?.aliases ?? []).join(', '));
 
   const [create, createState] = useCreateItemMutation();
@@ -533,7 +538,8 @@ function ItemDialog({
       inSummary,
       authorizedQty: matsevaIsDerived ? item.authorizedQty : Number(authorizedQty) || 0,
       yamahQty: Number(yamahQty) || 0,
-      repairQty: Number(repairQty) || 0,
+      // A serialized item's repair list is its מסדים marked בתיקון (derived), so nothing is sent for it.
+      ...(isSerialized ? {} : { repairQty: Number(repairQty) || 0, repairSerials }),
       aliases: aliases
         .split(',')
         .map((a) => a.trim())
@@ -608,13 +614,33 @@ function ItemDialog({
         type="number"
         required
       />
-      <TextField
-        label={he.catalog.repairQty}
-        value={repairQty}
-        onChange={setRepairQty}
-        type="number"
-        required
-      />
+      {isSerialized ? (
+        item && (
+          <div className="rounded-ctl border border-rule bg-card px-3 py-2">
+            <span className="block text-meta text-graphite">{he.catalog.repairQty}</span>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span className="font-semibold">{he.catalog.repairDerived(item.repairQty)}</span>
+              {onManageInstances && (
+                <button onClick={onManageInstances} className="text-meta font-semibold text-field-dark hover:underline">
+                  {he.catalog.manageInstances}
+                </button>
+              )}
+            </div>
+            <RepairSerialsLine item={item} />
+          </div>
+        )
+      ) : (
+        <>
+          <TextField
+            label={he.catalog.repairQty}
+            value={repairQty}
+            onChange={setRepairQty}
+            type="number"
+            required
+          />
+          <RepairSerialsEditor serials={repairSerials} onChange={setRepairSerials} units={Number(repairQty) || 0} />
+        </>
+      )}
       <TextField
         label={he.catalog.aliases}
         value={aliases}
@@ -797,5 +823,85 @@ function SummaryToggle({ item }: { item: Item }) {
       />
       <span className="sm:hidden">{he.catalog.inSummary}</span>
     </label>
+  );
+}
+
+/** The מסדים of what is in repair, under the count. Nothing is drawn when there are none to show. */
+function RepairSerialsLine({ item, compact = false }: { item: Item; compact?: boolean }) {
+  if (item.repairSerials.length === 0) return null;
+  return (
+    <div className={`serial text-micro text-graphite ${compact ? 'mt-0.5 font-normal' : ''}`} title={item.repairSerials.join(', ')}>
+      {he.catalog.inRepairSerials(item.repairSerials.join(', '))}
+    </div>
+  );
+}
+
+/**
+ * The מסדים of the bulk units in repair, kept beside the typed count. A unit may have no מסד, so the list can
+ * be shorter than the count but never longer — adding stops at the count.
+ */
+export function RepairSerialsEditor({
+  serials,
+  onChange,
+  units,
+}: {
+  serials: string[];
+  onChange: (next: string[]) => void;
+  units: number;
+}) {
+  const [draft, setDraft] = useState('');
+  const full = serials.length >= units;
+  const typed = draft.trim();
+  const duplicate = serials.some((s) => s.toLowerCase() === typed.toLowerCase());
+
+  function add(): void {
+    if (!typed || full || duplicate) return;
+    onChange([...serials, typed]);
+    setDraft('');
+  }
+
+  return (
+    <div className="space-y-2">
+      <span className="block text-meta font-semibold text-ink-soft">{he.catalog.repairSerials}</span>
+      {serials.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5">
+          {serials.map((serial) => (
+            <li key={serial} className="serial inline-flex items-center gap-1 rounded-ctl border border-rule bg-card px-2 py-1 text-meta">
+              {serial}
+              <button
+                type="button"
+                onClick={() => onChange(serials.filter((s) => s !== serial))}
+                className="text-graphite hover:text-oxide"
+              >
+                <span aria-hidden="true">✕</span>
+                <span className="sr-only">{he.catalog.removeRepairSerial(serial)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder={he.catalog.repairSerialPlaceholder}
+          maxLength={60}
+          disabled={full}
+          className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:opacity-50"
+        />
+        <Button variant="quiet" onClick={add} disabled={full || !typed || duplicate}>
+          {he.catalog.addRepairSerial}
+        </Button>
+      </div>
+      <p className="text-meta text-graphite">
+        {duplicate && typed ? he.catalog.repairSerialDuplicate : full && units > 0 ? he.catalog.repairLimitReached : he.catalog.repairSerialsHint(serials.length, units)}
+      </p>
+    </div>
   );
 }

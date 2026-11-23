@@ -13,7 +13,7 @@ const literal = (s: string): RegExp => new RegExp(s.replace(/[.*+?^${}()|[\]\\]/
 
 const item = (id: string, name: string, extra: Partial<Item> = {}): Item => ({
   id, name, aliases: [], category: 'GEAR', isSerialized: false, inSummary: true, authorizedQty: 0, yamahQty: 0,
-  repairQty: 0, defaultQty: 1, unitOfMeasure: "יח'", unitPrice: null, isActive: true, ...extra,
+  repairQty: 0, repairSerials: [], defaultQty: 1, unitOfMeasure: "יח'", unitPrice: null, isActive: true, ...extra,
 });
 const RIFLE = item('rifle', 'M-4', { category: 'WEAPON' });
 const MAG = item('mag', 'מחסנית');

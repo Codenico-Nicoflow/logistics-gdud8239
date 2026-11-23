@@ -65,6 +65,15 @@ export class CreateItemDto {
   @Max(1_000_000)
   repairQty?: number;
 
+  /** The מסדים of the bulk units in repair (at most `repairQty`; a unit may have none). Ignored for a
+   *  serialized item, whose repair list is its instances marked IN_REPAIR. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(60, { each: true })
+  repairSerials?: string[];
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
