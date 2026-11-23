@@ -26,7 +26,7 @@ describe('renderIssueForm layout', () => {
   it('stretches the sheet to a full page, signatures last, for an ordinary form', () => {
     const html = renderIssueForm(form(6), 'n');
     expect(html).toContain('class="sheet"');
-    expect(html).toMatch(/min-height:\s*296mm/);
+    expect(html).toMatch(/min-height:\s*207mm/);
     // The signing block comes after the item table, so it sits at the foot of the page.
     expect(html.indexOf('class="items"')).toBeLessThan(html.indexOf('class="parties"'));
   });

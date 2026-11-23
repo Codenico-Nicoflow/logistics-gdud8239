@@ -156,7 +156,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
   .narrow { width: 9%; }
   .desc { width: 32%; }
   /* Every row starts at the same height, so the extra room the table takes up is shared evenly: filled and ruled-empty rows look alike. */
-  tbody td { height: 18pt; }
+  tbody td { height: 22pt; }
   tr.blank td.narrow { color: #777; font-weight: 400; }
 
   .declaration { font-size: 9.5pt; margin: 0 0 8pt; }
@@ -166,11 +166,11 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
   .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; }
   .party { border: 1px solid #000; }
   .party h2 { font-size: 10pt; margin: 0; padding: 3.5pt 7pt; background: #e8e8e8; border-bottom: 1px solid #000; }
-  .party .fields { padding: 5pt 7pt; }
-  .field { display: flex; gap: 6pt; align-items: baseline; margin-bottom: 4pt; }
+  .party .fields { padding: 3pt 7pt; }
+  .field { display: flex; gap: 6pt; align-items: baseline; margin-bottom: 3pt; }
   .field > span:first-child { font-size: 9pt; width: 58pt; flex: none; }
   .field > span:last-child { flex: 1; border-bottom: 1px solid #000; min-height: 13pt; font-weight: 600; }
-  .sign-slot { height: 24mm; border: 1px solid #000; margin: 4pt 7pt 7pt; display: flex; align-items: center; justify-content: center; }
+  .sign-slot { height: 20mm; border: 1px solid #000; margin: 4pt 7pt 7pt; display: flex; align-items: center; justify-content: center; }
   .sign-slot img { max-width: 94%; max-height: 94%; }
   .sign-slot .cap { font-size: 8.5pt; color: #666; }
 
@@ -178,7 +178,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
 
   @media screen {
     body { background: #e9ece9; padding: 16px; }
-    .sheet { background: #fff; padding: 12mm; min-height: 297mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+    .sheet { background: #fff; padding: 12mm; min-height: 208mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
     .print-bar { max-width: 210mm; margin: 0 auto 12px; }
     .print-bar button {
       font: inherit; font-weight: 600; cursor: pointer;
@@ -187,8 +187,8 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
   }
   @media print {
     .print-bar { display: none; }
-    /* A hair under 297mm: an exact-height box tips onto a blank second page in Chrome. */
-    .sheet { width: 210mm; max-width: none; padding: 12mm; min-height: 296mm; }
+    /* A hair under 208mm (70% of A4): an exact-height box can tip onto a blank second page in Chrome. */
+    .sheet { width: 210mm; max-width: none; padding: 12mm; min-height: 207mm; }
     .sheet.flow { min-height: 0; }
   }
 </style>
