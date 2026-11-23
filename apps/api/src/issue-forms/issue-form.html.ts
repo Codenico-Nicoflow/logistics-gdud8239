@@ -62,6 +62,9 @@ function formatTime(d: Date): string {
  * Black on white with ruled borders, so it survives a photocopier and no
  * colour carries meaning.
  */
+/** More lines than this and the sheet stops being stretched to a full page and flows over several. */
+export const MAX_FILL_LINES = 14;
+
 export function renderIssueForm(form: FormForPrint, nonce: string): string {
   const rows = form.lines
     .map(
@@ -110,7 +113,16 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
     font-size: 11.5pt;
     line-height: 1.4;
   }
-  .sheet { max-width: 186mm; margin: 0 auto; }
+  /* The sheet is the page: a column whose item table takes whatever height the header and the signing
+     block leave, so the form always fills the A4 sheet and the signatures sit at its foot. */
+  .sheet { max-width: 186mm; margin: 0 auto; display: flex; flex-direction: column; }
+  /* flex-basis auto and no shrinking: with many lines the table pushes the signing block to the next page instead of overlapping it. */
+  .items { flex: 1 0 auto; display: flex; flex-direction: column; margin-bottom: 8pt; }
+  .items table { flex: 1; margin-bottom: 0; }
+  /* A form too long for one sheet flows and breaks across pages as an ordinary document: Chrome lets the
+     declaration overlap the last rows when a table inside a flex column has to split. */
+  .sheet.flow { display: block; }
+  .sheet.flow .items { display: block; }
 
   /* The unit number sits top-left on the paper form, opposite the title. */
   .masthead {
@@ -143,7 +155,8 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
   td.c { text-align: center; }
   .narrow { width: 9%; }
   .desc { width: 32%; }
-  tr.blank td { height: 18pt; }
+  /* Every row starts at the same height, so the extra room the table takes up is shared evenly: filled and ruled-empty rows look alike. */
+  tbody td { height: 18pt; }
   tr.blank td.narrow { color: #777; font-weight: 400; }
 
   .declaration { font-size: 9.5pt; margin: 0 0 8pt; }
@@ -165,7 +178,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
 
   @media screen {
     body { background: #e9ece9; padding: 16px; }
-    .sheet { background: #fff; padding: 12mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+    .sheet { background: #fff; padding: 12mm; min-height: 297mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
     .print-bar { max-width: 210mm; margin: 0 auto 12px; }
     .print-bar button {
       font: inherit; font-weight: 600; cursor: pointer;
@@ -174,14 +187,16 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
   }
   @media print {
     .print-bar { display: none; }
-    .sheet { width: 210mm; max-width: none; padding: 12mm; }
+    /* A hair under 297mm: an exact-height box tips onto a blank second page in Chrome. */
+    .sheet { width: 210mm; max-width: none; padding: 12mm; min-height: 296mm; }
+    .sheet.flow { min-height: 0; }
   }
 </style>
 </head>
 <body>
   ${printButton(nonce)}
 
-  <div class="sheet">
+  <div class="sheet${form.lines.length > MAX_FILL_LINES ? ' flow' : ''}">
     <div class="masthead">
       <div class="unit-no">8239<small>גדוד</small></div>
       <div class="titles">
@@ -196,6 +211,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
       <div><span class="label">מס' נייד</span><span class="value mono">${esc(form.phoneSnapshot) || ''}</span></div>
     </div>
 
+    <div class="items">
     <table>
       <thead>
         <tr>
@@ -209,6 +225,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
       </thead>
       <tbody>${rows}${blanks}</tbody>
     </table>
+    </div>
 
     ${form.notes ? `<p class="notes"><strong>הערות:</strong> ${esc(form.notes)}</p>` : ''}
 
