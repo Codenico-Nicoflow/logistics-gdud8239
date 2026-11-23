@@ -27,6 +27,7 @@ export const he = {
     intake: 'קליטת ציוד',
     naming: 'מיפוי שמות',
     kits: 'ערכות',
+    help: 'מדריך',
     myAccount: 'החשבון שלי',
     security: 'אבטחה',
   },
@@ -668,6 +669,19 @@ export const he = {
     aliasPlaceholder: 'השם כפי שמופיע בשובר',
     removeAlias: 'הסר שם',
     save: 'שמור',
+  },
+
+  help: {
+    title: 'מדריך למשתמש',
+    subtitle: 'איך עובדים עם המערכת, צעד אחר צעד. לחצו על נושא כדי לפתוח אותו.',
+    searchPlaceholder: 'חיפוש במדריך, למשל: זיכוי, חיול, מסד',
+    none: 'לא נמצא נושא מתאים',
+    dayTitle: 'יום עבודה רגיל',
+    stepsLabel: 'איך עושים',
+    tipsLabel: 'כדאי לדעת',
+    warningsLabel: 'שימו לב',
+    adminOnly: 'מנהל בלבד',
+    openScreen: 'פתיחת המסך',
   },
 
   kits: {
