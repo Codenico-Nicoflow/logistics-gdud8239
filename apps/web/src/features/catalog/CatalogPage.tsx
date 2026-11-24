@@ -28,7 +28,7 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import type { DeletionCheck, Item, ItemCategory, ItemInstanceWithHolder } from '../../lib/types';
+import { IFSUN_DEFAULT_CATEGORIES, type DeletionCheck, type Item, type ItemCategory, type ItemInstanceWithHolder } from '../../lib/types';
 
 const CATEGORIES: ItemCategory[] = ['WEAPON', 'OPTICS', 'DRONE', 'GEAR', 'AMMO'];
 
@@ -508,6 +508,9 @@ function ItemDialog({
   const [category, setCategory] = useState<ItemCategory>(item?.category ?? 'WEAPON');
   const [isSerialized, setIsSerialized] = useState(item?.isSerialized ?? true);
   const [inSummary, setInSummary] = useState(item?.inSummary ?? true);
+  const [ifsunAllowed, setIfsunAllowed] = useState(item?.ifsunAllowed ?? IFSUN_DEFAULT_CATEGORIES.includes('WEAPON'));
+  // A new item follows its category until the admin decides; an existing one keeps what it has.
+  const [ifsunTouched, setIfsunTouched] = useState(!!item);
   const [authorizedQty, setAuthorizedQty] = useState(String(item?.authorizedQty ?? 0));
   const [yamahQty, setYamahQty] = useState(String(item?.yamahQty ?? 0));
   const [repairQty, setRepairQty] = useState(String(item?.repairQty ?? 0));
@@ -531,6 +534,7 @@ function ItemDialog({
       category,
       isSerialized,
       inSummary,
+      ifsunAllowed,
       authorizedQty: matsevaIsDerived ? item.authorizedQty : Number(authorizedQty) || 0,
       yamahQty: Number(yamahQty) || 0,
       repairQty: Number(repairQty) || 0,
@@ -562,7 +566,11 @@ function ItemDialog({
       <Select
         label={he.catalog.category}
         value={category}
-        onChange={(v) => v && setCategory(v as ItemCategory)}
+        onChange={(v) => {
+          if (!v) return;
+          setCategory(v as ItemCategory);
+          if (!ifsunTouched) setIfsunAllowed(IFSUN_DEFAULT_CATEGORIES.includes(v as ItemCategory));
+        }}
         options={CATEGORIES.map((c) => ({ value: c, label: he.categories[c] }))}
       />
       <CheckRow
@@ -576,6 +584,15 @@ function ItemDialog({
         hint={he.catalog.inSummaryHint}
         checked={inSummary}
         onChange={setInSummary}
+      />
+      <CheckRow
+        label={he.catalog.ifsunAllowed}
+        hint={he.catalog.ifsunAllowedHint}
+        checked={ifsunAllowed}
+        onChange={(v) => {
+          setIfsunTouched(true);
+          setIfsunAllowed(v);
+        }}
       />
       {matsevaIsDerived ? (
         <div className="rounded-ctl border border-rule bg-card px-3 py-2">

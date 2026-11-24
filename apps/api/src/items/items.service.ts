@@ -68,6 +68,7 @@ export class ItemsService {
         category: dto.category,
         isSerialized: dto.isSerialized,
         ...(dto.inSummary !== undefined ? { inSummary: dto.inSummary } : {}),
+        ifsunAllowed: dto.ifsunAllowed ?? ['WEAPON', 'OPTICS', 'DRONE'].includes(dto.category),
         authorizedQty: dto.authorizedQty,
         yamahQty: dto.yamahQty ?? 0,
         repairQty: dto.repairQty ?? 0,
@@ -123,6 +124,7 @@ export class ItemsService {
         ...(dto.category !== undefined ? { category: dto.category } : {}),
         ...(dto.isSerialized !== undefined ? { isSerialized: dto.isSerialized } : {}),
         ...(dto.inSummary !== undefined ? { inSummary: dto.inSummary } : {}),
+        ...(dto.ifsunAllowed !== undefined ? { ifsunAllowed: dto.ifsunAllowed } : {}),
         ...(dto.authorizedQty !== undefined && !willBeSerialized
           ? { authorizedQty: dto.authorizedQty }
           : {}),
