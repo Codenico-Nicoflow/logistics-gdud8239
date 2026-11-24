@@ -75,7 +75,7 @@ In the UI (`apps/web/src/features/catalog/CatalogPage.tsx`), the edit-item dialo
 
 ## Nav structure
 
-The side rail is one entry per **hub**, with related screens as tabs inside (see `docs/feat-nav-hubs.md`): ניפוק וחתימות (ניפוק · חתימות · אפסון), תקופת שרות, חיילים, ימי יציאה, דוחות (מסכם · חלוקה לפלוגות · ספירה · תנועות), and admin-only ציוד and מערכת.
+The side rail is one entry per **hub**, with related screens as tabs inside (see `docs/feat-nav-hubs.md`): ניפוק וחתימות (ניפוק · חתימות · אפסון), תקופת שרות, חיילים, דוחות (מסכם · חלוקה לפלוגות · ספירה · תנועות), and a ניהול group: ציוד and מערכת (admin only) plus ימי יציאה (admin, logistics view).
 
 `apps/web/src/app/navConfig.ts` is the single source of truth for screens, grouping and per-role access; `Shell.tsx` (rail) and `App.tsx` (routes) both derive from it. To add a screen, add a tab/hub there plus its element in `App.tsx#screenFor` — never a hand-written role list in either file. Link to a screen with `addressOf(tabId)`, not a path string. Old top-level addresses redirect via `LEGACY_REDIRECTS`. Don't delete a screen just because it is not a rail entry — ask first.
 

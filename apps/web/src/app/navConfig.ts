@@ -84,14 +84,6 @@ export const HUBS: readonly HubDef[] = [
     tabs: [{ id: 'soldiers', path: '', label: he.nav.soldiers, roles: ALL_ROLES }],
   },
   {
-    // The logistics staff's own days, not reserve soldiers — so it is not a tab under חיילים.
-    id: 'attendance',
-    path: '/attendance',
-    label: he.nav.attendance,
-    group: 'work',
-    tabs: [{ id: 'attendance', path: '', label: he.nav.attendance, roles: STAFF }],
-  },
-  {
     id: 'reports',
     path: '/reports',
     label: he.nav.hubs.reports,
@@ -124,6 +116,15 @@ export const HUBS: readonly HubDef[] = [
       { id: 'users', path: '', label: he.nav.users, roles: ADMIN },
       { id: 'backups', path: 'backups', label: he.nav.backups, roles: ADMIN },
     ],
+  },
+  {
+    // The logistics staff's own days, unrelated to the day-to-day issuing work and not about reserve
+    // soldiers: it sits under ניהול, where admin manages it and logistics can open it to view.
+    id: 'attendance',
+    path: '/attendance',
+    label: he.nav.attendance,
+    group: 'admin',
+    tabs: [{ id: 'attendance', path: '', label: he.nav.attendance, roles: STAFF }],
   },
   {
     id: 'help',

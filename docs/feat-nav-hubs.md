@@ -7,10 +7,10 @@ The side rail had ~21 flat links. It is now one entry per **hub**; related scree
 | ניפוק וחתימות `/issue` | ניפוק · חתימות `/issue/documents` · אפסון `/issue/ifsun` |
 | תקופת שרות `/periods` | הקצאה לתקופת שרות · חלוקה לפי חייל `/periods/by-soldier` |
 | חיילים `/soldiers` | — |
-| ימי יציאה `/attendance` | — (the logistics staff's own days, not reserve soldiers, so not under חיילים) |
 | דוחות `/reports` | מסכם · חלוקה לפלוגות `/reports/companies` · ספירת נשקיה `/reports/counts` · דוח תנועות `/reports/movements` |
 | ציוד (admin) `/equipment` | קטלוג · קליטת ציוד `/intake` · ערכות `/kits` · מיפוי שמות `/naming` |
 | מערכת (admin) `/system` | משתמשים · גיבויים `/system/backups` |
+| ימי יציאה `/attendance` (under ניהול) | — admin manages it, logistics views; unrelated to the issuing work, so it sits with ניהול, not under חיילים |
 | החשבון שלי | מדריך · אבטחה |
 
 ## Why it is built this way
