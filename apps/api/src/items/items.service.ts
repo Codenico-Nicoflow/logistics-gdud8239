@@ -9,6 +9,7 @@ import { ItemKitsService } from '../item-kits/item-kits.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { syncAuthorizedQty } from './sync-authorized-qty';
 import type { CreateItemDto } from './dto/create-item.dto';
+import type { ReplaceRepairedDto } from './dto/replace-repaired.dto';
 import type { UpdateItemDto } from './dto/update-item.dto';
 import type { CreateInstanceDto } from './dto/create-instance.dto';
 import { ITEM_ORDER } from '../common/item-order';
@@ -221,6 +222,74 @@ export class ItemsService {
       await syncAuthorizedQty(tx, itemId);
       return instance;
     });
+  }
+
+  /**
+   * A unit sent for repair came back as a different one because it could not be fixed. The old מסד leaves
+   * the books and the new one takes its place, so מצבה does not change. Both are recorded in an
+   * append-only log. A serialized item swaps the instance itself; a bulk item drops the old מסד from its
+   * repair list, takes one off the repair count, and registers the new מסד as a unit in stock.
+   */
+  async replaceRepaired(itemId: string, dto: ReplaceRepairedDto, actorName: string) {
+    const item = await this.prisma.item.findUnique({ where: { id: itemId } });
+    if (!item) throw new NotFoundException('הפריט אינו קיים');
+    const newSerial = dto.newSerial.trim();
+    const oldSerial = dto.oldSerial?.trim() || null;
+    if (!newSerial) throw new BadRequestException('נדרש מסד חדש');
+    if (oldSerial === newSerial) throw new BadRequestException('המסד החדש זהה לישן');
+    if (await this.prisma.itemInstance.findUnique({ where: { itemId_serial: { itemId, serial: newSerial } } })) {
+      throw new ConflictException(`מסד "${newSerial}" כבר קיים עבור ${item.name}`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (item.isSerialized) {
+        if (!oldSerial) throw new BadRequestException('נדרש המסד שיצא לתיקון');
+        const old = await tx.itemInstance.findUnique({
+          where: { itemId_serial: { itemId, serial: oldSerial } },
+          include: { signatures: { where: { returnedAt: null } } },
+        });
+        if (!old) throw new NotFoundException(`מסד "${oldSerial}" אינו קיים`);
+        if (old.status !== 'IN_REPAIR' || old.signatures.length > 0) {
+          throw new BadRequestException('אפשר להחליף רק מסד שנמצא בתיקון');
+        }
+        await tx.itemInstance.delete({ where: { id: old.id } });
+      } else {
+        if (item.repairQty < 1) throw new BadRequestException('אין יחידות בתיקון');
+        if (oldSerial && !item.repairSerials.includes(oldSerial)) {
+          throw new BadRequestException(`מסד "${oldSerial}" אינו ברשימת התיקון`);
+        }
+        await tx.item.update({
+          where: { id: itemId },
+          data: {
+            repairQty: item.repairQty - 1,
+            repairSerials: item.repairSerials.filter((s) => s !== oldSerial),
+          },
+        });
+      }
+      await tx.itemInstance.create({
+        data: {
+          itemId,
+          serial: newSerial,
+          status: 'OK',
+          notes: oldSerial ? `הוחלף במקום ${oldSerial}${dto.notes ? ` — ${dto.notes}` : ''}` : dto.notes ?? null,
+        },
+      });
+      await syncAuthorizedQty(tx, itemId);
+      return tx.itemReplacement.create({
+        data: {
+          itemId,
+          itemNameSnapshot: item.name,
+          oldSerial,
+          newSerial,
+          notes: dto.notes?.trim() || null,
+          byName: actorName,
+        },
+      });
+    });
+  }
+
+  replacements(itemId: string) {
+    return this.prisma.itemReplacement.findMany({ where: { itemId }, orderBy: { createdAt: 'desc' }, take: 100 });
   }
 
   async setInstanceStatus(instanceId: string, status: InstanceStatus, notes?: string) {

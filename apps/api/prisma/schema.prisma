@@ -359,6 +359,24 @@ model ItemKitChange {
   @@map("item_kit_changes")
 }
 
+/// A unit sent for repair that came back as a different one (it could not be fixed): the old מסד leaves
+/// the books, the new one takes its place. Append-only. The item id is a loose reference, not a foreign
+/// key, so the log survives the item being deleted.
+model ItemReplacement {
+  id               String   @id @default(uuid())
+  itemId           String   @map("item_id")
+  itemNameSnapshot String   @map("item_name_snapshot")
+  oldSerial        String?  @map("old_serial")
+  newSerial        String   @map("new_serial")
+  notes            String?
+  byName           String   @map("by_name")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([itemId])
+  @@index([createdAt])
+  @@map("item_replacements")
+}
+
 model ItemInstance {
   id        String         @id @default(uuid())
   itemId    String         @map("item_id")

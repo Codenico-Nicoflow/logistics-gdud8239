@@ -21,6 +21,7 @@ function show(): void {
   respond({
     '/api/items': { status: 200, body: [BULK, SERIAL] },
     '/api/reports/summary': { status: 200, body: [] },
+    'POST /api/items/bulk/replace-repaired': { status: 201, body: { id: 'r1' } },
     'PATCH /api/items/bulk': ({ body }) => ({ status: 200, body: { ...BULK, ...(body as object) } }),
     'PATCH /api/items/ser': ({ body }) => ({ status: 200, body: { ...SERIAL, ...(body as object) } }),
   });
@@ -106,5 +107,19 @@ describe('catalog: what is in repair', () => {
     await waitFor(() => expect(patches()).toHaveLength(1));
     expect(patches()[0]?.body).not.toHaveProperty('repairQty');
     expect(patches()[0]?.body).not.toHaveProperty('repairSerials');
+  });
+
+  it('a bulk unit that came back as a different one is replaced from its repair list', async () => {
+    show();
+    const row = (await screen.findAllByText(BULK.name))[0]?.closest('li, tr') as HTMLElement;
+    fireEvent.click(within(row).getByText(he.catalog.replaceRepaired));
+    const dialog = await screen.findByRole('dialog');
+    const send = within(dialog).getByRole('button', { name: he.catalog.replaceConfirm });
+    expect((send as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText(new RegExp(he.catalog.replaceNewSerial)), { target: { value: 'K-9' } });
+    fireEvent.click(send);
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path.endsWith('/items/bulk/replace-repaired'))).toBe(true));
+    const sent = calls.find((c) => c.method === 'POST' && c.path.endsWith('/replace-repaired'));
+    expect(sent?.body).toMatchObject({ oldSerial: 'K-1', newSerial: 'K-9' });
   });
 });
