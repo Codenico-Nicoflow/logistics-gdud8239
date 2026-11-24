@@ -71,7 +71,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'daily',
     audience: 'staff',
     title: 'זיכוי, תיקון טופס והדפסה (חתימות)',
-    to: '/documents',
+    to: '/issue/documents',
     summary: 'כאן רואים מי מחזיק מה, מזכים ציוד שחזר, ופותחים את הטפסים החתומים.',
     steps: [
       'במסך "חתימות" מחפשים חייל לפי שם, מ.א. או מסד. אפשר לסנן לפי פלוגה או פריט.',
@@ -106,7 +106,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'daily',
     audience: 'staff',
     title: 'אפסון',
-    to: '/ifsun',
+    to: '/issue/ifsun',
     summary: 'ציוד חשוב שנשאר בנשקייה אבל עדיין רשום על החייל. הוא נספר בנשקייה וגם נשאר חתום עליו.',
     steps: [
       'במסך "אפסון" לוחצים "אפסון חדש" ומחפשים את החייל החתום על הציוד.',
@@ -124,7 +124,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'daily',
     audience: 'staff',
     title: 'דוח תנועות יומי',
-    to: '/daily-movements',
+    to: '/reports/movements',
     summary: 'כל מה שקרה במערכת, מקובץ לפי יום: ניפוק, זיכוי, עריכת טופס. נרשם אוטומטית ואי אפשר לשנות.',
     steps: [
       'בוחרים טווח: היום, אתמול, 7 ימים אחרונים, או תאריך מסוים.',
@@ -141,7 +141,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'endOfDay',
     audience: 'staff',
     title: 'מסכם יומי',
-    to: '/summary',
+    to: '/reports',
     summary: 'מזינים בסוף כל יום כמה יש בפועל בנשקייה מכל פריט, והמערכת מראה פער מול מה שצריך להיות.',
     steps: [
       'במסך "מסכם" בוחרים תאריך.',
@@ -159,7 +159,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'endOfDay',
     audience: 'staff',
     title: 'ספירת נשקייה',
-    to: '/counts',
+    to: '/reports/counts',
     summary: 'שני אנשים חותמים שהמספר שהוזן במסכם נכון. ספירה אחת לערב ואחת לבוקר.',
     steps: [
       'במסך "ספירת נשקיה" בוחרים תאריך ומשמרת (ערב או בוקר). ספירת בוקר חותמת על המספר שהוזן במסכם בסוף היום הקודם.',
@@ -193,7 +193,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'period',
     audience: 'staff',
     title: 'תקופת שרות',
-    to: '/service-periods',
+    to: '/periods',
     summary: 'תקופת המילואים הנוכחית. היא קובעת מי יכול לקבל נשק וכמה מכל פריט כל פלוגה מקבלת.',
     steps: [
       '"תקופת שרות חדשה": שם, תאריך תחילה ותאריך סיום (הסיום לא יכול להיות לפני ההתחלה).',
@@ -208,7 +208,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'period',
     audience: 'staff',
     title: 'חלוקה לפלוגות (צפייה)',
-    to: '/company-split',
+    to: '/reports/companies',
     summary: 'תצוגה בלבד: כמה ציוד יש עכשיו בכל פלוגה, ואיזה חלק מההקצאה כבר נופק.',
     steps: [
       'המספר הגדול בכל פלוגה הוא כמה יחידות ציוד יש כרגע אצלה, לפי החתימות הפתוחות.',
@@ -221,7 +221,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'period',
     audience: 'admin',
     title: 'חלוקה לפי חייל',
-    to: '/company-allocation',
+    to: '/periods/by-soldier',
     summary: 'מחלקים את הכמות שהוקצתה לפלוגה בין החיילים שלה. זה מה שמופיע כ"מגיע לחייל" בניפוק.',
     steps: [
       'במסך "חלוקה לפי חייל" בוחרים פלוגה ופריט.',
@@ -237,7 +237,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'manage',
     audience: 'admin',
     title: 'קטלוג פריטים ומסדים',
-    to: '/catalog',
+    to: '/equipment',
     summary: 'רשימת כל סוגי הציוד. כאן מוסיפים פריט חדש ומנהלים את המסדים שלו.',
     steps: [
       '"הוסף פריט": שם, קטגוריה, וסימון "דורש מסד" אם כל יחידה עם מספר משלה. "מופיע במסכם" קובע אם הפריט נספר בספירת הנשקייה.',
@@ -256,7 +256,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'manage',
     audience: 'admin',
     title: 'ערכות',
-    to: '/kits',
+    to: '/equipment/kits',
     summary: 'מה שיוצא תמיד יחד עם פריט, כדי שלא יוסיפו כל חלק ידנית בחתימה. למשל M-4 עם 3 מתפסים, רצועה, 5 מחסניות ומק פורק.',
     steps: [
       'במסך "ערכות" בוחרים מהרשימה את הפריט שהוא הבסיס, למשל M-4.',
@@ -281,7 +281,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'manage',
     audience: 'admin',
     title: 'קליטת ציוד',
-    to: '/intake',
+    to: '/equipment/intake',
     summary: 'רושמים ציוד שהגיע בפועל, לפני שמקצים או מנפקים אותו.',
     steps: [
       'במסך "קליטת ציוד" מוסיפים שורה לכל פריט שהגיע ("הוסף שורה").',
@@ -296,7 +296,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'manage',
     audience: 'admin',
     title: 'מיפוי שמות',
-    to: '/naming',
+    to: '/equipment/naming',
     summary: 'מתרגמים שם של פריט בשובר סרוק או בגיליון ימ"ח לשם שלו בקטלוג שלנו.',
     steps: [
       'במסך "מיפוי שמות" מחפשים את הפריט.',
@@ -310,7 +310,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'manage',
     audience: 'admin',
     title: 'משתמשים וקישור הגדרה',
-    to: '/users',
+    to: '/system',
     summary: 'מי נכנס למערכת ובאיזה תפקיד. אף אחד לא מקבל סיסמה מוכנה: כל אחד בוחר סיסמה בעצמו.',
     steps: [
       '"הוסף משתמש": שם משתמש, שם מלא (זה השם שיופיע בדוח התנועות), ותפקיד. למפקד פלוגה מגדירים גם את הפלוגה.',
@@ -327,7 +327,7 @@ export const GUIDE_TOPICS: GuideTopic[] = [
     group: 'manage',
     audience: 'admin',
     title: 'גיבויים',
-    to: '/backups',
+    to: '/system/backups',
     summary: 'גיבוי מלא של כל הנתונים נשמר כל יום ונשלח לסלאק, ואפשר גם ליצור ולהוריד אחד בעצמכם.',
     steps: [
       'גיבוי מסד הנתונים נוצר אוטומטית כל יום ב-18:05 ונשלח לסלאק.',

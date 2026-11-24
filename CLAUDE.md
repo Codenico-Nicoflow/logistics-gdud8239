@@ -73,11 +73,11 @@ In the UI (`apps/web/src/features/catalog/CatalogPage.tsx`), the edit-item dialo
 
 **ניפוק must always warn before handing out a weapon beyond its company's allocation.** When adding a `WEAPON`-category item to the basket in `BasketStep.tsx`, if the soldier's company has no quantity left under the active תקופת שרות's חלוקה לפלוגות (`CompanyAllocationGrid`'s plan, via `remaining[company]` from `GET /service-periods/:id/company-allocations`), a confirmation dialog must appear before the line is actually added — never add it silently. This is a soft gate (the samgad's plan can be wrong or stale), not a hard block like the בפועל cap in `AllocationsService`, so the dialog lets the operator proceed on purpose. Keep this working for every future change to the issue flow or the allocation model — it is a standing product requirement, not a one-off feature.
 
-## Current nav/feature scope
+## Nav structure
 
-`apps/web/src/app/Shell.tsx` nav is intentionally trimmed to: ניפוק, הקצאה לתקופת שרות (service periods), חיילים (soldiers), and an admin-only "ניהול" group (קטלוג פריטים, קליטת ציוד מימ"ח, מיפוי שמות). This is a deliberate simplification while the modern reserve-duty workflow is rebuilt — it is not a sign those other features are abandoned.
+The side rail is one entry per **hub**, with related screens as tabs inside (see `docs/feat-nav-hubs.md`): ניפוק וחתימות (ניפוק · חתימות · אפסון), תקופת שרות, חיילים, ימי יציאה, דוחות (מסכם · חלוקה לפלוגות · ספירה · תנועות), and admin-only ציוד and מערכת.
 
-Many more screens exist in the code and are fully routed in `apps/web/src/app/App.tsx` but not linked from the nav: דוח תנועות (movements), ספירת נשקיה (counts), מסכם/פלוגות/הקצאות reports, ימי יציאה (attendance), גיבויים (backups/Excel import-export), משתמשים (users), חתימות (signatures list), דרוש טיפול (attention/needs-attention). They're reachable by direct URL for admins/logistics as role allows. Don't assume "not in the nav" means "remove it" — ask before deleting any of these.
+`apps/web/src/app/navConfig.ts` is the single source of truth for screens, grouping and per-role access; `Shell.tsx` (rail) and `App.tsx` (routes) both derive from it. To add a screen, add a tab/hub there plus its element in `App.tsx#screenFor` — never a hand-written role list in either file. Link to a screen with `addressOf(tabId)`, not a path string. Old top-level addresses redirect via `LEGACY_REDIRECTS`. Don't delete a screen just because it is not a rail entry — ask first.
 
 ## Conventions
 

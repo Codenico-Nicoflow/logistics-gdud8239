@@ -1,11 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useLogoutMutation } from '../lib/api';
 import { Logo } from '../components/Logo';
 import { he } from '../i18n/he';
-import type { AuthUser, Role } from '../lib/types';
-
-type NavItem = { to: string; label: string; icon: ReactNode; roles?: Role[] };
+import type { AuthUser } from '../lib/types';
+import { HUBS, hubEntryAddress, visibleTabs, type HubDef, type HubGroup, type HubId } from './navConfig';
 
 function IssueIcon() {
   return (
@@ -28,28 +27,6 @@ function PeriodsIcon() {
     </svg>
   );
 }
-function CompanyIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <circle cx="7" cy="6.5" r="2.5" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="14" cy="8" r="2" stroke="currentColor" strokeWidth="1.6" />
-      <path
-        d="M2.5 16.5c0-2.8 2-4.5 4.5-4.5s4.5 1.7 4.5 4.5M11.5 16.5c0-2-1.3-3.5-3-4"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-function DailyMovementsIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <rect x="3" y="3" width="14" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M3 8h14M7 11h6M7 14h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
 function AttendanceIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -63,14 +40,6 @@ function AttendanceIcon() {
     </svg>
   );
 }
-function BackupsIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <ellipse cx="10" cy="5" rx="6" ry="2.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M4 5v10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5V5M4 10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  );
-}
 function SummaryIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -79,36 +48,6 @@ function SummaryIcon() {
     </svg>
   );
 }
-function CountsIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <rect x="3.5" y="2.5" width="13" height="15" rx="1.2" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M6.5 7h7M6.5 10h7M6.5 13h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-function DocumentsIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <path
-        d="M6 2.5h5.5L15 6v9.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M11 2.5V6h4M7.5 10h5M7.5 12.5h5M7.5 7.5h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IfsunIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-      <rect x="4" y="10" width="16" height="10" rx="1.5" strokeLinejoin="round" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function SoldiersIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
@@ -127,39 +66,11 @@ function CatalogIcon() {
     </svg>
   );
 }
-function IntakeIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <path
-        d="M10 3v10m0 0l-3.5-3.5M10 13l3.5-3.5M4 15.5h12"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-function NamingIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <path d="M4 5h12M4 10h8M4 15h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
 function HelpIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
       <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.6" />
       <path d="M7.9 8a2.2 2.2 0 1 1 3.3 1.9c-.8.5-1.2.9-1.2 1.6M10 14h.01" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-function KitsIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <rect x="3" y="7" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M7 7V5.5A1.5 1.5 0 0 1 8.5 4h3A1.5 1.5 0 0 1 13 5.5V7M3 11h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
@@ -187,93 +98,37 @@ function UsersIcon() {
   );
 }
 
+const HUB_ICONS: Record<HubId, ReactNode> = {
+  issue: <IssueIcon />,
+  periods: <PeriodsIcon />,
+  soldiers: <SoldiersIcon />,
+  attendance: <AttendanceIcon />,
+  reports: <SummaryIcon />,
+  equipment: <CatalogIcon />,
+  system: <UsersIcon />,
+  help: <HelpIcon />,
+  security: <SecurityIcon />,
+};
+
 /**
- * The side rail sits on the right, since the interface is RTL. Trimmed to the
- * screens actually in use right now — the rest of the app (reports, counts,
- * attendance, admin) still exists and works, it's just not linked from here.
+ * The side rail sits on the right, since the interface is RTL. One entry per hub (see navConfig): a hub
+ * groups related screens as tabs, so the rail stays short enough to read on a phone.
  */
-const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
-  {
-    heading: '',
-    items: [
-      { to: '/issue', label: he.nav.issue, icon: <IssueIcon />, roles: ['admin', 'logistics'] },
-      {
-        to: '/documents',
-        label: he.nav.documents,
-        icon: <DocumentsIcon />,
-        roles: ['admin', 'logistics', 'viewer'],
-      },
-      {
-        to: '/service-periods',
-        label: he.nav.servicePeriods,
-        icon: <PeriodsIcon />,
-        roles: ['admin', 'logistics', 'SAMGAD'],
-      },
-      {
-        to: '/company-split',
-        label: he.nav.companySplit,
-        icon: <CompanyIcon />,
-        roles: ['admin', 'logistics', 'SAMGAD'],
-      },
-      {
-        to: '/company-allocation',
-        label: he.nav.companyAllocation,
-        icon: <CompanyIcon />,
-        roles: ['admin', 'COMPANY_CMDR'],
-      },
-      { to: '/ifsun', label: he.nav.ifsun, icon: <IfsunIcon />, roles: ['admin', 'logistics'] },
-      { to: '/soldiers', label: he.nav.soldiers, icon: <SoldiersIcon /> },
-      {
-        to: '/daily-movements',
-        label: he.nav.dailyMovements,
-        icon: <DailyMovementsIcon />,
-        roles: ['admin', 'logistics'],
-      },
-      {
-        to: '/attendance',
-        label: he.nav.attendance,
-        icon: <AttendanceIcon />,
-        roles: ['admin', 'logistics'],
-      },
-      {
-        to: '/summary',
-        label: he.nav.summary,
-        icon: <SummaryIcon />,
-        roles: ['admin', 'logistics'],
-      },
-      {
-        to: '/counts',
-        label: he.nav.counts,
-        icon: <CountsIcon />,
-        roles: ['admin', 'logistics'],
-      },
-    ],
-  },
-  {
-    heading: 'ניהול',
-    items: [
-      { to: '/catalog', label: he.nav.catalog, icon: <CatalogIcon />, roles: ['admin'] },
-      { to: '/intake', label: he.nav.intake, icon: <IntakeIcon />, roles: ['admin'] },
-      { to: '/kits', label: he.nav.kits, icon: <KitsIcon />, roles: ['admin'] },
-      { to: '/naming', label: he.nav.naming, icon: <NamingIcon />, roles: ['admin'] },
-      { to: '/users', label: he.nav.users, icon: <UsersIcon />, roles: ['admin'] },
-      { to: '/backups', label: he.nav.backups, icon: <BackupsIcon />, roles: ['admin'] },
-    ],
-  },
-  {
-    heading: he.nav.myAccount,
-    items: [
-      { to: '/help', label: he.nav.help, icon: <HelpIcon />, roles: ['admin', 'logistics'] },
-      { to: '/security', label: he.nav.security, icon: <SecurityIcon /> },
-    ],
-  },
+const RAIL_GROUPS: { group: HubGroup; heading: string }[] = [
+  { group: 'work', heading: '' },
+  { group: 'admin', heading: he.nav.adminHeading },
+  { group: 'account', heading: he.nav.myAccount },
 ];
+
+function isInHub(pathname: string, hub: HubDef): boolean {
+  return pathname === hub.path || pathname.startsWith(`${hub.path}/`);
+}
 
 export function Shell({ user }: { user: AuthUser }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logout] = useLogoutMutation();
 
-  const groups = NAV_GROUPS;
+  const { pathname } = useLocation();
   const initial = user.displayName.trim().charAt(0) || '?';
 
   // The open menu covers the screen on a phone, so the page behind it must not scroll under the
@@ -312,7 +167,7 @@ export function Shell({ user }: { user: AuthUser }) {
           className="h-11 min-w-[5rem] shrink-0 rounded-ctl border border-white/20 bg-white/5 px-4 text-body font-semibold text-white transition-colors hover:bg-white/10"
           aria-expanded={menuOpen}
         >
-          {menuOpen ? he.common.close : 'תפריט'}
+          {menuOpen ? he.common.close : he.nav.menu}
         </button>
       </header>
 
@@ -342,50 +197,45 @@ export function Shell({ user }: { user: AuthUser }) {
         </Link>
 
         <div className="scroll-slim-dark min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          {groups.map((group) => {
-            const items = group.items.filter((i) => !i.roles || i.roles.includes(user.role));
-            if (items.length === 0) return null;
+          {RAIL_GROUPS.map(({ group, heading }) => {
+            const hubs = HUBS.filter((h) => h.group === group && visibleTabs(h, user.role).length > 0);
+            if (hubs.length === 0) return null;
             return (
-              <div key={group.heading} className="mb-5">
-                {group.heading && (
-                  <div className="px-2.5 pb-2 text-micro font-semibold tracking-wide text-white/35">
-                    {group.heading}
-                  </div>
+              <div key={group} className="mb-5">
+                {heading && (
+                  <div className="px-2.5 pb-2 text-micro font-semibold tracking-wide text-white/35">{heading}</div>
                 )}
                 <div className="space-y-0.5">
-                  {items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.to === '/'}
-                      onClick={() => setMenuOpen(false)}
-                      className={({ isActive }) =>
-                        `group relative flex items-center gap-2.5 rounded-ctl px-2.5 py-2.5 text-body transition-all duration-150 ${
+                  {hubs.map((hub) => {
+                    const isActive = isInHub(pathname, hub);
+                    return (
+                      <Link
+                        key={hub.id}
+                        to={hubEntryAddress(hub, user.role)}
+                        aria-current={isActive ? 'page' : undefined}
+                        onClick={() => setMenuOpen(false)}
+                        className={`group relative flex items-center gap-2.5 rounded-ctl px-2.5 py-2.5 text-body transition-all duration-150 ${
                           isActive
                             ? 'bg-white/10 font-semibold text-white'
                             : 'text-white/65 hover:translate-x-[-2px] hover:bg-white/5 hover:text-white'
-                        }`
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <span
-                            className={`absolute inset-y-1 start-0 w-[3px] rounded-full bg-brass-bright transition-transform duration-150 ${
-                              isActive ? 'scale-y-100' : 'scale-y-0'
-                            }`}
-                          />
-                          <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ctl transition-colors ${
-                              isActive ? 'bg-field-bright text-white' : 'bg-white/5 text-white/60 group-hover:text-white'
-                            }`}
-                          >
-                            {item.icon}
-                          </span>
-                          <span>{item.label}</span>
-                        </>
-                      )}
-                    </NavLink>
-                  ))}
+                        }`}
+                      >
+                        <span
+                          className={`absolute inset-y-1 start-0 w-[3px] rounded-full bg-brass-bright transition-transform duration-150 ${
+                            isActive ? 'scale-y-100' : 'scale-y-0'
+                          }`}
+                        />
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ctl transition-colors ${
+                            isActive ? 'bg-field-bright text-white' : 'bg-white/5 text-white/60 group-hover:text-white'
+                          }`}
+                        >
+                          {HUB_ICONS[hub.id]}
+                        </span>
+                        <span>{hub.label}</span>
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             );

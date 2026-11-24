@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSoldierQuery, useUpdateSoldierMutation } from '../../lib/api';
 import { apiErrorMessage, Button, Panel, Select, Spinner, Tag, TextField } from '../../components/ui';
 import { he } from '../../i18n/he';
+import { addressOf } from '../../app/navConfig';
 import { COMPANIES, type Company } from '../../lib/types';
 import type { DocumentsLocationState } from '../signatures/DocumentsPage';
 
@@ -95,7 +96,7 @@ export function ConfirmSoldier({
                       soldierId: data.id,
                       q: `${data.firstName} ${data.lastName}`,
                     };
-                    navigate('/documents', { state });
+                    navigate(addressOf('documents'), { state });
                   }}
                 >
                   {he.issue.goToSignatures}

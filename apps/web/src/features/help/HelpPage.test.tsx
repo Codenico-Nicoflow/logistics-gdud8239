@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
+import { HUBS, tabAddress } from '../../app/navConfig';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { he } from '../../i18n/he';
@@ -41,13 +42,16 @@ describe('the guide content', () => {
   });
 
   it('every screen an admin can open has a topic', () => {
-    const routes = ['/issue', '/documents', '/soldiers', '/ifsun', '/daily-movements', '/summary', '/counts', '/attendance', '/service-periods', '/company-split', '/company-allocation', '/catalog', '/kits', '/intake', '/naming', '/users', '/backups', '/security'];
+    // Derived from the nav config so a screen added there without a guide topic fails here.
+    const routes = HUBS.flatMap((h) => h.tabs.filter((t) => t.id !== 'help').map((t) => tabAddress(h, t)));
     const covered = new Set(GUIDE_TOPICS.map((t) => t.to));
     for (const r of routes) expect(covered.has(r), r).toBe(true);
   });
 
   it('logistics only gets topics about screens it can open', () => {
-    const adminOnlyScreens = new Set(['/catalog', '/kits', '/intake', '/naming', '/users', '/backups', '/company-allocation']);
+    const adminOnlyScreens = new Set(
+      HUBS.flatMap((h) => h.tabs.filter((t) => !t.roles.includes('logistics')).map((t) => tabAddress(h, t))),
+    );
     for (const t of topicsFor('logistics')) expect(adminOnlyScreens.has(t.to), t.id).toBe(false);
     expect(topicsFor('admin').length).toBeGreaterThan(topicsFor('logistics').length);
   });

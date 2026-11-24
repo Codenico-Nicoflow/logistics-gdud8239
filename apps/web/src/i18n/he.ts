@@ -30,6 +30,16 @@ export const he = {
     help: 'מדריך',
     myAccount: 'החשבון שלי',
     security: 'אבטחה',
+    adminHeading: 'ניהול',
+    menu: 'תפריט',
+    // Rail entries that group several screens as tabs. Single-screen entries reuse the screen's own label above.
+    hubs: {
+      issue: 'ניפוק וחתימות',
+      periods: 'תקופת שרות',
+      reports: 'דוחות',
+      equipment: 'ציוד',
+      system: 'מערכת',
+    },
   },
 
   auth: {
@@ -992,6 +1002,7 @@ export const he = {
 
   common: {
     loading: 'טוען…',
+    tabs: 'מסכים בקבוצה',
     error: 'אירעה שגיאה',
     retry: 'נסה שוב',
     cancel: 'ביטול',
