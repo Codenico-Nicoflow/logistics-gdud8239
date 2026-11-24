@@ -7,6 +7,7 @@ import {
   useLazyDeletionCheckQuery,
   useRemoveInstanceMutation,
   useSetInstanceStatusMutation,
+  useReplaceRepairedMutation,
   useSubmitIntakeMutation,
   useSummaryQuery,
   useUpdateItemMutation,
@@ -239,6 +240,7 @@ function InstancesDialog({ item, onClose }: { item: Item; onClose: () => void })
                       <Serial value={inst.serial} />
                       <RemoveInstanceButton instanceId={inst.id} serial={inst.serial} held={!!holder} />
                     </div>
+                    {inst.status === 'IN_REPAIR' && <ReplaceRepairedButton item={item} oldSerial={inst.serial} />}
                     <InstanceStatusSelect instance={inst} held={!!holder} />
                     <div className="text-meta">
                       {holder ? (
@@ -285,6 +287,11 @@ function InstancesDialog({ item, onClose }: { item: Item; onClose: () => void })
                         </Td>
                         <Td className="text-meta text-graphite">{inst.notes ?? ''}</Td>
                         <Td numeric>
+                          {inst.status === 'IN_REPAIR' && (
+                            <span className="me-3">
+                              <ReplaceRepairedButton item={item} oldSerial={inst.serial} />
+                            </span>
+                          )}
                           <RemoveInstanceButton
                             instanceId={inst.id}
                             serial={inst.serial}
@@ -416,6 +423,58 @@ function AddInstanceForm({ item }: { item: Item }) {
         <p className="mt-1.5 text-micro text-oxide">{apiErrorMessage(error)}</p>
       )}
     </div>
+  );
+}
+
+/**
+ * A unit that went to repair and came back as a different one because it could not be fixed. One dialog for
+ * a serialized item (from its מסדים) and a bulk one (from its repair list).
+ */
+function ReplaceRepairedButton({ item, oldSerial }: { item: Item; oldSerial: string }) {
+  const [open, setOpen] = useState(false);
+  const [newSerial, setNewSerial] = useState('');
+  const [notes, setNotes] = useState('');
+  const [replace, { isLoading, error }] = useReplaceRepairedMutation();
+  const toast = useToast();
+
+  async function submit(): Promise<void> {
+    const result = await replace({ itemId: item.id, oldSerial, newSerial: newSerial.trim(), notes: notes.trim() || undefined });
+    if (result.data) {
+      toast.success({ title: he.catalog.replaced(oldSerial, newSerial.trim()) });
+      setOpen(false);
+      setNewSerial('');
+      setNotes('');
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex min-h-10 items-center text-meta font-semibold text-field hover:underline"
+      >
+        {he.catalog.replaceRepaired}
+      </button>
+      {open && (
+        <Dialog title={he.catalog.replaceRepairedTitle(oldSerial)} onClose={() => setOpen(false)}>
+          <p className="text-meta text-graphite">{he.catalog.replaceRepairedHint}</p>
+          <TextField label={he.catalog.replaceNewSerial} value={newSerial} onChange={setNewSerial} required maxLength={60} />
+          <TextField label={he.catalog.replaceNotes} value={notes} onChange={setNotes} maxLength={300} />
+          {apiErrorMessage(error) && (
+            <p className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">{apiErrorMessage(error)}</p>
+          )}
+          <div className="flex gap-2">
+            <Button onClick={() => void submit()} disabled={isLoading || !newSerial.trim()}>
+              {he.catalog.replaceConfirm}
+            </Button>
+            <Button variant="quiet" onClick={() => setOpen(false)}>
+              {he.common.cancel}
+            </Button>
+          </div>
+        </Dialog>
+      )}
+    </>
   );
 }
 
@@ -829,6 +888,22 @@ function SummaryToggle({ item }: { item: Item }) {
 /** The מסדים of what is in repair, under the count. Nothing is drawn when there are none to show. */
 function RepairSerialsLine({ item, compact = false }: { item: Item; compact?: boolean }) {
   if (item.repairSerials.length === 0) return null;
+  // A bulk unit's repair list sits right here, so this is where one that came back as another is recorded.
+  if (!item.isSerialized) {
+    return (
+      <div className="space-y-0.5">
+        <div className="serial text-micro text-graphite">{he.catalog.inRepairSerials(item.repairSerials.join(', '))}</div>
+        <div className="flex flex-wrap gap-x-3">
+          {item.repairSerials.map((serial) => (
+            <span key={serial} className="inline-flex items-center gap-1 text-micro">
+              <span className="serial">{serial}</span>
+              <ReplaceRepairedButton item={item} oldSerial={serial} />
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={`serial text-micro text-graphite ${compact ? 'mt-0.5 font-normal' : ''}`} title={item.repairSerials.join(', ')}>
       {he.catalog.inRepairSerials(item.repairSerials.join(', '))}

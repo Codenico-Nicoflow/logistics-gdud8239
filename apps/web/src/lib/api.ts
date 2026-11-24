@@ -475,6 +475,14 @@ export const api = createApi({
       invalidatesTags: ['Items', 'Reports'],
     }),
 
+    replaceRepaired: build.mutation<
+      { id: string },
+      { itemId: string; oldSerial?: string; newSerial: string; notes?: string }
+    >({
+      query: ({ itemId, ...body }) => ({ url: `/items/${itemId}/replace-repaired`, method: 'POST', body }),
+      invalidatesTags: ['Items', 'Reports'],
+    }),
+
     // --- attendance (ימי יציאה) ---
     week: build.query<Week, string>({
       query: (date) => ({ url: '/attendance/week', params: { date } }),
@@ -808,6 +816,7 @@ export const {
   useAddInstanceMutation,
   useRemoveInstanceMutation,
   useSetInstanceStatusMutation,
+  useReplaceRepairedMutation,
   useWeekQuery,
   useSoldierQuery,
   useUpdateSoldierMutation,

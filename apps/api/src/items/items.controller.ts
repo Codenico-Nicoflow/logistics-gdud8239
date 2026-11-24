@@ -8,6 +8,7 @@ import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { SetInstanceStatusDto } from './dto/set-instance-status.dto';
 import { CreateInstanceDto } from './dto/create-instance.dto';
+import { ReplaceRepairedDto } from './dto/replace-repaired.dto';
 
 @Controller('items')
 export class ItemsController {
@@ -57,6 +58,21 @@ export class ItemsController {
   @Roles('admin', 'logistics')
   addInstance(@Param('id') id: string, @Body() dto: CreateInstanceDto) {
     return this.items.addInstance(id, dto);
+  }
+
+  @Post(':id/replace-repaired')
+  @Roles('admin', 'logistics')
+  replaceRepaired(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReplaceRepairedDto,
+    @CurrentUser() actor: AuthUser,
+  ) {
+    return this.items.replaceRepaired(id, dto, actor.displayName);
+  }
+
+  @Get(':id/replacements')
+  replacements(@Param('id', ParseUUIDPipe) id: string) {
+    return this.items.replacements(id);
   }
 
   @Patch('instances/:instanceId/status')
