@@ -282,6 +282,9 @@ model Item {
   /// repair — a plain admin-typed count, since there's no individual מסד to
   /// flag IN_REPAIR the way a serialized item's ItemInstance can be.
   repairQty     Int          @default(0) @map("repair_qty")
+  /// Which units of a bulk item are in repair: their מסדים, at most `repairQty` of them (some units may
+  /// have none). Serialized items do not use this: their repair list is the instances marked IN_REPAIR.
+  repairSerials String[]     @default([]) @map("repair_serials")
   /// Pre-filled on the issue form — five מחסניות, one רצועה. The operator can
   /// change it, including to zero, which drops the line from the form.
   defaultQty    Int          @default(1) @map("default_qty")
@@ -325,9 +328,9 @@ model ItemKit {
 }
 
 model ItemKitLine {
-  id       String      @id @default(uuid())
-  kitId    String      @map("kit_id")
-  itemId   String      @map("item_id")
+  id       String @id @default(uuid())
+  kitId    String @map("kit_id")
+  itemId   String @map("item_id")
   quantity Int
   position Int
 

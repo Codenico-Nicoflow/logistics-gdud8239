@@ -86,6 +86,8 @@ export type Item = {
    *  idea as yamahQty. Serialized items track this per מסד instead, via
    *  InstanceStatus.IN_REPAIR. */
   repairQty: number;
+  /** Which units are in repair: for a serialized item the מסדים marked בתיקון (derived), for a bulk item the ones typed beside the count. */
+  repairSerials: string[];
   unitPrice: string | null;
   isActive: boolean;
   /** The quantity a 1008 starts at for this item — 5 for מחסנית, 1 for most. */

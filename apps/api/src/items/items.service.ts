@@ -20,11 +20,51 @@ export class ItemsService {
     private readonly itemKits: ItemKitsService,
   ) {}
 
-  findAll(includeInactive = false): Promise<Item[]> {
-    return this.prisma.item.findMany({
+  async findAll(includeInactive = false): Promise<Item[]> {
+    const items = await this.prisma.item.findMany({
       where: includeInactive ? {} : { isActive: true },
       orderBy: ITEM_ORDER,
     });
+    return this.withRepair(items);
+  }
+
+  /**
+   * What is in repair, in the shape the catalog shows. A serialized item's repair list IS its instances
+   * marked IN_REPAIR, so `repairQty` and `repairSerials` are derived from them and can never disagree with
+   * the מסדים dialog. A bulk item keeps the typed count and the מסדים typed beside it.
+   */
+  private async withRepair<T extends Item>(items: T[]): Promise<T[]> {
+    const serializedIds = items.filter((i) => i.isSerialized).map((i) => i.id);
+    if (serializedIds.length === 0) return items;
+    const inRepair = await this.prisma.itemInstance.findMany({
+      where: { itemId: { in: serializedIds }, status: 'IN_REPAIR' },
+      select: { itemId: true, serial: true },
+      orderBy: { serial: 'asc' },
+    });
+    const byItem = new Map<string, string[]>();
+    for (const r of inRepair) byItem.set(r.itemId, [...(byItem.get(r.itemId) ?? []), r.serial]);
+    return items.map((i) =>
+      i.isSerialized
+        ? { ...i, repairSerials: byItem.get(i.id) ?? [], repairQty: byItem.get(i.id)?.length ?? 0 }
+        : i,
+    );
+  }
+
+  /** Trimmed, no blanks, no repeats (a מסד is one physical unit), and no more than the units in repair. */
+  private checkRepairSerials(serials: readonly string[], repairQty: number): string[] {
+    const cleaned = serials.map((s) => s.trim()).filter((s) => s !== '');
+    const seen = new Set<string>();
+    for (const s of cleaned) {
+      const key = s.toLowerCase();
+      if (seen.has(key)) throw new BadRequestException(`המסד "${s}" מופיע יותר מפעם אחת ברשימת התיקון`);
+      seen.add(key);
+    }
+    if (cleaned.length > repairQty) {
+      throw new BadRequestException(
+        `יש ${cleaned.length} מסדים בתיקון אבל רק ${repairQty} יחידות בתיקון. יש להגדיל את הכמות או להסיר מסדים`,
+      );
+    }
+    return cleaned;
   }
 
   async findOne(id: string) {
@@ -43,6 +83,10 @@ export class ItemsService {
       },
     });
     if (!item) throw new NotFoundException('הפריט אינו קיים');
+    if (item.isSerialized) {
+      const inRepair = item.instances.filter((i) => i.status === 'IN_REPAIR').map((i) => i.serial);
+      return { ...item, repairSerials: inRepair, repairQty: inRepair.length };
+    }
     return item;
   }
 
@@ -61,7 +105,10 @@ export class ItemsService {
     const clash = await this.resolveByName(dto.name);
     if (clash) throw new ConflictException(`פריט בשם "${dto.name}" כבר קיים`);
 
-    return this.prisma.item.create({
+    const repairQty = dto.isSerialized ? 0 : (dto.repairQty ?? 0);
+    const repairSerials = dto.isSerialized ? [] : this.checkRepairSerials(dto.repairSerials ?? [], repairQty);
+
+    const created = await this.prisma.item.create({
       data: {
         name: dto.name.trim(),
         aliases: dto.aliases ?? [],
@@ -71,10 +118,12 @@ export class ItemsService {
         ifsunAllowed: dto.ifsunAllowed ?? ['WEAPON', 'OPTICS', 'DRONE'].includes(dto.category),
         authorizedQty: dto.authorizedQty,
         yamahQty: dto.yamahQty ?? 0,
-        repairQty: dto.repairQty ?? 0,
+        repairQty,
+        repairSerials,
         unitPrice: dto.unitPrice ?? null,
       },
     });
+    return (await this.withRepair([created]))[0] ?? created;
   }
 
   async update(id: string, dto: UpdateItemDto): Promise<Item> {
@@ -116,7 +165,21 @@ export class ItemsService {
     // ignored rather than allowed to desync the two again.
     const willBeSerialized = dto.isSerialized ?? item.isSerialized;
 
-    return this.prisma.item.update({
+    // The repair list of a serialized item is derived, so what is typed is ignored (and cleared if the item
+    // becomes serialized). A bulk item's list may not outgrow its count of units in repair.
+    let repair: { repairQty: number; repairSerials: string[] } | null = null;
+    if (willBeSerialized) {
+      if (dto.isSerialized === true && !item.isSerialized) repair = { repairQty: 0, repairSerials: [] };
+    } else {
+      const becomesBulk = dto.isSerialized === false && item.isSerialized;
+      const repairQty = dto.repairQty ?? (becomesBulk ? 0 : item.repairQty);
+      const repairSerials = this.checkRepairSerials(dto.repairSerials ?? (becomesBulk ? [] : item.repairSerials), repairQty);
+      if (dto.repairQty !== undefined || dto.repairSerials !== undefined || becomesBulk) {
+        repair = { repairQty, repairSerials };
+      }
+    }
+
+    const updated = await this.prisma.item.update({
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
@@ -129,11 +192,12 @@ export class ItemsService {
           ? { authorizedQty: dto.authorizedQty }
           : {}),
         ...(dto.yamahQty !== undefined ? { yamahQty: dto.yamahQty } : {}),
-        ...(dto.repairQty !== undefined ? { repairQty: dto.repairQty } : {}),
+        ...(repair ?? {}),
         ...(dto.unitPrice !== undefined ? { unitPrice: dto.unitPrice } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
     });
+    return (await this.withRepair([updated]))[0] ?? updated;
   }
 
   async addInstance(itemId: string, dto: CreateInstanceDto) {
