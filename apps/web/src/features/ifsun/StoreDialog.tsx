@@ -9,9 +9,15 @@ import { SignerFields, type SignerValue } from './SignerFields';
 export type StorableSignature = {
   id: string;
   itemName: string;
+  /** How many units are still free to store: signed minus what is already on the shelf. */
   quantity: number;
   serial: string | null;
 };
+
+/** Units of a signature already on the shelf; the rest can still be stored. */
+export function storedQty(s: { ifsunRecords?: { quantity: number }[] }): number {
+  return (s.ifsunRecords ?? []).reduce((n, r) => n + r.quantity, 0);
+}
 
 /**
  * אפסון of one signed item. The signature is not touched: the soldier keeps
@@ -29,6 +35,11 @@ export function StoreDialog({
   const [store, { isLoading }] = useStoreItemMutation();
   const toast = useToast();
   const [notes, setNotes] = useState('');
+  // A soldier may leave only some of what he holds, e.g. 2 of 3 מתפסים. A מסד item is always one unit.
+  const canPickQty = signature.serial === null && signature.quantity > 1;
+  const [qty, setQty] = useState(String(signature.quantity));
+  const qtyNum = Number(qty);
+  const qtyValid = !canPickQty || (Number.isInteger(qtyNum) && qtyNum >= 1 && qtyNum <= signature.quantity);
   const [signer, setSigner] = useState<SignerValue>({
     signatureImage: null,
     signerName: undefined,
@@ -43,6 +54,7 @@ export function StoreDialog({
       signatureId: signature.id,
       signatureImage: signer.signatureImage,
       signerName: signer.signerName,
+      ...(canPickQty ? { quantity: qtyNum } : {}),
       notes: notes.trim() || undefined,
     });
     if ('error' in result) {
@@ -61,6 +73,16 @@ export function StoreDialog({
       <div className="space-y-3 px-5 py-5">
         <h2 className="text-lead font-semibold">{he.ifsun.storeTitle}</h2>
         <p className="text-meta text-ink-soft">{he.ifsun.storeBody(soldierName, signature.itemName)}</p>
+        {canPickQty && (
+          <TextField
+            label={he.ifsun.storeQty(signature.quantity)}
+            type="number"
+            inputMode="numeric"
+            value={qty}
+            onChange={setQty}
+            required
+          />
+        )}
         <SignerFields hint={he.ifsun.signStoreHint} disabled={isLoading} onChange={setSigner} />
         <TextField label={he.ifsun.notes} value={notes} onChange={setNotes} />
         {error && (
@@ -69,7 +91,7 @@ export function StoreDialog({
           </p>
         )}
         <div className="flex gap-2 pt-1">
-          <Button onClick={() => void submit()} disabled={isLoading || !signer.valid}>
+          <Button onClick={() => void submit()} disabled={isLoading || !signer.valid || !qtyValid}>
             {he.ifsun.storeAction}
           </Button>
           <Button variant="quiet" onClick={onClose} disabled={isLoading}>

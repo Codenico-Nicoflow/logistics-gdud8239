@@ -79,7 +79,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await cleanup();
   const item = await prisma.item.create({
-    data: { name: ITEM, category: 'WEAPON', isSerialized: false, authorizedQty: 10, inSummary: true },
+    data: { name: ITEM, category: 'WEAPON', isSerialized: false, authorizedQty: 10, inSummary: true, ifsunAllowed: true },
   });
   itemId = item.id;
   const soldier = await prisma.soldier.create({ data: { firstName: 'מאפסן', lastName: LAST, company: 'A' } });
@@ -180,9 +180,11 @@ describe('אפסון', () => {
     await request(app.getHttpServer()).get(`/api/ifsun/${rec.id}/print`).set('Cookie', viewerJar).expect(403);
   });
 
-  it('refuses accessories — slings and magazines are stripped off, not stored', async () => {
-    await prisma.item.update({ where: { id: itemId }, data: { category: 'ACCESSORY' } });
+  it('refuses an item that is not marked storable, and accepts it once an admin allows it', async () => {
+    await prisma.item.update({ where: { id: itemId }, data: { category: 'ACCESSORY', ifsunAllowed: false } });
     await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(400);
+    await prisma.item.update({ where: { id: itemId }, data: { ifsunAllowed: true } });
+    await post('ifsun', { signatureId: sigId, signatureImage: PNG }).expect(201);
   });
 
   it('keeps both signed halves, and names who collected when it was not the soldier', async () => {

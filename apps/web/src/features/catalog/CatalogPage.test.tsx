@@ -11,7 +11,7 @@ import { calls, resetApi, respond } from '../../test/mockApi';
 import { CatalogPage } from './CatalogPage';
 
 const item = (id: string, name: string, extra: Partial<Item>): Item => ({
-  id, name, aliases: [], category: 'GEAR', isSerialized: false, inSummary: true, authorizedQty: 10, yamahQty: 0,
+  id, name, aliases: [], category: 'GEAR', isSerialized: false, inSummary: true, ifsunAllowed: false, authorizedQty: 10, yamahQty: 0,
   repairQty: 0, repairSerials: [], defaultQty: 1, unitOfMeasure: "יח'", unitPrice: null, isActive: true, ...extra,
 });
 const BULK = item('bulk', 'מכשיר קשר', { repairQty: 3, repairSerials: ['K-1'] });

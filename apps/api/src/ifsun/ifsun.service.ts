@@ -7,7 +7,6 @@ import type { Paginated } from '../common/pagination.dto';
 import type { CollectDto, StoreDto } from './dto/store.dto';
 import type { QueryIfsunDto } from './dto/query-ifsun.dto';
 import { storedQtyForSignature } from './stored-qty';
-import { IFSUN_CATEGORIES } from './ifsun-rules';
 
 /** Signature images are big; the list only needs to know they exist, the detail view fetches them. */
 const LIST_OMIT = { storeSignatureImage: true, collectSignatureImage: true } as const;
@@ -66,8 +65,8 @@ export class IfsunService {
         include: { soldier: true, item: true, itemInstance: true },
       });
       if (!sig || sig.returnedAt) throw new NotFoundException('החתימה אינה פעילה');
-      if (!IFSUN_CATEGORIES.includes(sig.item.category)) {
-        throw new BadRequestException('מאפסנים רק פריטים חשובים (נשק, אופטיקה, רחפן) — לא אבזור, ציוד או תחמושת');
+      if (!sig.item.ifsunAllowed) {
+        throw new BadRequestException('הפריט הזה לא מוגדר כניתן לאפסון. אפשר להפעיל זאת בקטלוג הפריטים.');
       }
 
       const already = await storedQtyForSignature(tx, sig.id);

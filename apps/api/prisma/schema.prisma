@@ -269,6 +269,9 @@ model Item {
   /// it. The catalog holds items nobody tracks daily (priced gear, zero-stock
   /// spares); listing them all would make the evening count unusable.
   inSummary     Boolean      @default(true) @map("in_summary")
+  /// Whether units of this item may be stored on the armory shelf (אפסון). Weapons, optics and drones
+  /// by default, but an admin can allow any item, e.g. מתפסים a soldier sometimes leaves on the gun.
+  ifsunAllowed  Boolean      @default(false) @map("ifsun_allowed")
   authorizedQty Int          @default(0) @map("authorized_qty")
   /// Count of units physically sitting in ימ״ח, out of authorizedQty. A plain
   /// admin-typed number, not tied to specific מסדים — too hard to keep which

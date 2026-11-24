@@ -24,9 +24,9 @@ import {
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { addDays, todayIso } from '../../lib/dates';
-import { IFSUN_CATEGORIES, type IfsunRecord, type IfsunStatus, type SignatureHolder } from '../../lib/types';
+import { type IfsunRecord, type IfsunStatus, type SignatureHolder } from '../../lib/types';
 import { SignerFields, type SignerValue } from './SignerFields';
-import { StoreDialog, type StorableSignature } from './StoreDialog';
+import { StoreDialog, storedQty, type StorableSignature } from './StoreDialog';
 
 const PAGE_SIZE = 25;
 type Tab = 'STORED' | 'ALL';
@@ -356,7 +356,7 @@ function NewIfsunDialog({ onClose }: { onClose: () => void }) {
 
   const free =
     holder?.signatures.filter(
-      (s) => IFSUN_CATEGORIES.includes(s.item.category) && !(s.ifsunRecords && s.ifsunRecords.length >= 1),
+      (s) => s.item.ifsunAllowed && storedQty(s) < s.quantity,
     ) ?? [];
 
   return (
@@ -406,13 +406,16 @@ function NewIfsunDialog({ onClose }: { onClose: () => void }) {
                     setPicked({
                       id: s.id,
                       itemName: s.item.name,
-                      quantity: s.quantity,
+                      quantity: s.quantity - storedQty(s),
                       serial: s.itemInstance?.serial ?? null,
                     })
                   }
                   className="flex w-full items-center justify-between gap-2 px-5 py-3 text-start hover:bg-card"
                 >
-                  <span className="font-semibold">{s.item.name}</span>
+                  <span className="font-semibold">
+                    {s.item.name}
+                    {s.quantity - storedQty(s) > 1 && <span className="ms-1 text-graphite">×{s.quantity - storedQty(s)}</span>}
+                  </span>
                   {s.itemInstance && <Serial value={s.itemInstance.serial} />}
                 </button>
               </li>

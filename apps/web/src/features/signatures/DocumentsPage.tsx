@@ -29,11 +29,10 @@ import {
   formatDateTime,
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
-import { StoreDialog, type StorableSignature } from '../ifsun/StoreDialog';
+import { StoreDialog, storedQty, type StorableSignature } from '../ifsun/StoreDialog';
 import { he } from '../../i18n/he';
 import {
   COMPANIES,
-  IFSUN_CATEGORIES,
   type AuthUser,
   type Company,
   type IssueForm,
@@ -178,10 +177,6 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
   );
 }
 
-function storedQty(s: { ifsunRecords?: { quantity: number }[] }): number {
-  return (s.ifsunRecords ?? []).reduce((n, r) => n + r.quantity, 0);
-}
-
 function SoldierDetail({
   holder,
   canEditForm,
@@ -255,7 +250,7 @@ function SoldierDetail({
                     <span className="whitespace-nowrap text-meta text-graphite">
                       {formatDateTime(s.signedAt)}
                     </span>
-                    {canEditForm && IFSUN_CATEGORIES.includes(s.item.category) && storedQty(s) < s.quantity && (
+                    {canEditForm && s.item.ifsunAllowed && storedQty(s) < s.quantity && (
                       <Button
                         variant="quiet"
                         size="sm"
@@ -263,7 +258,7 @@ function SoldierDetail({
                           setStoring({
                             id: s.id,
                             itemName: s.item.name,
-                            quantity: s.quantity,
+                            quantity: s.quantity - storedQty(s),
                             serial: s.itemInstance?.serial ?? null,
                           })
                         }

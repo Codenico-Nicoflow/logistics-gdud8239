@@ -41,6 +41,11 @@ export class CreateItemDto {
   @IsBoolean()
   inSummary?: boolean;
 
+  /** Whether units may be stored (אפסון). Defaults to weapons, optics and drones. */
+  @IsOptional()
+  @IsBoolean()
+  ifsunAllowed?: boolean;
+
   @Type(() => Number)
   @IsInt()
   @Min(0)

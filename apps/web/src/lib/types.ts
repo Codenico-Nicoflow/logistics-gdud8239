@@ -9,8 +9,8 @@ export type MovementAction = 'ISSUE' | 'RETURN' | 'STORE' | 'COLLECT';
 export type IfsunStatus = 'STORED' | 'COLLECTED' | 'CREDITED';
 export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
 export type DbBackupKind = 'daily' | 'manual';
-/** Mirrors the API rule: only these categories may be stored (see ifsun-rules.ts there). */
-export const IFSUN_CATEGORIES: ItemCategory[] = ['WEAPON', 'OPTICS', 'DRONE'];
+/** What a new item of each category starts with for אפסון; the admin can change it per item. */
+export const IFSUN_DEFAULT_CATEGORIES: ItemCategory[] = ['WEAPON', 'OPTICS', 'DRONE'];
 export const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
 
 export type AuthUser = {
@@ -77,6 +77,8 @@ export type Item = {
   isSerialized: boolean;
   /** Whether the item appears in מסכם and in ספירת נשקיה. */
   inSummary: boolean;
+  /** Whether units may be stored on the shelf (אפסון). */
+  ifsunAllowed: boolean;
   authorizedQty: number;
   /** Units physically at ימ״ח, out of authorizedQty. בפועל is derived as the difference. */
   yamahQty: number;

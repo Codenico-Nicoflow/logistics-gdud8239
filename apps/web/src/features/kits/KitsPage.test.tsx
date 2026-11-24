@@ -12,7 +12,7 @@ import { KitsPage } from './KitsPage';
 const literal = (s: string): RegExp => new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
 const item = (id: string, name: string, extra: Partial<Item> = {}): Item => ({
-  id, name, aliases: [], category: 'GEAR', isSerialized: false, inSummary: true, authorizedQty: 0, yamahQty: 0,
+  id, name, aliases: [], category: 'GEAR', isSerialized: false, inSummary: true, ifsunAllowed: false, authorizedQty: 0, yamahQty: 0,
   repairQty: 0, repairSerials: [], defaultQty: 1, unitOfMeasure: "יח'", unitPrice: null, isActive: true, ...extra,
 });
 const RIFLE = item('rifle', 'M-4', { category: 'WEAPON' });
