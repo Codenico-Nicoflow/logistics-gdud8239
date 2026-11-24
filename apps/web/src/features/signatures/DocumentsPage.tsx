@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   useIssueFormQuery,
   useIssueFormsQuery,
@@ -45,6 +46,18 @@ import { SignStep } from '../issue/SignStep';
 const PAGE_SIZE = 100;
 
 /**
+ * Handed over through router state (not the address, which would put a name in the URL) when ניפוק sends
+ * someone here: the soldier to open, and the search that brings him into the list.
+ */
+export type DocumentsLocationState = { soldierId: string; q: string };
+
+function asDocumentsState(value: unknown): DocumentsLocationState | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { soldierId, q } = value as Record<string, unknown>;
+  return typeof soldierId === 'string' && typeof q === 'string' ? { soldierId, q } : null;
+}
+
+/**
  * חתימות — one screen for everything about what a soldier has signed for:
  * pick him from the roster, then switch between "what he holds right now"
  * (open items, each with a זיכוי button) and "his latest signed 1008" (the
@@ -54,10 +67,11 @@ const PAGE_SIZE = 100;
  * this guy's signatures" and splitting them just meant re-finding him twice.
  */
 export function DocumentsPage({ user }: { user: AuthUser }) {
-  const [q, setQ] = useState('');
+  const arrivedWith = asDocumentsState(useLocation().state);
+  const [q, setQ] = useState(arrivedWith?.q ?? '');
   const [company, setCompany] = useState<Company | ''>('');
   const [itemId, setItemId] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(arrivedWith?.soldierId ?? null);
 
   const items = useItemsQuery();
   const { data, isLoading, isFetching } = useSignatureHoldersQuery({

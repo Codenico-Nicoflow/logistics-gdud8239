@@ -298,7 +298,7 @@ export const he = {
     inList: (n: number) => (n > 1 ? `ברשימה ×${n}` : 'ברשימה'),
     addPicked: (n: number) => (n === 0 ? 'בחר פריטים' : `הוסף ${n} נבחרים`),
     clearPicked: 'נקה בחירה',
-    alreadyHoldsWarning: 'לחייל כבר יש ציוד חתום. כל שינוי (הוספה, החלפת מסד, החזרה) נעשה דרך מסך חתימות ← ערוך פריטים וחתום מחדש.',
+    alreadyHoldsWarning: 'לחייל כבר יש ציוד חתום. כל שינוי (הוספה, החלפת מסד, החזרה) נעשה במסך חתימות ← ערוך פריטים וחתום מחדש. הכפתור למטה פותח את החתימות שלו.',
     notEnlistedWarning:'החייל אינו מחויל לתקופת השרות הנוכחית — לא ניתן להמשיך לניפוק. יש לחייל אותו במסך חיילים.',
     notEnlistedTitle: (item: string) => `לא ניתן להוסיף — ${item}`,
     notEnlistedBody: (soldier: string) =>
@@ -329,6 +329,7 @@ export const he = {
     currentlyHolds: 'מחזיק כעת',
     holdsNothing: 'אינו מחזיק פריטים',
     continueToItem: 'המשך לבחירת פריט',
+    goToSignatures: 'מעבר לחתימות של החייל',
 
     // Adding a soldier who is not in the list yet.
     firstName: 'שם פרטי',

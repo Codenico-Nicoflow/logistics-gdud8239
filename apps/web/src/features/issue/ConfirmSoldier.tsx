@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSoldierQuery, useUpdateSoldierMutation } from '../../lib/api';
 import { apiErrorMessage, Button, Panel, Select, Spinner, Tag, TextField } from '../../components/ui';
 import { he } from '../../i18n/he';
 import { COMPANIES, type Company } from '../../lib/types';
+import type { DocumentsLocationState } from '../signatures/DocumentsPage';
 
 /**
  * Step 2 — confirm the soldier before anything is signed to them.
@@ -23,6 +25,7 @@ export function ConfirmSoldier({
 }) {
   const { data, isLoading } = useSoldierQuery(soldierId);
   const [editing, setEditing] = useState(false);
+  const navigate = useNavigate();
 
   if (isLoading) return <Spinner />;
   if (!data) return null;
@@ -83,12 +86,25 @@ export function ConfirmSoldier({
             )}
 
             <div className="flex gap-2">
-              <Button
-                onClick={onContinue}
-                disabled={data.isEnlisted === false || data.signatures.length > 0}
-              >
-                {he.issue.continueToItem}
-              </Button>
+              {data.signatures.length > 0 ? (
+                // A soldier who already holds items is changed through his signatures (add, swap a מסד, return),
+                // not by a new 1008, so the way on is there rather than a disabled button.
+                <Button
+                  onClick={() => {
+                    const state: DocumentsLocationState = {
+                      soldierId: data.id,
+                      q: `${data.firstName} ${data.lastName}`,
+                    };
+                    navigate('/documents', { state });
+                  }}
+                >
+                  {he.issue.goToSignatures}
+                </Button>
+              ) : (
+                <Button onClick={onContinue} disabled={data.isEnlisted === false}>
+                  {he.issue.continueToItem}
+                </Button>
+              )}
               <Button variant="quiet" onClick={() => setEditing(true)}>
                 {he.issue.editDetails}
               </Button>
