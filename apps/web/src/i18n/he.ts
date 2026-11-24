@@ -144,6 +144,7 @@ export const he = {
     storeTitle: 'אפסון ציוד',
     storeBody: (name: string, item: string) => `${item} של ${name} יישאר רשום עליו, אך יספר בנשקייה.`,
     storeDone: 'הציוד אופסן',
+    storeQty: (max: number) => `כמה לאפסן (עד ${max})`,
     collectTitle: 'החייל לקח את הציוד',
     collectBody: (name: string, item: string) => `${item} של ${name} יחזור להיספר כמנופק.`,
     collectDone: 'הציוד נלקח מהאפסון',
