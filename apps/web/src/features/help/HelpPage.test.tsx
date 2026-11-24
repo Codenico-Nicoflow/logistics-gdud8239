@@ -84,7 +84,7 @@ describe('HelpPage', () => {
   it('search narrows the topics, opens the matches, and says so when nothing matches', async () => {
     show('admin');
     const box = screen.getByRole('textbox');
-    fireEvent.change(box, { target: { value: 'זיכוי' } });
+    fireEvent.change(box, { target: { value: 'תיקון טופס' } });
     await waitFor(() => expect(screen.queryByText('גיבויים')).toBeNull(), { timeout: 8000 });
     expect(screen.getByText(/זיכוי, תיקון טופס/)).toBeTruthy();
     expect(screen.getAllByText(he.help.stepsLabel).length).toBeGreaterThan(0);
