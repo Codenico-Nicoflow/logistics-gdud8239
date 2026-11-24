@@ -422,7 +422,8 @@ export const api = createApi({
     }),
     updateItem: build.mutation<Item, { id: string } & Partial<Item>>({
       query: ({ id, ...body }) => ({ url: `/items/${id}`, method: 'PATCH', body }),
-      invalidatesTags: ['Items', 'Reports', 'Kits'],
+      // 'Signatures': holders carry their items, so a changed "אפשר לאפסן" must reach the אפסון picker without a reload.
+      invalidatesTags: ['Items', 'Reports', 'Kits', 'Signatures'],
     }),
     deletionCheck: build.query<DeletionCheck, string>({
       query: (id) => `/items/${id}/deletion-check`,
