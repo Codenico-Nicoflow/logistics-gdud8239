@@ -22,6 +22,10 @@ export function SignaturePad({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const [hasInk, setHasInk] = useState(false);
+  // The stroke's own record of whether anything was drawn. `hasInk` is state, so a quick stroke can lift
+  // before React has re-rendered and the handlers would still see false: the signature was drawn but never reported.
+  const inked = useRef(false);
+  const lastWidth = useRef(0);
   // Held in a ref so the effect below never re-runs just because a parent passed a new
   // function: re-running it re-sizes the canvas, which erases the signature mid-draw.
   const onChangeRef = useRef(onChange);
@@ -35,6 +39,7 @@ export function SignaturePad({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
+    lastWidth.current = rect.width;
     const ratio = window.devicePixelRatio || 1;
     canvas.width = Math.round(rect.width * ratio);
     canvas.height = Math.round(rect.height * ratio);
@@ -52,8 +57,13 @@ export function SignaturePad({
     // Rotating a phone mid-signature resizes the canvas, which clears it; the
     // soldier is told by the empty box and signs again, rather than the form
     // keeping a half-drawn stroke.
+    // Only a real change of width. A phone's address bar or keyboard also fires resize, and wiping a
+    // finished signature for that would look like the pad "does nothing".
     const onResize = (): void => {
+      const width = canvasRef.current?.getBoundingClientRect().width ?? 0;
+      if (Math.abs(width - lastWidth.current) < 1) return;
       fit();
+      inked.current = false;
       setHasInk(false);
       onChangeRef.current(null);
     };
@@ -71,7 +81,11 @@ export function SignaturePad({
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     // Captured so a stroke that leaves the box still ends cleanly.
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Some pointers cannot be captured; drawing still works while the pointer stays inside the box.
+    }
     drawing.current = true;
     const { x, y } = pointIn(e);
     ctx.beginPath();
@@ -85,6 +99,7 @@ export function SignaturePad({
     const { x, y } = pointIn(e);
     ctx.lineTo(x, y);
     ctx.stroke();
+    inked.current = true;
     if (!hasInk) setHasInk(true);
   }
 
@@ -92,7 +107,7 @@ export function SignaturePad({
     if (!drawing.current) return;
     drawing.current = false;
     const canvas = canvasRef.current;
-    if (!canvas || !hasInk) return;
+    if (!canvas || !inked.current) return;
     onChange(canvas.toDataURL('image/png'));
   }
 
@@ -101,6 +116,7 @@ export function SignaturePad({
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    inked.current = false;
     setHasInk(false);
     onChange(null);
   }

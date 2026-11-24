@@ -335,6 +335,8 @@ describe('SignaturePad', () => {
     stubCanvas();
     const onChange = vi.fn();
     render(<SignaturePad onChange={onChange} />);
+    // A rotation changes the width; a resize with the same width (address bar, keyboard) must not wipe the pad.
+    vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 480, height: 160, left: 0, top: 0, right: 480, bottom: 160, x: 0, y: 0, toJSON: () => ({}) });
     act(() => { window.dispatchEvent(new Event('resize')); });
     expect(onChange).toHaveBeenCalledWith(null);
   });
