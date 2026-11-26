@@ -22,3 +22,8 @@ The side rail had ~21 flat links. It is now one entry per **hub**; related scree
 
 ## Adding a screen
 Add a tab (or hub) to `HUBS` in `navConfig.ts` with its roles, add its element in `screenFor` in `App.tsx`, add a guide topic. The guide test fails if a screen has no topic.
+
+## Restyle (feat/nav-restyle)
+- **Logo:** struck brass medallion — beveled ring, engraved numerals; every 5 s the chevrons light up from the bottom, then a glint crosses the ring. Respects `prefers-reduced-motion`.
+- **Rail:** one highlight glides between hubs (measured from the live link, so it survives font loading and the closed phone menu); items enter in sequence; icon tiles lift on hover; group headings have a fading rule. ימי יציאה and מערכת got their own icons (they reused the soldiers/users ones).
+- **Phone header:** fixed bar whose height includes the notch inset (`--safe-top`), menu panel starts on the same line (`100dvh`, not `inset-0`), hamburger morphs into an ✕.
