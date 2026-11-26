@@ -496,7 +496,7 @@ export const he = {
     // The samgad's grid — each item split across the five companies, capped
     // against בפועל (what's actually on hand), not מצבה.
     companyGrid: 'חלוקה לפלוגות',
-    companyGridHint: 'כמות לכל פלוגה, מתוך הכמות בפועל (לא מצבה)',
+    companyGridHint: 'כמות לכל פלוגה, מתוך הכמות בפועל',
     onHand: 'בפועל',
     total: 'סה״כ',
     capExceeded: (onHand: number) => `אין מספיק בפועל (${onHand})`,
