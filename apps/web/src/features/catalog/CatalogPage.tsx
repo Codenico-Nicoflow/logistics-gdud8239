@@ -26,6 +26,7 @@ import {
   Td,
   Th,
   TextField,
+  Checkbox,
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
@@ -843,18 +844,13 @@ function CheckRow({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-ctl border border-rule bg-card px-3 py-2">
-      <input
-        type="checkbox"
-        className="mt-1"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span>
-        <span className="block font-semibold">{label}</span>
-        <span className="block text-meta text-graphite">{hint}</span>
-      </span>
-    </label>
+    <Checkbox
+      checked={checked}
+      onChange={onChange}
+      label={label}
+      hint={hint}
+      className="rounded-ctl border border-rule bg-card px-3 py-2"
+    />
   );
 }
 
@@ -888,17 +884,14 @@ function SummaryToggle({ item }: { item: Item }) {
   // The label is the tap target: a bare 13px checkbox is nearly impossible to hit with a thumb. On a phone
   // it also says what it is; on a desktop the checkbox sits alone in its column, as before.
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-2 text-meta text-ink-soft sm:min-h-0">
-      <input
-        type="checkbox"
-        className="h-5 w-5 cursor-pointer sm:h-4 sm:w-4"
-        aria-label={`${he.catalog.inSummary} — ${item.name}`}
-        checked={item.inSummary}
-        disabled={isLoading}
-        onChange={(e) => void toggle(e.target.checked)}
-      />
-      <span className="sm:hidden">{he.catalog.inSummary}</span>
-    </label>
+    <Checkbox
+      checked={item.inSummary}
+      disabled={isLoading}
+      ariaLabel={`${he.catalog.inSummary} — ${item.name}`}
+      onChange={(next) => void toggle(next)}
+      label={<span className="font-normal text-ink-soft sm:hidden">{he.catalog.inSummary}</span>}
+      className="sm:min-h-0"
+    />
   );
 }
 

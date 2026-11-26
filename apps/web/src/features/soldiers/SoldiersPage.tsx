@@ -20,6 +20,7 @@ import {
   Td,
   Th,
   TextField,
+  Checkbox,
 } from '../../components/ui';
 import { AddSoldierDialog } from './AddSoldierDialog';
 import { useToast } from '../../components/toast';
@@ -149,22 +150,8 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-2.5">
           <div className="flex flex-wrap gap-4">
-            <label className="flex min-h-11 items-center gap-2 text-meta">
-              <input
-                type="checkbox"
-                checked={incompleteOnly}
-                onChange={(e) => setIncompleteOnly(e.target.checked)}
-              />
-              {he.soldiers.incompleteFilter}
-            </label>
-            <label className="flex min-h-11 items-center gap-2 text-meta">
-              <input
-                type="checkbox"
-                checked={attachedOnly}
-                onChange={(e) => setAttachedOnly(e.target.checked)}
-              />
-              {he.soldiers.attachedFilter}
-            </label>
+            <Checkbox checked={incompleteOnly} onChange={setIncompleteOnly} label={he.soldiers.incompleteFilter} />
+            <Checkbox checked={attachedOnly} onChange={setAttachedOnly} label={he.soldiers.attachedFilter} />
           </div>
           {data && (
             <span className="text-meta text-graphite">
@@ -614,10 +601,7 @@ function EditSoldierDialog({
             />
             <TextField label={he.soldiers.phone} value={phone} onChange={setPhone} />
           </div>
-          <label className="flex min-h-11 items-center gap-2 text-meta">
-            <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
-            {he.soldiers.attachedHint}
-          </label>
+          <Checkbox checked={isAttached} onChange={setIsAttached} label={he.soldiers.attachedHint} />
 
           {message && (
             <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">

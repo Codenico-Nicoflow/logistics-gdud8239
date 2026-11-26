@@ -4,21 +4,20 @@ import {
   useSetSoldierAllocationMutation,
   useSoldierAllocationsQuery,
 } from '../../lib/api';
-import { apiErrorMessage, Button, CategoryDot, EmptyState, Panel, Select, Spinner } from '../../components/ui';
+import { apiErrorMessage, Button, CategoryDot, Checkbox, EmptyState, Panel, SearchField, Spinner } from '../../components/ui';
 import { he } from '../../i18n/he';
 import type { Company, CompanySoldierRef, SoldierAllocationRow } from '../../lib/types';
 
+const cellKey = (soldierId: string, itemId: string): string => `${soldierId}:${itemId}`;
+
 /**
- * A company commander's (סגן מפקד פלוגה) own screen. Not a grid: once a
- * company has dozens of soldiers, one column per soldier stops fitting any
- * screen and turns into horizontal scrolling for a form. Instead, pick one
- * item at a time, then a plain vertical list — one row per soldier, one
- * control each — with a single שמור for the whole item. Planning only —
- * "מאג מ-4 למטולון, מכפל, מפרו" — capped against the company's own quantity
- * from חלוקה לפלוגות, never against anything a real 1008 can issue.
- * Scoped server-side to the commander's own companyScope; a COMPANY_CMDR can
- * never pass `company` to see another one. `company` is only meaningful when
- * an admin is looking in on a specific company — the server requires it then.
+ * A company commander's (סגן מפקד פלוגה) own screen: one row per soldier, one
+ * column per item the samgad allocated to the company, a count in each cell,
+ * and a single שמור for the whole matrix. Planning only — capped per column
+ * against the company's own quantity from חלוקה לפלוגות, never against anything
+ * a real 1008 can issue. Scoped server-side to the commander's own
+ * companyScope; `company` is only meaningful when an admin looks in on a
+ * specific company — the server requires it then.
  */
 export function SoldierAllocationGrid({
   servicePeriodId,
@@ -29,13 +28,11 @@ export function SoldierAllocationGrid({
 }) {
   const { data: rows, isLoading: rowsLoading } = useSoldierAllocationsQuery({ servicePeriodId, company });
   const { data: soldiers, isLoading: soldiersLoading } = useCompanySoldiersQuery({ servicePeriodId, company });
-  const [selectedItemId, setSelectedItemId] = useState('');
 
   if (rowsLoading || soldiersLoading) return <Spinner />;
 
   const items = rows ?? [];
   const soldierList = soldiers ?? [];
-  const selectedRow = items.find((r) => r.itemId === selectedItemId) ?? items[0] ?? null;
 
   return (
     <Panel title={he.servicePeriods.soldierGrid}>
@@ -48,169 +45,135 @@ export function SoldierAllocationGrid({
       ) : soldierList.length === 0 ? (
         <EmptyState>{he.servicePeriods.noCompanySoldiers}</EmptyState>
       ) : (
-        <div className="space-y-4 border-t border-rule px-4 py-4">
-          <Select
-            label={he.servicePeriods.chooseItem}
-            value={selectedRow?.itemId ?? ''}
-            onChange={setSelectedItemId}
-            options={items.map((r) => ({
-              value: r.itemId,
-              label: `${r.item.name} (${he.servicePeriods.companyQuantity}: ${r.companyQuantity})`,
-            }))}
-            className="max-w-md"
-          />
-          {selectedRow && (
-            <SoldierList
-              key={selectedRow.itemId}
-              servicePeriodId={servicePeriodId}
-              row={selectedRow}
-              soldiers={soldierList}
-            />
-          )}
-        </div>
+        <AllocationMatrix servicePeriodId={servicePeriodId} items={items} soldiers={soldierList} />
       )}
     </Panel>
   );
 }
 
 /**
- * A soldier's quantity for one item. Almost every item here is serialized —
- * one weapon, one soldier — so it's a binary "does he get one", not a number
- * to type. A real two-state switch reads that at a glance and animates the
- * change, instead of a number input whose only sane values are 0 and 1.
- * Non-serialized items (bulk accessories) keep a small stepper, since a
- * soldier can legitimately hold more than one of those.
+ * One soldier's allocation of one item: a checkbox, so at most one each — the
+ * plan is "does this soldier get one", never a count. Shared by the table and
+ * the phone cards so neither render carries its own copy of the rules.
  */
-function QuantityControl({
-  isSerialized,
+function AllocationCell({
   value,
+  label,
+  invalid,
   onChange,
 }: {
-  isSerialized: boolean;
   value: number;
+  label: string;
+  invalid: boolean;
   onChange: (next: number) => void;
 }) {
-  if (isSerialized) {
-    const on = value > 0;
-    return (
-      <button
-        role="switch"
-        aria-checked={on}
-        onClick={() => onChange(on ? 0 : 1)}
-        className={`inline-flex h-9 w-16 items-center rounded-full border px-1 transition-colors duration-200 ${
-          on ? 'justify-end border-field bg-field' : 'justify-start border-rule-strong bg-card-raised'
-        }`}
-      >
-        <span className="h-7 w-7 rounded-full bg-white shadow-panel transition-transform duration-200 ease-out" />
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <button
-        onClick={() => onChange(Math.max(0, value - 1))}
-        aria-label="−"
-        className="flex h-8 w-8 items-center justify-center rounded-ctl border border-rule-strong bg-card text-lead font-semibold transition-colors hover:bg-field-wash active:scale-95"
-      >
-        −
-      </button>
-      <span className="w-8 text-center text-body font-semibold tabular-nums">{value}</span>
-      <button
-        onClick={() => onChange(value + 1)}
-        aria-label="+"
-        className="flex h-8 w-8 items-center justify-center rounded-ctl border border-rule-strong bg-card text-lead font-semibold transition-colors hover:bg-field-wash active:scale-95"
-      >
-        +
-      </button>
-    </div>
-  );
+  return <Checkbox checked={value > 0} ariaLabel={label} invalid={invalid} onChange={(on) => onChange(on ? 1 : 0)} />;
 }
 
-function SoldierList({
+function AllocationMatrix({
   servicePeriodId,
-  row,
+  items,
   soldiers,
 }: {
   servicePeriodId: string;
-  row: SoldierAllocationRow;
+  items: SoldierAllocationRow[];
   soldiers: CompanySoldierRef[];
 }) {
   const [set] = useSetSoldierAllocationMutation();
   const [isSaving, setIsSaving] = useState(false);
-  const [draftBySoldier, setDraftBySoldier] = useState<Record<string, number>>(() =>
-    Object.fromEntries(soldiers.map((s) => [s.id, row.bySoldier[s.id] ?? 0])),
-  );
-  const [errorBySoldier, setErrorBySoldier] = useState<Record<string, string>>({});
-  const [dirty, setDirty] = useState(false);
+  // Only what the operator changed, layered over the server's values — a
+  // refetch after save can never clobber an untouched cell, and "dirty" is
+  // simply "edit differs from server".
+  const [edits, setEdits] = useState<Record<string, number>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [query, setQuery] = useState('');
 
-  // Filters what's shown only — drafts for soldiers hidden by the search stay
+  const serverValue = (soldierId: string, row: SoldierAllocationRow): number => row.bySoldier[soldierId] ?? 0;
+  const valueOf = (soldierId: string, row: SoldierAllocationRow): number =>
+    edits[cellKey(soldierId, row.itemId)] ?? serverValue(soldierId, row);
+
+  // Filters what's shown only — edits for soldiers hidden by the search stay
   // in state, so clearing the search never drops a value already set.
   const visibleSoldiers = useMemo(() => {
-    const q = query.trim();
-    if (!q) return soldiers;
-    return soldiers.filter((s) => `${s.firstName} ${s.lastName}`.includes(q));
+    if (!query) return soldiers;
+    return soldiers.filter((s) => `${s.firstName} ${s.lastName}`.includes(query));
   }, [soldiers, query]);
 
-  const draftTotal = useMemo(
-    () => soldiers.reduce((sum, s) => sum + (draftBySoldier[s.id] ?? 0), 0),
-    [draftBySoldier, soldiers],
-  );
-  const overCap = draftTotal > row.companyQuantity;
+  const totals = useMemo(() => {
+    const byItem: Record<string, number> = {};
+    for (const row of items) {
+      byItem[row.itemId] = soldiers.reduce(
+        (sum, s) => sum + (edits[cellKey(s.id, row.itemId)] ?? row.bySoldier[s.id] ?? 0),
+        0,
+      );
+    }
+    return byItem;
+  }, [items, soldiers, edits]);
 
-  function patch(soldierId: string, value: number): void {
-    setDraftBySoldier((m) => ({ ...m, [soldierId]: value }));
-    setDirty(true);
+  const overItems = items.filter((r) => (totals[r.itemId] ?? 0) > r.companyQuantity);
+  const dirtyCells = soldiers.flatMap((s) =>
+    items
+      .filter((r) => valueOf(s.id, r) !== serverValue(s.id, r))
+      .map((r) => ({ soldierId: s.id, itemId: r.itemId, quantity: valueOf(s.id, r), previous: serverValue(s.id, r) })),
+  );
+  const hasOverCap = overItems.length > 0;
+
+  function patch(soldierId: string, itemId: string, value: number): void {
+    setEdits((m) => ({ ...m, [cellKey(soldierId, itemId)]: value }));
+    setErrors((m) => {
+      const key = cellKey(soldierId, itemId);
+      if (!(key in m)) return m;
+      const { [key]: _dropped, ...rest } = m;
+      return rest;
+    });
   }
 
   async function handleSave(): Promise<void> {
-    if (overCap) return; // the button is disabled for this, but never trust only that
+    if (hasOverCap) return; // the button is disabled for this, but never trust only that
     setIsSaving(true);
     const nextErrors: Record<string, string> = {};
 
-    for (const s of soldiers) {
-      const n = draftBySoldier[s.id] ?? 0;
-      const current = row.bySoldier[s.id] ?? 0;
-      if (n === current) continue;
-      const result = await set({ servicePeriodId, itemId: row.itemId, soldierId: s.id, quantity: n });
-      if (result.error) nextErrors[s.id] = apiErrorMessage(result.error) ?? he.toast.failed;
+    // The server checks the cap one soldier at a time, so apply decreases
+    // first: a column that is within cap overall never trips a 409 mid-batch.
+    const ordered = [...dirtyCells].sort((a, b) => a.quantity - a.previous - (b.quantity - b.previous));
+    for (const cell of ordered) {
+      const result = await set({ servicePeriodId, itemId: cell.itemId, soldierId: cell.soldierId, quantity: cell.quantity });
+      if (result.error) nextErrors[cellKey(cell.soldierId, cell.itemId)] = apiErrorMessage(result.error) ?? he.toast.failed;
     }
 
     setIsSaving(false);
-    setErrorBySoldier(nextErrors);
-    if (Object.keys(nextErrors).length === 0) setDirty(false);
+    setErrors(nextErrors);
   }
 
-  return (
-    <div className="rounded-panel border border-rule">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rule bg-card px-4 py-3">
-        <span className="flex items-center gap-2 font-semibold">
-          <CategoryDot category={row.item.category} />
-          {row.item.name}
-        </span>
-        <span
-          className={`text-meta font-semibold transition-colors ${overCap ? 'text-oxide' : 'text-ink-soft'}`}
-        >
-          {he.servicePeriods.totalOfCompany(draftTotal, row.companyQuantity)}
-        </span>
-      </div>
+  const cellProps = (soldier: CompanySoldierRef, row: SoldierAllocationRow) => ({
+    value: valueOf(soldier.id, row),
+    label: `${soldier.firstName} ${soldier.lastName} — ${row.item.name}`,
+    invalid: (totals[row.itemId] ?? 0) > row.companyQuantity || cellKey(soldier.id, row.itemId) in errors,
+    onChange: (next: number) => patch(soldier.id, row.itemId, next),
+  });
 
-      {overCap && (
-        <p className="border-b border-rule bg-oxide-wash px-4 py-2 text-meta text-oxide">
-          {he.servicePeriods.capExceededCannotSave(row.companyQuantity)}
-        </p>
+  return (
+    <div className="border-t border-rule">
+      {hasOverCap && (
+        <ul className="border-b border-rule bg-oxide-wash px-4 py-2 text-meta text-oxide">
+          {overItems.map((r) => (
+            <li key={r.itemId}>
+              {r.item.name}: {he.servicePeriods.capExceededCannotSave(r.companyQuantity)}
+            </li>
+          ))}
+        </ul>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rule px-4 py-2.5">
-        <input
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <SearchField
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onSearch={setQuery}
           placeholder={he.servicePeriods.searchSoldier}
-          className="h-10 w-full max-w-xs rounded-ctl border border-rule-strong bg-card-raised px-3 text-body shadow-inset-field focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40"
+          debounceMs={0}
+          className="w-full max-w-xs"
         />
         <span className="text-meta text-graphite">
-          {query.trim()
+          {query
             ? he.servicePeriods.soldierCountFiltered(visibleSoldiers.length, soldiers.length)
             : he.servicePeriods.soldierCount(soldiers.length)}
         </span>
@@ -219,30 +182,91 @@ function SoldierList({
       {visibleSoldiers.length === 0 ? (
         <p className="px-4 py-6 text-center text-graphite">{he.servicePeriods.noSoldierMatch}</p>
       ) : (
-        <ul className="divide-y divide-rule">
-          {visibleSoldiers.map((s) => {
-            const cellError = errorBySoldier[s.id];
-            return (
-              <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <span className="font-semibold">
+        <>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full border-collapse text-body">
+              <thead>
+                <tr className="border-y border-rule bg-card text-start">
+                  <th className="sticky start-0 z-10 bg-card px-4 py-2 text-start font-semibold">
+                    {he.servicePeriods.soldierColumn}
+                  </th>
+                  {items.map((r) => {
+                    const over = (totals[r.itemId] ?? 0) > r.companyQuantity;
+                    return (
+                      <th key={r.itemId} className="min-w-28 px-3 py-2 text-center align-bottom font-semibold">
+                        <span className="flex items-center justify-center gap-1.5">
+                          <CategoryDot category={r.item.category} />
+                          {r.item.name}
+                        </span>
+                        <span
+                          className={`block text-meta font-semibold transition-colors ${over ? 'text-oxide' : 'text-ink-soft'}`}
+                        >
+                          {he.servicePeriods.totalOfCompany(totals[r.itemId] ?? 0, r.companyQuantity)}
+                        </span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rule">
+                {visibleSoldiers.map((s) => (
+                  <tr key={s.id}>
+                    <td className="sticky start-0 z-10 bg-card-raised px-4 py-2 font-semibold">
+                      {s.firstName} {s.lastName}
+                    </td>
+                    {items.map((r) => {
+                      const error = errors[cellKey(s.id, r.itemId)];
+                      return (
+                        <td key={r.itemId} className="px-3 py-2 text-center align-top">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <AllocationCell {...cellProps(s, r)} />
+                            {error && <p className="max-w-28 text-micro text-oxide">{error}</p>}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <ul className="divide-y divide-rule border-t border-rule sm:hidden">
+            {visibleSoldiers.map((s) => (
+              <li key={s.id} className="space-y-2 px-4 py-3">
+                <p className="font-semibold">
                   {s.firstName} {s.lastName}
-                </span>
-                <div className="flex flex-col items-end gap-0.5">
-                  <QuantityControl
-                    isSerialized={row.item.isSerialized}
-                    value={draftBySoldier[s.id] ?? 0}
-                    onChange={(v) => patch(s.id, v)}
-                  />
-                  {cellError && <p className="text-micro text-oxide">{cellError}</p>}
-                </div>
+                </p>
+                <ul className="space-y-2">
+                  {items.map((r) => {
+                    const error = errors[cellKey(s.id, r.itemId)];
+                    return (
+                      <li key={r.itemId} className="flex items-center justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-1.5 text-meta">
+                          <CategoryDot category={r.item.category} />
+                          <span className="truncate">{r.item.name}</span>
+                          <span
+                            className={`shrink-0 ${(totals[r.itemId] ?? 0) > r.companyQuantity ? 'text-oxide' : 'text-graphite'}`}
+                          >
+                            ({he.servicePeriods.totalOfCompany(totals[r.itemId] ?? 0, r.companyQuantity)})
+                          </span>
+                        </span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <AllocationCell {...cellProps(s, r)} />
+                          {error && <p className="text-micro text-oxide">{error}</p>}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+        </>
       )}
 
       <div className="flex justify-end border-t border-rule px-4 py-3">
-        <Button onClick={() => void handleSave()} disabled={isSaving || !dirty || overCap}>
+        <Button onClick={() => void handleSave()} disabled={isSaving || dirtyCells.length === 0 || hasOverCap}>
           {isSaving ? he.common.saving : he.common.save}
         </Button>
       </div>

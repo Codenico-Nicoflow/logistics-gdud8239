@@ -509,7 +509,7 @@ export const he = {
     // סגן מפקד פלוגה's own screen — breaking the company's quantity down
     // per soldier, planning only, capped against what the samגד gave the company.
     soldierGrid: 'חלוקה לפי חייל',
-    soldierGridHint: 'כמות לכל חייל בפלוגה שלך, מתוך הכמות שהוקצתה לפלוגה — תכנון בלבד, לא מגביל ניפוק בפועל',
+    soldierGridHint: 'שורה לכל חייל, עמודה לכל פריט — מזינים כמות בכל תא, מתוך הכמות שהוקצתה לפלוגה. תכנון בלבד, לא מגביל ניפוק בפועל',
     companyQuantity: 'הוקצה לפלוגה',
     capExceededCompany: (companyQuantity: number) => `אין מספיק לפלוגה (${companyQuantity})`,
     capExceededCannotSave: (companyQuantity: number) =>
@@ -518,7 +518,7 @@ export const he = {
     noCompanySoldiers: 'אין חיילים פעילים בפלוגה שלך',
     chooseCompany: 'פלוגה',
     chooseCompanyHint: 'בחר פלוגה כדי לראות את החלוקה שלה',
-    chooseItem: 'בחר פריט',
+    soldierColumn: 'חייל',
     totalOfCompany: (total: number, companyQuantity: number) => `${total} מתוך ${companyQuantity}`,
     searchSoldier: 'חפש חייל לפי שם',
     soldierCount: (n: number) => `${n} חיילים`,

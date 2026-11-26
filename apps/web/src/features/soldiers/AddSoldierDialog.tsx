@@ -3,7 +3,7 @@ import {
   useCheckDuplicateSoldierMutation,
   useCreateSoldierMutation,
 } from '../../lib/api';
-import { apiErrorMessage, Button, Modal, Select, TextField } from '../../components/ui';
+import { apiErrorMessage, Button, Checkbox, Modal, Select, TextField } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { COMPANIES, type Company, type NewSoldier, type SoldierSummary } from '../../lib/types';
@@ -135,10 +135,7 @@ export function AddSoldierDialog({
             />
           </div>
 
-          <label className="flex items-center gap-2 text-meta">
-            <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
-            {he.soldiers.attachedHint}
-          </label>
+          <Checkbox checked={isAttached} onChange={setIsAttached} label={he.soldiers.attachedHint} />
 
           {duplicates && duplicates.length > 0 && (
             <div className="rounded-ctl bg-brass-wash px-3 py-2">
