@@ -12,6 +12,8 @@
  * chrome, which keeps a dense table from competing with the menu.
  */
 :root {
+  /* Notch height on an iPhone; 0 elsewhere. One variable so the phone header and menu share one line. */
+  --safe-top: env(safe-area-inset-top, 0px);
   --ink: #16211d;
   --ink-soft: #3c4a44;
   --graphite: #6c7a74;
@@ -173,12 +175,105 @@ input[type='radio'] {
   }
 }
 
+/* Logo: one 5s cycle that repeats — the chevrons light up from the bottom (rank climbing), then light
+   crosses the ring. The chevrons are drawn in once on first appearance. */
+@keyframes chevron-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+@keyframes chevron-pulse {
+  0%,
+  16%,
+  100% {
+    stroke: var(--brass-bright);
+    transform: translateY(0);
+  }
+  7% {
+    stroke: #fff1bd;
+    transform: translateY(-1.2px);
+  }
+}
+@keyframes glint-sweep {
+  0%,
+  16% {
+    transform: translateX(0);
+  }
+  42%,
+  100% {
+    transform: translateX(95px);
+  }
+}
+.logo-chevron {
+  stroke-dasharray: 1;
+}
+.logo-animated .logo-chevron {
+  animation:
+    chevron-draw 0.55s cubic-bezier(0.3, 0.7, 0.2, 1) both,
+    chevron-pulse 5s ease-in-out infinite;
+}
+/* The lower chevron leads; the delays carry each animation's start so the pulse waits for the draw-in. */
+.logo-animated .logo-chevron-1 {
+  animation-delay: 0.15s, 1.2s;
+}
+.logo-animated .logo-chevron-2 {
+  animation-delay: 0.4s, 1.5s;
+}
+.logo-glint {
+  animation: glint-sweep 5s ease-in-out 1.7s infinite;
+}
+
+/* Rail: items enter in sequence (replays each time the phone menu opens). */
+@keyframes rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.rail-item {
+  animation: rail-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms + 80ms);
+}
+@keyframes pill-edge {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(194, 155, 46, 0);
+  }
+  50% {
+    box-shadow: 0 0 10px 1px rgba(194, 155, 46, 0.55);
+  }
+}
+.rail-pill-edge {
+  animation: pill-edge 3.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  .logo-glint,
+  .rail-pill-edge {
+    animation: none !important;
+  }
+  .logo-animated .logo-chevron {
+    animation: none !important;
+    opacity: 1;
+  }
+  .rail-item {
+    animation: none !important;
+    opacity: 1;
   }
 }
 

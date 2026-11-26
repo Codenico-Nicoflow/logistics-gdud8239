@@ -235,6 +235,8 @@ await step('catalog: an item that still has a מסד cannot be deleted, and the 
   const row = rowOf(`${ITEM} ב`);
   await row.getByRole('button', { name: 'מחק' }).click();
   await anyDialog().waitFor();
+  // The refusal arrives with the server's answer, a moment after the dialog opens.
+  await anyDialog().getByText(/לא ניתן למחוק/).waitFor({ timeout: 5000 }).catch(() => {});
   const t = await anyDialog().innerText();
   if (!/לא ניתן למחוק/.test(t)) throw new Error(`no refusal reason: ${t.slice(0, 100)}`);
   if (!/השבת/.test(t)) throw new Error('no deactivate alternative offered');
