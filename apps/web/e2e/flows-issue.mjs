@@ -102,9 +102,8 @@ await step('issue: a weapon NOT on the allocation grid at all (nobody planned it
   await addItem(page, GUN);
   await page.waitForTimeout(700);
   const dlg = page.locator('[role=dialog],[role=alertdialog]');
-  // BasketStep treats "not on the grid" as "nothing to check", so this adds silently. CLAUDE.md says a weapon
-  // with no quantity left for the company must warn; an unplanned weapon has none. Recorded, not asserted.
-  note('GAP', dlg.count() ? 'weapon with no allocation row was added with NO warning' : 'warned');
+  // By design (CLAUDE.md): a weapon with no row on the grid is added without a warning.
+  note('BY DESIGN', (await dlg.count()) ? 'unplanned weapon showed a dialog (behaviour changed)' : 'unplanned weapon added silently');
 }, page);
 
 await step('issue: a weapon whose company allocation is used up asks before it is added', async () => {
