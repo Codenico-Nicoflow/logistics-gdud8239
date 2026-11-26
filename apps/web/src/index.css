@@ -117,7 +117,10 @@ input[type='radio'] {
   transition: background-color 120ms ease;
 }
 .row-hover tbody tr:hover {
-  background: var(--field-wash);
+  background: linear-gradient(90deg, rgba(226, 239, 233, 0.9), rgba(226, 239, 233, 0.35));
+}
+.row-hover tbody tr:hover td:first-child {
+  box-shadow: inset -3px 0 0 var(--field-bright);
 }
 
 :focus-visible {
@@ -586,4 +589,49 @@ input[type='radio'] {
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-backdrop, .modal-sheet, .field-invalid { animation: none !important; }
+}
+
+/* ---- Data surfaces: tables, chips, loading and empty states ------------------------------------- */
+.th-glass {
+  background: linear-gradient(180deg, #fff 0%, var(--card) 100%);
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, var(--field-bright), var(--brass-bright), transparent) 1;
+}
+/* A lit top edge on chips, like the nav's glass tiles. */
+.chip {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* The spinner is a droplet of light travelling a ring. */
+.liquid-spinner {
+  display: inline-block;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, transparent 0 25%, var(--field-bright) 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  animation: liquid-spin 800ms linear infinite;
+}
+@keyframes liquid-spin {
+  to { transform: rotate(360deg); }
+}
+.empty-orb {
+  border-radius: 9999px;
+  background: radial-gradient(circle at 32% 28%, #fff 0 12%, rgba(255, 255, 255, 0) 13%), linear-gradient(145deg, var(--field-wash), #c9e0d6);
+  box-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(47, 107, 83, 0.45), 0 0 0 1px rgba(47, 107, 83, 0.12);
+  animation: orb-float 4.5s ease-in-out infinite;
+}
+@keyframes orb-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.skeleton {
+  background: linear-gradient(100deg, #e4eae6 30%, #f5f8f6 50%, #e4eae6 70%);
+  background-size: 200% 100%;
+  animation: skeleton-sheen 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-sheen {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .liquid-spinner, .empty-orb, .skeleton { animation: none !important; }
 }

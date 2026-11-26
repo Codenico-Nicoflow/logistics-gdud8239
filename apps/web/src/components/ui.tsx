@@ -1,4 +1,33 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+
+/** A number that rolls to its new value instead of jumping, so a changed count is noticed. Never on first paint. */
+function useRolling(target: number): number {
+  const [shown, setShown] = useState(target);
+  const from = useRef(target);
+  useEffect(() => {
+    if (from.current === target) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      from.current = target;
+      setShown(target);
+      return;
+    }
+    const start = performance.now();
+    const origin = from.current;
+    let raf = 0;
+    const tick = (now: number): void => {
+      const t = Math.min(1, (now - start) / 600);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown(Math.round(origin + (target - origin) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+      else from.current = target;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return typeof target === 'number' ? shown : target;
+}
+
 import { NavLink } from 'react-router-dom';
 import { he } from '../i18n/he';
 import type { ItemCategory } from '../lib/types';
@@ -140,20 +169,21 @@ export function Figure({
   hint?: string;
 }) {
   const tones = {
-    ink: { text: 'text-ink', rule: 'bg-graphite', bg: 'bg-card-raised' },
-    field: { text: 'text-field-dark', rule: 'bg-field', bg: 'bg-field-wash' },
-    oxide: { text: 'text-oxide', rule: 'bg-oxide', bg: 'bg-oxide-wash' },
-    brass: { text: 'text-brass', rule: 'bg-brass-bright', bg: 'bg-brass-wash' },
+    ink: { text: 'text-ink', rule: 'from-graphite to-ink-soft', glow: 'rgba(60,74,68,0.35)' },
+    field: { text: 'text-field-dark', rule: 'from-field-bright to-field', glow: 'rgba(61,138,107,0.55)' },
+    oxide: { text: 'text-oxide', rule: 'from-[#c4503a] to-oxide', glow: 'rgba(166,61,38,0.5)' },
+    brass: { text: 'text-brass', rule: 'from-brass-bright to-brass', glow: 'rgba(194,155,46,0.55)' },
   }[tone];
+  const rolling = useRolling(typeof value === 'number' ? value : 0);
 
   return (
     <div
-      className={`overflow-hidden rounded-panel border border-rule shadow-panel ${tones.bg}`}
+      className="glass-card overflow-hidden rounded-panel"
     >
-      <div className={`h-1 ${tones.rule}`} />
+      <div className={`h-1 bg-gradient-to-l ${tones.rule}`} style={{ boxShadow: `0 2px 14px ${tones.glow}` }} />
       <div className="px-4 py-3">
         <div className="text-meta font-semibold text-graphite">{label}</div>
-        <div className={`mt-0.5 text-figure font-bold ${tones.text}`}>{value}</div>
+        <div className={`mt-0.5 text-figure font-bold ${tones.text}`}>{typeof value === 'number' ? rolling : value}</div>
         {hint && <div className="mt-0.5 text-micro text-graphite">{hint}</div>}
       </div>
     </div>
@@ -175,7 +205,7 @@ export function CategoryTag({ category }: { category: ItemCategory }) {
   };
   return (
     <span
-      className={`inline-block whitespace-nowrap rounded-ctl border px-1.5 py-0.5 text-micro font-semibold ${tones[category]}`}
+      className={`chip inline-block whitespace-nowrap rounded-ctl border px-1.5 py-0.5 text-micro font-semibold ${tones[category]}`}
     >
       {he.categories[category]}
     </span>
@@ -464,7 +494,7 @@ export function Tag({
   };
   return (
     <span
-      className={`inline-block whitespace-nowrap rounded-ctl border px-1.5 py-0.5 text-micro font-semibold ${tones[tone]}`}
+      className={`chip inline-block whitespace-nowrap rounded-ctl border px-1.5 py-0.5 text-micro font-semibold ${tones[tone]}`}
     >
       {children}
     </span>
@@ -505,14 +535,19 @@ export function TabBar({ tabs }: { tabs: { to: string; label: string; end: boole
 export function Spinner({ label = he.common.loading }: { label?: string }) {
   return (
     <div className="flex items-center justify-center gap-2 py-10 text-graphite">
-      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-rule-strong border-t-field" />
+      <span className="liquid-spinner h-4 w-4" />
       <span className="text-meta">{label}</span>
     </div>
   );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
-  return <div className="px-4 py-10 text-center text-graphite">{children}</div>;
+  return (
+    <div className="mx-4 my-6 flex flex-col items-center gap-2 rounded-panel border border-dashed border-rule-strong bg-[linear-gradient(180deg,rgba(255,255,255,0.6),rgba(226,239,233,0.4))] px-4 py-9 text-center text-graphite">
+      <span aria-hidden className="empty-orb h-9 w-9" />
+      {children}
+    </div>
+  );
 }
 
 export function ErrorState({ onRetry }: { onRetry?: () => void }) {
@@ -529,6 +564,17 @@ export function ErrorState({ onRetry }: { onRetry?: () => void }) {
 }
 
 /** A horizontally scrollable wrapper, so wide reports stay usable on a phone. */
+/** Placeholder rows while data loads, so the layout does not jump when it arrives. */
+export function Skeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="space-y-2 p-4" aria-hidden role="presentation">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="skeleton h-9 rounded-ctl" style={{ opacity: 1 - i * 0.12 }} />
+      ))}
+    </div>
+  );
+}
+
 export function TableScroll({ children }: { children: ReactNode }) {
   return <div className="scroll-slim overflow-x-auto">{children}</div>;
 }
@@ -544,7 +590,7 @@ export function Th({
 }) {
   return (
     <th
-      className={`whitespace-nowrap border-b-2 border-rule-strong bg-card px-3 py-2.5 text-meta font-semibold text-ink-soft ${
+      className={`th-glass whitespace-nowrap px-3 py-2.5 text-meta font-semibold text-ink-soft ${
         numeric ? 'text-center' : 'text-start'
       } ${className}`}
     >
