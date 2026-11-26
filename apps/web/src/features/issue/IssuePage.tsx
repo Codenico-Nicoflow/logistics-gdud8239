@@ -66,7 +66,8 @@ export function IssuePage() {
     setLines(draft?.lines ?? []);
     setReceiptNo(draft?.receiptNo ?? '');
     setNotes(draft?.notes ?? '');
-    setStep(draft?.step ?? 'confirm');
+    // Back to where the work is: a basket with items reopens on the basket, not one tap short of it.
+    setStep(draft ? (draft.step === 'confirm' && draft.lines.length > 0 ? 'basket' : draft.step) : 'confirm');
     setRestored(draft !== null);
   }
 
