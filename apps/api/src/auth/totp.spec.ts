@@ -79,7 +79,13 @@ describe('secret at rest', () => {
 
   it('detects tampering', () => {
     const [iv, tag, body] = encryptSecret('JBSWY3DPEHPK3PXP', 's').split('.');
-    expect(() => decryptSecret(`${iv}.${tag}.${body?.slice(0, -2)}AA`, 's')).toThrow();
+    // Flip a whole byte instead of pasting fixed characters: a fixed suffix is a no-op whenever the random
+    // ciphertext already ends with it, which made this test fail about once in a thousand runs.
+    const bytes = Buffer.from(body ?? '', 'base64url');
+    bytes[0] = (bytes[0] ?? 0) ^ 0xff;
+    const tampered = bytes.toString('base64url');
+    expect(tampered).not.toBe(body);
+    expect(() => decryptSecret(`${iv}.${tag}.${tampered}`, 's')).toThrow();
   });
 });
 
