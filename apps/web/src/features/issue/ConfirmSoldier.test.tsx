@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { addressOf } from '../../app/navConfig';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -28,7 +29,7 @@ function show(soldier: unknown, onContinue = vi.fn()): void {
         <MemoryRouter initialEntries={['/issue']}>
           <Routes>
             <Route path="/issue" element={<ConfirmSoldier soldierId="s1" onBack={() => {}} onContinue={onContinue} />} />
-            <Route path="/documents" element={<Landing />} />
+            <Route path={addressOf('documents')} element={<Landing />} />
           </Routes>
         </MemoryRouter>
       </ToastProvider>

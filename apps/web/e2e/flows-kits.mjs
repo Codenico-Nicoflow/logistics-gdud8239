@@ -25,12 +25,13 @@ const pick = (name) => page.getByRole('button', { name: new RegExp(name) }).firs
 console.log('\n== kits ==');
 await step('kits: page is in the nav and opens', async () => {
   await go('/');
-  await page.getByRole('link', { name: 'ערכות' }).first().click();
+  await page.getByRole('link', { name: 'ציוד', exact: true }).first().click();
+  await page.getByRole('link', { name: 'ערכות', exact: true }).first().click();
   await page.getByText('בחרו פריט כדי לראות או לערוך את הערכה שלו').waitFor();
 }, page);
 
 await step('kits: build a kit and save it', async () => {
-  await go('/kits');
+  await go('/equipment/kits');
   await pick(`${TAG} רובה`);
   await page.getByText(`הערכה של ${TAG} רובה`).waitFor();
   const adder = page.getByLabel('הוספת פריט לערכה');
@@ -42,14 +43,14 @@ await step('kits: build a kit and save it', async () => {
 }, page);
 
 await step('kits: history shows the save', async () => {
-  await go('/kits');
+  await go('/equipment/kits');
   await pick(`${TAG} רובה`);
   await page.getByText('היסטוריית שינויים').waitFor();
   await page.getByText(/על ידי/).first().waitFor();
 }, page);
 
 await step('kits: the kit survives a reload', async () => {
-  await go('/kits');
+  await go('/equipment/kits');
   await pick(`${TAG} רובה`);
   await page.getByText(`${TAG} רצועה`).first().waitFor();
   const q = await page.getByLabel('כמות').first().inputValue();
@@ -74,14 +75,14 @@ await step('kits: issuing the rifle pre-fills the basket from the kit', async ()
 }, page);
 
 await step('kits: an item in a kit cannot be deleted, and the message names the kit', async () => {
-  await go('/catalog');
+  await go('/equipment');
   await page.locator('tr', { hasText: `${TAG} מחסנית` }).first().getByRole('button', { name: /מחק|הסר/ }).first().click();
   await page.getByText(new RegExp(`מופיע בערכות: ${TAG} רובה`)).waitFor();
   await page.keyboard.press('Escape');
 }, page);
 
 await step('kits: removing every line removes the kit', async () => {
-  await go('/kits');
+  await go('/equipment/kits');
   await pick(`${TAG} רובה`);
   await page.getByRole('button', { name: new RegExp(`הסרת ${TAG} מחסנית`) }).click();
   await page.getByRole('button', { name: new RegExp(`הסרת ${TAG} רצועה`) }).click();

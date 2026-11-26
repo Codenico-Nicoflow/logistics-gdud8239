@@ -20,7 +20,7 @@ const rowOf = (text) => page.locator('tr', { hasText: text }).first();
 console.log('\n== catalog ==');
 const ITEM = `${TAG} רובה`;
 await step('catalog: create serialized item', async () => {
-  await go('/catalog');
+  await go('/equipment');
   await page.getByRole('button', { name: 'הוסף פריט' }).click();
   await field(dialog(), 'שם הפריט').fill(ITEM);
   await dialog().locator('label:has-text("דורש מסד") input').check();
@@ -178,7 +178,7 @@ console.log('\n== users ==');
 const UNAME = `tmp_${TAG.toLowerCase()}`;
 let setupUrl = '';
 await step('users: create a user and get a one-time setup link', async () => {
-  await go('/users');
+  await go('/system');
   await page.getByRole('button', { name: 'הוסף משתמש' }).click();
   await field(dialog(), 'שם מלא').fill(`${TAG} משתמש`);
   await field(dialog(), 'שם משתמש').fill(UNAME);
@@ -213,7 +213,7 @@ await step('users: the link works once, enforces the password rules, and the acc
 }, page);
 
 await step('users: lock/unlock/log/mfa controls render for the new user', async () => {
-  await go('/users');
+  await go('/system');
   const row = page.locator('tr', { hasText: UNAME }).first();
   if (!(await row.count())) throw new Error('new user not in list');
   const t = await row.innerText();
@@ -221,7 +221,7 @@ await step('users: lock/unlock/log/mfa controls render for the new user', async 
 }, page);
 
 await step('users: cleanup (delete the user)', async () => {
-  await go('/users');
+  await go('/system');
   const row = page.locator('tr', { hasText: UNAME }).first();
   await row.getByRole('button', { name: /מחק|מחיקה/ }).first().click();
   const confirm = anyDialog().getByRole('button', { name: /^(מחק|מחיקה)$/ });
@@ -231,7 +231,7 @@ await step('users: cleanup (delete the user)', async () => {
 
 console.log('\n== catalog cleanup ==');
 await step('catalog: an item that still has a מסד cannot be deleted, and the dialog says why and offers to deactivate', async () => {
-  await go('/catalog');
+  await go('/equipment');
   const row = rowOf(`${ITEM} ב`);
   await row.getByRole('button', { name: 'מחק' }).click();
   await anyDialog().waitFor();

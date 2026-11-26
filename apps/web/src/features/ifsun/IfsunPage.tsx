@@ -61,11 +61,12 @@ export function IfsunPage() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Quick ranges just fill the same two date fields, so the pills and the pickers never disagree.
+  // Narrowest first (היום, 7 ימים, הכל): the reach for 'what just happened' is the common one.
   const today = todayIso();
   const presets: { key: string; label: string; from: string; to: string }[] = [
-    { key: 'all', label: he.ifsun.rangeAll, from: '', to: '' },
     { key: 'today', label: he.ifsun.rangeToday, from: today, to: today },
     { key: 'week', label: he.ifsun.rangeWeek, from: addDays(today, -6), to: today },
+    { key: 'all', label: he.ifsun.rangeAll, from: '', to: '' },
   ];
 
   // Any filter change starts over at the first page — otherwise page 7 of the old filter is empty.

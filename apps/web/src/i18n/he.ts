@@ -30,6 +30,16 @@ export const he = {
     help: 'מדריך',
     myAccount: 'החשבון שלי',
     security: 'אבטחה',
+    adminHeading: 'ניהול',
+    menu: 'תפריט',
+    // Rail entries that group several screens as tabs. Single-screen entries reuse the screen's own label above.
+    hubs: {
+      issue: 'ניפוק וחתימות',
+      periods: 'תקופת שרות',
+      reports: 'דוחות',
+      equipment: 'ציוד',
+      system: 'מערכת',
+    },
   },
 
   auth: {
@@ -677,7 +687,7 @@ export const he = {
 
   help: {
     title: 'מדריך למשתמש',
-    subtitle: 'איך עובדים עם המערכת, צעד אחר צעד. לחצו על נושא כדי לפתוח אותו.',
+    subtitle: 'איך עובדים עם המערכת, צעד אחר צעד. לחצו על נושא כדי לפתוח אותו. המסכים מקובצים בתפריט: כל קבוצה פותחת מסכים קרובים, והמעבר ביניהם בלשוניות בראש העמוד.',
     searchPlaceholder: 'חיפוש במדריך, למשל: זיכוי, חיול, מסד',
     none: 'לא נמצא נושא מתאים',
     dayTitle: 'יום עבודה רגיל',
@@ -994,6 +1004,7 @@ export const he = {
 
   common: {
     loading: 'טוען…',
+    tabs: 'מסכים בקבוצה',
     error: 'אירעה שגיאה',
     retry: 'נסה שוב',
     cancel: 'ביטול',
