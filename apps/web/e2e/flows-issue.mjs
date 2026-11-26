@@ -57,6 +57,14 @@ await signIn(page, c.admin);
 const SEARCH = 'חפש חייל לפי שם או מ.א.';
 async function chooseSoldier(p, soldier) {
   await p.goto(`${BASE}/issue`, { waitUntil: 'networkidle' });
+  // An unsigned basket from an earlier step is resumed on purpose (feat/issue-draft-persist); start from the search.
+  const discard = p.getByRole('button', { name: 'מחק והתחל מחדש' });
+  if (await discard.count()) {
+    await discard.click();
+    const change = p.getByRole('button', { name: 'החלף חייל' });
+    await change.waitFor();
+    await change.click();
+  }
   await p.getByPlaceholder(SEARCH).fill(soldier.last);
   await p.getByRole('button', { name: 'חפש', exact: true }).click();
   await p.locator('ul button').first().click();

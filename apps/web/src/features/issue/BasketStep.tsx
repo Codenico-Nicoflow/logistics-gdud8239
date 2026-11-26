@@ -642,7 +642,8 @@ function BasketRow({
   // option — a מסד on a box of magazines makes no sense.
   const canOptIntoSerial =
     !item.isSerialized && (item.category === 'WEAPON' || item.category === 'OPTICS');
-  const [optedIntoSerial, setOptedIntoSerial] = useState(false);
+  // A restored draft can already carry a מסד on a plain weapon row; the field must show it.
+  const [optedIntoSerial, setOptedIntoSerial] = useState(!item.isSerialized && line.serial.trim() !== '');
   const usesSerialField = item.isSerialized || optedIntoSerial;
 
   const available = useAvailableInstancesQuery(
