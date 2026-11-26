@@ -49,8 +49,9 @@ export function Modal({
 
   return (
     <div
+      // `!m-0`: a page's `space-y-*` would otherwise push this fixed backdrop down and leave a strip uncovered.
       // Padded by the safe areas, so a dialog never sits under the notch or the home bar.
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center"
+      className="!m-0 fixed inset-0 z-50 flex items-end justify-center modal-backdrop bg-[#0f1a16]/55 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:items-center"
       onMouseDown={(e) => {
         downOnBackdrop.current = e.target === e.currentTarget;
       }}
@@ -63,7 +64,7 @@ export function Modal({
         aria-modal="true"
         // Never taller than the screen, and scrollable: with the keyboard open a phone has very little
         // height, and a form that cannot scroll leaves its buttons unreachable.
-        className={`${className} max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-panel border border-rule bg-card-raised shadow-lift`}
+        className={`${className} max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-panel border border-white/60 bg-[rgba(255,255,255,0.94)] shadow-lift backdrop-blur-xl modal-sheet`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -110,10 +111,10 @@ export function Panel({
 }) {
   return (
     <section
-      className={`rounded-panel border border-rule bg-card-raised shadow-panel ${className}`}
+      className={`glass-card rounded-panel ${className}`}
     >
       {title && (
-        <header className="flex items-center justify-between gap-3 rounded-t-panel border-b border-rule bg-[linear-gradient(180deg,var(--card)_0%,var(--card-raised)_100%)] px-4 py-3">
+        <header className="flex items-center justify-between gap-3 rounded-t-panel border-b border-rule/70 bg-[linear-gradient(180deg,var(--field-wash)_0%,rgba(255,255,255,0)_100%)] px-4 py-3">
           <h2 className="text-lead font-semibold text-ink">{title}</h2>
           {action}
         </header>
@@ -223,11 +224,11 @@ export function Button({
 }) {
   const variants = {
     primary:
-      'bg-field text-white shadow-panel hover:bg-field-dark hover:shadow-lift active:bg-field-dark disabled:bg-graphite disabled:shadow-none disabled:hover:shadow-none',
+      'btn-primary text-white disabled:bg-none disabled:bg-graphite disabled:shadow-none',
     quiet:
-      'border border-rule-strong bg-card-raised text-ink hover:border-field hover:bg-field-wash hover:text-field-dark hover:shadow-panel active:bg-field-wash disabled:text-graphite disabled:hover:border-rule-strong disabled:hover:bg-card-raised disabled:hover:shadow-none',
+      'btn-quiet text-ink hover:text-field-dark disabled:text-graphite disabled:hover:shadow-none',
     danger:
-      'bg-oxide text-white shadow-panel hover:brightness-110 hover:shadow-lift active:brightness-95 disabled:bg-graphite disabled:shadow-none disabled:hover:shadow-none',
+      'btn-danger text-white disabled:bg-none disabled:bg-graphite disabled:shadow-none',
   };
   // Matches TextField/Select's own height (h-11 / h-10) exactly, so a button
   // next to an input never looks squat — padding alone drifted out of sync
@@ -241,7 +242,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-ctl font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[0.97] active:duration-75 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:active:scale-100 ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-ctl font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out hover:-translate-y-px active:translate-y-0 active:scale-[0.96] active:duration-75 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:active:scale-100 ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
     </button>
@@ -306,8 +307,8 @@ export function TextField({
         inputMode={inputMode}
         maxLength={maxLength}
         dir={dir}
-        className={`h-11 w-full rounded-ctl border bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:cursor-not-allowed disabled:bg-card disabled:text-graphite ${
-          error ? 'border-oxide' : 'border-rule-strong'
+        className={`h-11 w-full rounded-ctl border bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field field-ring focus:outline-none disabled:cursor-not-allowed disabled:bg-card disabled:text-graphite ${
+          error ? 'field-invalid border-oxide' : 'border-rule-strong'
         } ${inputClassName}`}
       />
       {error ? (
@@ -380,7 +381,7 @@ export function SearchField({
         }}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40"
+        className="h-11 w-full rounded-ctl border border-rule-strong bg-card-raised px-3 text-[16px] sm:text-body placeholder:text-graphite shadow-inset-field field-ring focus:outline-none"
       />
       <Button variant="quiet" onClick={commit}>
         {he.common.search}
@@ -423,7 +424,7 @@ export function Select<T extends string>({
           value={value}
           onChange={(e) => onChange(e.target.value as T | '')}
           disabled={disabled}
-          className="h-11 w-full appearance-none rounded-ctl border border-rule-strong bg-card-raised px-3 pe-9 text-[16px] sm:text-body shadow-inset-field transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-field/40 disabled:opacity-50"
+          className="h-11 w-full appearance-none rounded-ctl border border-rule-strong bg-card-raised px-3 pe-9 text-[16px] sm:text-body shadow-inset-field field-ring focus:outline-none disabled:opacity-50"
         >
           {options.map((o) => (
             <option key={o.value} value={o.value}>
@@ -485,10 +486,10 @@ export function TabBar({ tabs }: { tabs: { to: string; label: string; end: boole
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `-mb-px flex min-h-11 items-center justify-center border-b-2 px-2 py-1.5 text-center text-body leading-tight transition-colors sm:px-4 ${
+                `-mb-px flex min-h-11 items-center justify-center rounded-t-ctl border-b-2 px-2 py-1.5 text-center text-body leading-tight transition-all duration-300 sm:px-4 ${
                   isActive
-                    ? 'border-brass-bright font-semibold text-ink'
-                    : 'border-transparent text-graphite hover:text-ink'
+                    ? 'tab-active border-brass-bright font-semibold text-ink'
+                    : 'border-transparent text-graphite hover:bg-field-wash/60 hover:text-ink'
                 }`
               }
             >

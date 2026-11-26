@@ -392,7 +392,7 @@ export function Shell({ user }: { user: AuthUser }) {
         </div>
       </nav>
 
-      <main className="scroll-slim min-w-0 bg-card px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 lg:h-screen lg:overflow-y-auto lg:px-8 lg:py-8">
+      <main className="app-canvas scroll-slim min-w-0 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 lg:h-screen lg:overflow-y-auto lg:px-8 lg:py-8">
         <Outlet />
       </main>
     </div>
