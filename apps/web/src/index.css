@@ -12,6 +12,8 @@
  * chrome, which keeps a dense table from competing with the menu.
  */
 :root {
+  /* Notch height on an iPhone; 0 elsewhere. One variable so the phone header and menu share one line. */
+  --safe-top: env(safe-area-inset-top, 0px);
   --ink: #16211d;
   --ink-soft: #3c4a44;
   --graphite: #6c7a74;
@@ -173,6 +175,74 @@ input[type='radio'] {
   }
 }
 
+/* Logo: one 5s cycle that repeats — the chevrons light up from the bottom (rank climbing), then light
+   crosses the ring. The chevrons are drawn in once on first appearance. */
+@keyframes chevron-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+@keyframes chevron-pulse {
+  0%,
+  16%,
+  100% {
+    stroke: var(--brass-bright);
+    transform: translateY(0);
+  }
+  7% {
+    stroke: #fff1bd;
+    transform: translateY(-1.2px);
+  }
+}
+@keyframes glint-sweep {
+  0%,
+  16% {
+    transform: translateX(0);
+  }
+  42%,
+  100% {
+    transform: translateX(95px);
+  }
+}
+.logo-chevron {
+  stroke-dasharray: 1;
+}
+.logo-animated .logo-chevron {
+  animation:
+    chevron-draw 0.55s cubic-bezier(0.3, 0.7, 0.2, 1) both,
+    chevron-pulse 5s ease-in-out infinite;
+}
+/* The lower chevron leads; the delays carry each animation's start so the pulse waits for the draw-in. */
+.logo-animated .logo-chevron-1 {
+  animation-delay: 0.15s, 1.2s;
+}
+.logo-animated .logo-chevron-2 {
+  animation-delay: 0.4s, 1.5s;
+}
+.logo-glint {
+  animation: glint-sweep 5s ease-in-out 1.7s infinite;
+}
+
+/* Rail: items enter in sequence (replays each time the phone menu opens). */
+@keyframes rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.rail-item {
+  animation: rail-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms + 80ms);
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -180,6 +250,177 @@ input[type='radio'] {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+  .logo-glint {
+    animation: none !important;
+  }
+  .logo-animated .logo-chevron {
+    animation: none !important;
+    opacity: 1;
+  }
+  .rail-item {
+    animation: none !important;
+    opacity: 1;
+  }
+}
+
+/* ---- Liquid glass nav ------------------------------------------------------------------------------
+   The rail is a dark pool with slow coloured light drifting under frosted glass. The active entry is a
+   droplet that travels between items, overshooting and settling like liquid, tinted by that hub's own
+   hue (--hue, set inline). Everything is transform/opacity so it stays on the GPU. */
+.liquid-nav {
+  background:
+    radial-gradient(120% 60% at 100% 0%, rgba(61, 138, 107, 0.35), transparent 60%),
+    radial-gradient(90% 50% at 0% 100%, rgba(194, 155, 46, 0.2), transparent 60%),
+    linear-gradient(175deg, #0f1a16 0%, #14221d 55%, #101b2a 100%);
+}
+.liquid-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(46px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.liquid-blob-a {
+  width: 15rem;
+  height: 15rem;
+  top: -4rem;
+  right: -5rem;
+  background: #3d8a6b;
+  animation: blob-a 19s ease-in-out infinite;
+}
+.liquid-blob-b {
+  width: 13rem;
+  height: 13rem;
+  top: 38%;
+  left: -7rem;
+  background: #2b6a9c;
+  animation: blob-b 23s ease-in-out infinite;
+}
+.liquid-blob-c {
+  width: 14rem;
+  height: 14rem;
+  bottom: -5rem;
+  right: -3rem;
+  background: #c29b2e;
+  opacity: 0.35;
+  animation: blob-c 27s ease-in-out infinite;
+}
+@keyframes blob-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-3rem, 5rem) scale(1.15); }
+  66% { transform: translate(2rem, 9rem) scale(0.9); }
+}
+@keyframes blob-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(5rem, -6rem) scale(1.2); }
+}
+@keyframes blob-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(-4rem, -5rem) scale(1.1); }
+  75% { transform: translate(1rem, -9rem) scale(0.9); }
+}
+
+.liquid-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.07));
+  -webkit-backdrop-filter: blur(14px) saturate(1.7);
+  backdrop-filter: blur(14px) saturate(1.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 22px color-mix(in srgb, var(--hue, #fff) 30%, transparent),
+    0 10px 26px -10px color-mix(in srgb, var(--hue, #fff) 70%, transparent),
+    0 0 0 1px rgba(255, 255, 255, 0.16);
+  transition: box-shadow 500ms ease;
+  overflow: hidden;
+}
+/* The droplet squashes and stretches along its travel, then settles. Remounted per hub via key. */
+.liquid-pill-body {
+  animation: liquid-squish 640ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+@keyframes liquid-squish {
+  0% { transform: scale(1, 1); }
+  28% { transform: scale(0.93, 1.16); }
+  62% { transform: scale(1.03, 0.96); }
+  100% { transform: scale(1, 1); }
+}
+.liquid-pill::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 40%;
+  inset-inline-start: -50%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: skewX(-18deg);
+  animation: pill-sheen 6s ease-in-out 1s infinite;
+}
+@keyframes pill-sheen {
+  0%, 60% { inset-inline-start: -50%; }
+  100% { inset-inline-start: 130%; }
+}
+
+.rail-item {
+  --mx: 50%;
+  --my: 50%;
+  isolation: isolate;
+}
+/* A specular spot follows the pointer across the entry, the way light slides over a glass surface. */
+.rail-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  background: radial-gradient(7rem circle at var(--mx) var(--my), color-mix(in srgb, var(--hue, #fff) 35%, rgba(255, 255, 255, 0.18)), transparent 70%);
+}
+.rail-item:hover::before {
+  opacity: 1;
+}
+.rail-tile {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--hue) 30%, transparent), color-mix(in srgb, var(--hue) 8%, transparent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 0 0 1px color-mix(in srgb, var(--hue) 28%, transparent);
+  color: color-mix(in srgb, var(--hue) 75%, white);
+  transition: transform 450ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 300ms ease, background 300ms ease;
+}
+.rail-item:hover .rail-tile {
+  transform: translateY(-2px) scale(1.1) rotate(-4deg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 18px -6px var(--hue), 0 0 0 1px color-mix(in srgb, var(--hue) 50%, transparent);
+}
+.rail-tile-active {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--hue) 95%, white), color-mix(in srgb, var(--hue) 70%, black));
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 6px 18px -4px var(--hue), 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.rail-item:active .rail-tile {
+  transform: scale(0.92);
+}
+
+.liquid-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.liquid-bar {
+  background: linear-gradient(180deg, rgba(15, 26, 22, 0.97), rgba(20, 34, 29, 0.93));
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+}
+/* The phone menu pours out of the toggle instead of appearing. */
+.liquid-reveal {
+  animation: liquid-reveal 650ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+@keyframes liquid-reveal {
+  from { clip-path: circle(0% at 12% 3%); }
+  to { clip-path: circle(150% at 12% 3%); }
+}
+@media (min-width: 1024px) {
+  .liquid-reveal { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .liquid-blob, .liquid-pill::after, .liquid-pill-body, .liquid-reveal { animation: none !important; }
+  .rail-item:hover .rail-tile { transform: none; }
 }
 
 .scroll-slim {

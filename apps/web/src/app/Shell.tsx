@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useLogoutMutation } from '../lib/api';
 import { Logo } from '../components/Logo';
@@ -30,13 +30,8 @@ function PeriodsIcon() {
 function AttendanceIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <circle cx="10" cy="6.5" r="3" stroke="currentColor" strokeWidth="1.6" />
-      <path
-        d="M3.5 17c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M10 6v4.2l2.8 1.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -83,20 +78,28 @@ function SecurityIcon() {
   );
 }
 
-function UsersIcon() {
+function SystemIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5">
-      <circle cx="7.5" cy="6.5" r="2.5" stroke="currentColor" strokeWidth="1.6" />
-      <circle cx="14.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.6" />
-      <path
-        d="M2.5 17c0-2.8 2.2-4.8 5-4.8s5 2 5 4.8M12.5 17c0-1.9-.8-3.5-2.3-4.4"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
+      <path d="M3 6h7M14 6h3M3 14h3M10 14h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="12" cy="6" r="2" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="8" cy="14" r="2" stroke="currentColor" strokeWidth="1.6" />
     </svg>
   );
 }
+
+/** Visual only: each hub gets its own hue so the rail reads as colour-coded at a glance. */
+const HUB_HUES: Record<HubId, string> = {
+  issue: '#34d399',
+  periods: '#60a5fa',
+  soldiers: '#a78bfa',
+  attendance: '#fbbf24',
+  reports: '#2dd4bf',
+  equipment: '#f59e5b',
+  system: '#f472b6',
+  help: '#38bdf8',
+  security: '#fb7185',
+};
 
 const HUB_ICONS: Record<HubId, ReactNode> = {
   issue: <IssueIcon />,
@@ -105,7 +108,7 @@ const HUB_ICONS: Record<HubId, ReactNode> = {
   attendance: <AttendanceIcon />,
   reports: <SummaryIcon />,
   equipment: <CatalogIcon />,
-  system: <UsersIcon />,
+  system: <SystemIcon />,
   help: <HelpIcon />,
   security: <SecurityIcon />,
 };
@@ -131,6 +134,48 @@ export function Shell({ user }: { user: AuthUser }) {
   const { pathname } = useLocation();
   const initial = user.displayName.trim().charAt(0) || '?';
 
+  const hubsByGroup = RAIL_GROUPS.map(({ group, heading }) => ({
+    group,
+    heading,
+    hubs: HUBS.filter((h) => h.group === group && visibleTabs(h, user.role).length > 0),
+  })).filter((g) => g.hubs.length > 0);
+  const activeId = hubsByGroup.flatMap((g) => g.hubs).find((h) => isInHub(pathname, h))?.id ?? null;
+
+  // One highlight glides between rail entries instead of each entry lighting up on its own, so a move
+  // between hubs reads as travel. It is measured from the live link, so it survives font loading and
+  // the phone menu being closed (display: none has no geometry) when the route changes.
+  const listRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef(new Map<HubId, HTMLAnchorElement>());
+  const [pill, setPill] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [pillMoves, setPillMoves] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!activeId) {
+      setPill(null);
+      return;
+    }
+    const measure = (): void => {
+      const el = itemRefs.current.get(activeId);
+      if (!el || el.offsetParent === null) return;
+      setPill({ top: el.offsetTop, left: el.offsetLeft, width: el.offsetWidth, height: el.offsetHeight });
+    };
+    measure();
+    const list = listRef.current;
+    // Absent in the jsdom test environment; the placement above is already correct there.
+    if (!list || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    void document.fonts?.ready.then(measure);
+    return () => observer.disconnect();
+  }, [activeId, menuOpen]);
+
+  // The first placement must not animate in from the corner.
+  useEffect(() => {
+    if (!pill || pillMoves) return;
+    const id = requestAnimationFrame(() => setPillMoves(true));
+    return () => cancelAnimationFrame(id);
+  }, [pill, pillMoves]);
+
   // The open menu covers the screen on a phone, so the page behind it must not scroll under the
   // finger, and Escape (a keyboard on a tablet) closes it.
   useEffect(() => {
@@ -147,103 +192,153 @@ export function Shell({ user }: { user: AuthUser }) {
     };
   }, [menuOpen]);
 
+  let railIndex = 0;
+
   return (
-    <div className="lg:grid lg:h-screen lg:grid-cols-[17rem_1fr]">
-      {/* On a phone the rail collapses behind a toggle. */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 bg-ink px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] lg:hidden">
-        <Link to="/" className="flex items-center gap-2.5 rounded-ctl transition-opacity hover:opacity-85">
-          <Logo className="h-9 w-9" />
-          <div>
-            <div className="text-lead font-extrabold leading-none tracking-tight text-white">
-              {he.app.battalion}
+    <div className="pt-[calc(3.5rem+var(--safe-top))] lg:grid lg:h-screen lg:grid-cols-[17rem_1fr] lg:pt-0">
+      {/* On a phone the rail collapses behind a toggle. The bar is fixed at a height that includes the
+          notch inset, so the menu panel below starts on exactly the same line on every device. */}
+      <header className="liquid-bar fixed inset-x-0 top-0 z-40 pt-[var(--safe-top)] shadow-[0_1px_0_rgba(255,255,255,0.1)] lg:hidden">
+        <div className="flex h-14 items-center justify-between gap-3 px-4">
+          <Link to="/" onClick={() => setMenuOpen(false)} className="flex min-w-0 items-center gap-2.5 rounded-ctl">
+            <Logo className="h-9 w-9 shrink-0" />
+            <div className="min-w-0">
+              <div className="truncate text-lead font-extrabold leading-none tracking-tight text-white">
+                {he.app.battalion}
+              </div>
+              <div className="mt-1 truncate text-micro font-medium tracking-[0.04em] text-brass-bright">
+                {he.app.name}
+              </div>
             </div>
-            <div className="mt-0.5 text-micro font-medium tracking-[0.04em] text-brass-bright/80">
-              {he.app.name}
-            </div>
-          </div>
-        </Link>
-        <button
-          onClick={() => setMenuOpen((v) => !v)}
-          className="h-11 min-w-[5rem] shrink-0 rounded-ctl border border-white/20 bg-white/5 px-4 text-body font-semibold text-white transition-colors hover:bg-white/10"
-          aria-expanded={menuOpen}
-        >
-          {menuOpen ? he.common.close : he.nav.menu}
-        </button>
+          </Link>
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? he.common.close : he.nav.menu}
+            aria-expanded={menuOpen}
+            className="liquid-glass relative h-11 w-11 shrink-0 rounded-full transition-transform active:scale-90"
+          >
+            <span
+              className={`absolute inset-x-3 h-[2px] rounded-full bg-white transition-all duration-300 ease-out ${
+                menuOpen ? 'top-[21px] rotate-45' : 'top-[15px]'
+              }`}
+            />
+            <span
+              className={`absolute inset-x-3 top-[21px] h-[2px] origin-center rounded-full bg-white transition-all duration-300 ease-out ${
+                menuOpen ? 'scale-x-0 opacity-0' : ''
+              }`}
+            />
+            <span
+              className={`absolute inset-x-3 h-[2px] rounded-full bg-white transition-all duration-300 ease-out ${
+                menuOpen ? 'top-[21px] -rotate-45' : 'top-[27px]'
+              }`}
+            />
+          </button>
+        </div>
       </header>
 
       {/* The rail is its own scroll container, pinned to the viewport height
           on desktop, so scrolling the page content never carries the nav or
           the sign-out footer away — only `main` below scrolls. */}
       <nav
-        className={`flex flex-col border-rule bg-[linear-gradient(175deg,var(--ink)_0%,#1b2a24_100%)] text-card lg:h-screen lg:border-b-0 ${
+        className={`liquid-nav flex flex-col border-rule text-card lg:h-screen lg:border-b-0 ${
           menuOpen
-            ? 'fixed inset-0 z-30 overflow-y-auto overscroll-contain pt-[calc(4.5rem+env(safe-area-inset-top))] lg:static lg:overflow-visible lg:pt-0'
-            : 'hidden lg:flex'
+            ? 'liquid-reveal fixed inset-x-0 top-0 z-30 h-[100dvh] overflow-y-auto overscroll-contain pt-[calc(3.5rem+var(--safe-top))] lg:relative lg:h-screen lg:overflow-visible lg:pt-0'
+            : 'hidden lg:relative lg:flex'
         }`}
       >
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <span className="liquid-blob liquid-blob-a" />
+          <span className="liquid-blob liquid-blob-b" />
+          <span className="liquid-blob liquid-blob-c" />
+        </div>
         <Link
           to="/"
-          className="hidden items-center gap-3 border-b border-white/10 px-5 py-5 transition-opacity hover:opacity-85 lg:flex"
+          className="relative z-10 hidden items-center gap-3 border-b border-white/10 px-5 py-5 transition-opacity hover:opacity-90 lg:flex"
         >
-          <Logo className="h-11 w-11" />
+          <Logo className="h-12 w-12" />
           <div>
             <div className="text-head font-extrabold leading-none tracking-tight text-white">
               {he.app.battalion}
             </div>
-            <div className="mt-1.5 text-micro font-medium tracking-[0.04em] text-brass-bright/80">
+            <div className="mt-1.5 text-micro font-medium tracking-[0.04em] text-brass-bright">
               {he.app.name}
             </div>
           </div>
         </Link>
 
-        <div className="scroll-slim-dark min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          {RAIL_GROUPS.map(({ group, heading }) => {
-            const hubs = HUBS.filter((h) => h.group === group && visibleTabs(h, user.role).length > 0);
-            if (hubs.length === 0) return null;
-            return (
-              <div key={group} className="mb-5">
-                {heading && (
-                  <div className="px-2.5 pb-2 text-micro font-semibold tracking-wide text-white/35">{heading}</div>
-                )}
-                <div className="space-y-0.5">
-                  {hubs.map((hub) => {
-                    const isActive = isInHub(pathname, hub);
-                    return (
-                      <Link
-                        key={hub.id}
-                        to={hubEntryAddress(hub, user.role)}
-                        aria-current={isActive ? 'page' : undefined}
-                        onClick={() => setMenuOpen(false)}
-                        className={`group relative flex items-center gap-2.5 rounded-ctl px-2.5 py-2.5 text-body transition-all duration-150 ${
-                          isActive
-                            ? 'bg-white/10 font-semibold text-white'
-                            : 'text-white/65 hover:translate-x-[-2px] hover:bg-white/5 hover:text-white'
-                        }`}
-                      >
-                        <span
-                          className={`absolute inset-y-1 start-0 w-[3px] rounded-full bg-brass-bright transition-transform duration-150 ${
-                            isActive ? 'scale-y-100' : 'scale-y-0'
-                          }`}
-                        />
-                        <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ctl transition-colors ${
-                            isActive ? 'bg-field-bright text-white' : 'bg-white/5 text-white/60 group-hover:text-white'
-                          }`}
-                        >
-                          {HUB_ICONS[hub.id]}
-                        </span>
-                        <span>{hub.label}</span>
-                      </Link>
-                    );
-                  })}
+        <div ref={listRef} className="scroll-slim-dark relative z-10 min-h-0 flex-1 overflow-y-auto px-3 py-4">
+          {pill && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute z-0"
+              style={{
+                '--hue': activeId ? HUB_HUES[activeId] : '#fff',
+                top: 0,
+                left: 0,
+                width: pill.width,
+                height: pill.height,
+                transform: `translate(${pill.left}px, ${pill.top}px)`,
+                transition: pillMoves
+                  ? 'transform 620ms cubic-bezier(0.34, 1.45, 0.5, 1), height 620ms cubic-bezier(0.34, 1.45, 0.5, 1)'
+                  : 'none',
+              } as CSSProperties}
+            >
+              <span key={activeId} className="liquid-pill-body liquid-pill relative block h-full w-full rounded-[0.9rem]">
+                <span
+                  className="absolute inset-y-2 start-0 w-[3px] rounded-full"
+                  style={{ background: 'var(--hue)', boxShadow: '0 0 12px 1px var(--hue)' }}
+                />
+              </span>
+            </span>
+          )}
+          {hubsByGroup.map(({ group, heading, hubs }) => (
+            <div key={group} className="mb-5">
+              {heading && (
+                <div className="flex items-center gap-2 px-2.5 pb-2 text-micro font-semibold tracking-wide text-white/40">
+                  <span>{heading}</span>
+                  <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/15" />
                 </div>
+              )}
+              <div className="space-y-0.5">
+                {hubs.map((hub) => {
+                  const isActive = hub.id === activeId;
+                  const i = railIndex++;
+                  return (
+                    <Link
+                      key={hub.id}
+                      ref={(el) => {
+                        if (el) itemRefs.current.set(hub.id, el);
+                        else itemRefs.current.delete(hub.id);
+                      }}
+                      to={hubEntryAddress(hub, user.role)}
+                      aria-current={isActive ? 'page' : undefined}
+                      onClick={() => setMenuOpen(false)}
+                      style={{ '--i': i, '--hue': HUB_HUES[hub.id] } as CSSProperties}
+                      onPointerMove={(e) => {
+                        const r = e.currentTarget.getBoundingClientRect();
+                        e.currentTarget.style.setProperty('--mx', `${e.clientX - r.left}px`);
+                        e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`);
+                      }}
+                      className={`rail-item group relative flex min-h-11 items-center gap-2.5 rounded-[0.9rem] px-2.5 py-2 text-body transition-colors duration-200 ${
+                        isActive ? 'font-semibold text-white' : 'text-white/70 hover:text-white'
+                      }`}
+                    >
+                      <span
+                        className={`rail-tile flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.7rem] ${isActive ? 'rail-tile-active' : ''}`}
+                      >
+                        {HUB_ICONS[hub.id]}
+                      </span>
+                      <span>{hub.label}</span>
+                    </Link>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
-          <div className="flex items-center gap-2.5 rounded-ctl bg-white/5 px-3 py-2.5">
+        <div className="relative z-10 shrink-0 border-t border-white/10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
+          <div className="liquid-glass flex items-center gap-2.5 rounded-2xl px-3 py-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brass-bright text-body font-bold text-ink">
               {initial}
             </span>

@@ -477,15 +477,15 @@ export function Tag({
  */
 export function TabBar({ tabs }: { tabs: { to: string; label: string; end: boolean }[] }) {
   return (
-    <nav aria-label={he.common.tabs} className="scroll-slim -mx-4 mb-5 overflow-x-auto border-b border-rule px-4 lg:mx-0 lg:px-0">
-      <ul className="flex min-w-max gap-1">
+    <nav aria-label={he.common.tabs} className="mb-5 border-b border-rule">
+      <ul className="flex gap-0.5 sm:gap-1">
         {tabs.map((tab) => (
-          <li key={tab.to}>
+          <li key={tab.to} className="min-w-0 flex-1 sm:flex-none">
             <NavLink
               to={tab.to}
               end={tab.end}
               className={({ isActive }) =>
-                `-mb-px flex h-11 items-center whitespace-nowrap border-b-2 px-4 text-body transition-colors ${
+                `-mb-px flex min-h-11 items-center justify-center border-b-2 px-2 py-1.5 text-center text-body leading-tight transition-colors sm:px-4 ${
                   isActive
                     ? 'border-brass-bright font-semibold text-ink'
                     : 'border-transparent text-graphite hover:text-ink'
