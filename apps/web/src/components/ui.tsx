@@ -599,6 +599,38 @@ export function Th({
   );
 }
 
+/** A column header that sorts when clicked; same look as `Th`, with an arrow marking the active column. */
+export function SortableTh({
+  children,
+  active,
+  onClick,
+  className = '',
+}: {
+  children: ReactNode;
+  active: boolean;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <th
+      aria-sort={active ? 'ascending' : 'none'}
+      className={`th-glass whitespace-nowrap px-3 py-2.5 text-start text-meta font-semibold text-ink-soft ${className}`}
+    >
+      <button onClick={onClick} className="inline-flex items-center gap-1 rounded-ctl transition-colors hover:text-field-dark">
+        {children}
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 transition-all duration-300 ${active ? 'text-field-dark opacity-100' : 'opacity-30'}`}
+        >
+          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </th>
+  );
+}
+
 export function Td({
   children,
   numeric,

@@ -113,11 +113,34 @@ input[type='radio'] {
 
 /* Table rows respond to the pointer so the eye can follow a long row across
    a wide report without losing its place. */
-.row-hover tbody tr {
-  transition: background-color 120ms ease;
+/* Rows carry no outline of their own: a faint hairline separates them, and the pointer lights one up as
+   a soft rounded tint with a bar on its leading edge. Fewer lines, so the data is what stands out. */
+.row-hover {
+  border-collapse: separate;
+  border-spacing: 0;
 }
-.row-hover tbody tr:hover {
-  background: linear-gradient(90deg, rgba(226, 239, 233, 0.9), rgba(226, 239, 233, 0.35));
+.row-hover thead th {
+  border-bottom: 1px solid var(--rule-strong);
+  padding-bottom: 0.55rem;
+}
+.row-hover tbody td {
+  background: transparent;
+  border-width: 0;
+  padding-block: 0.7rem;
+  box-shadow: inset 0 -1px 0 rgba(214, 220, 216, 0.75);
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+.row-hover tbody td:first-child {
+  border-start-start-radius: 10px;
+  border-end-start-radius: 10px;
+}
+.row-hover tbody td:last-child {
+  border-start-end-radius: 10px;
+  border-end-end-radius: 10px;
+}
+.row-hover tbody tr:hover td {
+  background: #eef6f2;
+  box-shadow: none;
 }
 .row-hover tbody tr:hover td:first-child {
   box-shadow: inset -3px 0 0 var(--field-bright);
@@ -596,9 +619,9 @@ input[type='radio'] {
 
 /* ---- Data surfaces: tables, chips, loading and empty states ------------------------------------- */
 .th-glass {
-  background: linear-gradient(180deg, #fff 0%, var(--card) 100%);
-  border-bottom: 2px solid transparent;
-  border-image: linear-gradient(90deg, var(--field-bright), var(--brass-bright), transparent) 1;
+  background: transparent;
+  border-bottom: 1px solid var(--rule-strong);
+  color: var(--ink-soft);
 }
 /* A lit top edge on chips, like the nav's glass tiles. */
 .chip {

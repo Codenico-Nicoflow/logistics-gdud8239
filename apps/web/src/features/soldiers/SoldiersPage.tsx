@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import {
   useDeleteSoldierMutation,
   useSetSoldierEnlistedMutation,
@@ -13,6 +13,7 @@ import {
   Panel,
   SearchField,
   Select,
+  SortableTh,
   Spinner,
   TableScroll,
   Tag,
@@ -239,6 +240,9 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
             <div className="hidden sm:block">
             <TableScroll>
               <table className="row-hover w-full">
+                <colgroup>
+                  <col className="w-[30%]" />
+                </colgroup>
                 <thead>
                   <tr>
                     <SortableTh active={sort === 'name'} onClick={() => setSort('name')}>
@@ -373,33 +377,6 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
   );
 }
 
-/** A column header that sorts the roster when clicked, with an arrow marking the active one. */
-function SortableTh({
-  children,
-  active,
-  onClick,
-}: {
-  children: ReactNode;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <th className="whitespace-nowrap border-b-2 border-rule-strong bg-card px-3 py-2.5 text-start text-meta font-semibold text-ink-soft">
-      <button onClick={onClick} className="inline-flex items-center gap-1 hover:text-field-dark">
-        {children}
-        <svg
-          viewBox="0 0 16 16"
-          fill="none"
-          aria-hidden="true"
-          className={`h-3.5 w-3.5 transition-opacity ${active ? 'opacity-100 text-field-dark' : 'opacity-30'}`}
-        >
-          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-    </th>
-  );
-}
-
 /**
  * A cell whose emptiness is worth seeing.
  *
@@ -414,7 +391,7 @@ function Missing({ value, mono = false }: { value: string | null; mono?: boolean
       </Td>
     );
   }
-  return <Td className={mono ? 'serial' : undefined}>{value}</Td>;
+  return <Td className={mono ? 'tabular-nums text-ink-soft' : undefined}>{value}</Td>;
 }
 
 /**
