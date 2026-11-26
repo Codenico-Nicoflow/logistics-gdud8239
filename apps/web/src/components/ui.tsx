@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { NavLink } from 'react-router-dom';
 import { he } from '../i18n/he';
 import type { ItemCategory } from '../lib/types';
 
@@ -466,6 +467,37 @@ export function Tag({
     >
       {children}
     </span>
+  );
+}
+
+/**
+ * Switches between sibling screens of one hub. Each tab is a real route, so the address, back button and
+ * a refresh all keep the person where they were. It scrolls sideways on a phone rather than wrapping:
+ * it is navigation, not a data-entry surface, and the labels are short.
+ */
+export function TabBar({ tabs }: { tabs: { to: string; label: string; end: boolean }[] }) {
+  return (
+    <nav aria-label={he.common.tabs} className="scroll-slim -mx-4 mb-5 overflow-x-auto border-b border-rule px-4 lg:mx-0 lg:px-0">
+      <ul className="flex min-w-max gap-1">
+        {tabs.map((tab) => (
+          <li key={tab.to}>
+            <NavLink
+              to={tab.to}
+              end={tab.end}
+              className={({ isActive }) =>
+                `-mb-px flex h-11 items-center whitespace-nowrap border-b-2 px-4 text-body transition-colors ${
+                  isActive
+                    ? 'border-brass-bright font-semibold text-ink'
+                    : 'border-transparent text-graphite hover:text-ink'
+                }`
+              }
+            >
+              {tab.label}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 

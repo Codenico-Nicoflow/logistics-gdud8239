@@ -121,7 +121,7 @@ await step('mfa: admin can reset it for the user, who then signs in with the pas
 
 console.log('\n== counts ==');
 await step('counts: closing without both signatures is refused with a message', async () => {
-  await go('/counts');
+  await go('/reports/counts');
   await page.getByRole('button', { name: 'חתום וסגור ספירה' }).click();
   await page.waitForTimeout(1200);
   const text = await page.locator('body').innerText();
@@ -153,7 +153,7 @@ await step('attendance: add a member, set a day, remove the member', async () =>
 
 console.log('\n== backups ==');
 await step('backups: create the daily workbook snapshot, it is listed, download works, delete it', async () => {
-  await go('/backups');
+  await go('/system/backups');
   const before = await page.locator('main li, main tbody tr').count();
   await page.getByRole('button', { name: 'צור גיבוי עכשיו' }).last().click();
   await page.waitForTimeout(6000);

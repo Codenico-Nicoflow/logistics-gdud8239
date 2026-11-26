@@ -4,15 +4,16 @@
  */
 import { BASE, creds, launch, newPage, signIn, step, report, note, summary } from './lib.mjs';
 
-const ROUTES = ['/issue', '/documents', '/service-periods', '/company-split', '/company-allocation', '/ifsun', '/soldiers',
-  '/daily-movements', '/attendance', '/summary', '/counts', '/catalog', '/intake', '/naming', '/users', '/backups', '/security'];
+const ROUTES = ['/issue', '/issue/documents', '/issue/ifsun', '/periods', '/periods/by-soldier', '/soldiers', '/attendance',
+  '/reports', '/reports/companies', '/reports/counts', '/reports/movements', '/equipment', '/equipment/intake', '/equipment/kits',
+  '/equipment/naming', '/system', '/system/backups', '/security'];
 const ALLOWED = {
   admin: ROUTES,
-  logistics: ['/issue', '/documents', '/service-periods', '/company-split', '/ifsun', '/soldiers', '/daily-movements', '/attendance', '/summary', '/counts', '/security'],
-  viewer: ['/documents', '/soldiers', '/security'],
+  logistics: ['/issue', '/issue/documents', '/issue/ifsun', '/periods', '/soldiers', '/attendance', '/reports', '/reports/companies', '/reports/counts', '/reports/movements', '/security'],
+  viewer: ['/issue/documents', '/soldiers', '/security'],
   SHLISHUT: ['/soldiers', '/security'],
-  SAMGAD: ['/service-periods', '/company-split', '/soldiers', '/security'],
-  COMPANY_CMDR: ['/company-allocation', '/soldiers', '/security'],
+  SAMGAD: ['/periods', '/reports/companies', '/soldiers', '/security'],
+  COMPANY_CMDR: ['/periods/by-soldier', '/soldiers', '/security'],
 };
 
 const c = creds();
