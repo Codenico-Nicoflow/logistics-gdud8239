@@ -51,12 +51,12 @@ export default {
         figure: ['36px', { lineHeight: '40px', letterSpacing: '-0.02em' }],
       },
       borderRadius: {
-        ctl: '4px',
-        panel: '8px',
+        ctl: '10px',
+        panel: '16px',
       },
       boxShadow: {
-        panel: '0 1px 2px rgba(22, 33, 29, 0.06), 0 1px 3px rgba(22, 33, 29, 0.04)',
-        lift: '0 12px 32px rgba(22, 33, 29, 0.16)',
+        panel: '0 1px 2px rgba(22, 33, 29, 0.05), 0 8px 24px -12px rgba(31, 74, 57, 0.22)',
+        lift: '0 24px 60px -16px rgba(15, 26, 22, 0.5)',
         // A faint inward shadow so form controls read as a recessed well
         // rather than a flat box with a line around it.
         'inset-field': 'inset 0 1px 2px rgba(22, 33, 29, 0.05)',
