@@ -348,6 +348,8 @@ export const he = {
     title: 'ניפוק וחתימה — טופס 1008',
     formName: 'שובר השאלה פנימית 1008',
     stepBasket: 'הפריטים',
+    draftRestored: (name: string) => `חזרנו לטופס שלא נחתם של ${name}. הפריטים וההערות נשמרו.`,
+    draftDiscard: 'מחק והתחל מחדש',
     stepSign: 'חתימת החייל',
 
     // Choosing what goes out.

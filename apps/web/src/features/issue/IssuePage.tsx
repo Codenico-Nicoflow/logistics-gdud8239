@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCreateIssueFormMutation } from '../../lib/api';
 import { apiErrorMessage, Button, Panel } from '../../components/ui';
 import { useToast } from '../../components/toast';
@@ -8,6 +8,7 @@ import { SoldierSearch } from './SoldierSearch';
 import { ConfirmSoldier } from './ConfirmSoldier';
 import { BasketStep, type BasketLine } from './BasketStep';
 import { SignStep } from './SignStep';
+import { clearDraft, loadActiveDraft, loadDraft, parkActiveDraft, saveDraft } from './issueDraft';
 
 type Step = 'soldier' | 'confirm' | 'basket' | 'sign' | 'done';
 
@@ -21,24 +22,59 @@ type Step = 'soldier' | 'confirm' | 'basket' | 'sign' | 'done';
  * replaces. Everything lands in one transaction or none of it does.
  */
 export function IssuePage() {
-  const [step, setStep] = useState<Step>('soldier');
-  const [soldier, setSoldier] = useState<SoldierSummary | null>(null);
-  const [lines, setLines] = useState<BasketLine[]>([]);
-  const [receiptNo, setReceiptNo] = useState('');
-  const [notes, setNotes] = useState('');
+  // Read once: what the operator was in the middle of when the page last went away (a reload, a stray tap,
+  // the browser discarding the tab). See issueDraft.ts.
+  const [resumed] = useState(loadActiveDraft);
+  const [step, setStep] = useState<Step>(resumed?.step ?? 'soldier');
+  const [soldier, setSoldier] = useState<SoldierSummary | null>(resumed?.soldier ?? null);
+  const [lines, setLines] = useState<BasketLine[]>(resumed?.lines ?? []);
+  const [receiptNo, setReceiptNo] = useState(resumed?.receiptNo ?? '');
+  const [notes, setNotes] = useState(resumed?.notes ?? '');
+  const [restored, setRestored] = useState(resumed !== null);
   const [signature, setSignature] = useState<string | null>(null);
   const [form, setForm] = useState<IssueForm | null>(null);
   const [create, { isLoading, error }] = useCreateIssueFormMutation();
   const toast = useToast();
 
-  function reset(): void {
-    setStep('soldier');
-    setSoldier(null);
+  // Every change to the unsigned form is kept, so leaving the page never costs the basket.
+  useEffect(() => {
+    if (!soldier || step === 'soldier' || step === 'done') return;
+    saveDraft({ soldier, step, lines, receiptNo, notes });
+  }, [soldier, step, lines, receiptNo, notes]);
+
+  function clearForm(): void {
     setLines([]);
     setReceiptNo('');
     setNotes('');
     setSignature(null);
+  }
+
+  function reset(): void {
+    setStep('soldier');
+    setSoldier(null);
+    clearForm();
     setForm(null);
+    setRestored(false);
+  }
+
+  function pick(picked: SoldierSummary): void {
+    // His own unsigned basket from earlier comes back; anyone else starts clean (the previous soldier's
+    // lines must never carry over).
+    const draft = loadDraft(picked.id);
+    setSoldier(picked);
+    setSignature(null);
+    setLines(draft?.lines ?? []);
+    setReceiptNo(draft?.receiptNo ?? '');
+    setNotes(draft?.notes ?? '');
+    setStep(draft?.step ?? 'confirm');
+    setRestored(draft !== null);
+  }
+
+  function discardDraft(): void {
+    if (soldier) clearDraft(soldier.id);
+    clearForm();
+    setRestored(false);
+    setStep('confirm');
   }
 
   async function submit(): Promise<void> {
@@ -59,6 +95,7 @@ export function IssuePage() {
     if (result.data) {
       setForm(result.data);
       setStep('done');
+      clearDraft(soldier.id);
       toast.success({
         title: he.toast.formSigned,
         detail: `${he.form1008.created(result.data.formNo)} · ${soldier.firstName} ${soldier.lastName}`,
@@ -74,20 +111,26 @@ export function IssuePage() {
 
       {step !== 'done' && <Steps step={step} soldier={soldier} lineCount={lines.length} />}
 
-      {step === 'soldier' && (
-        <SoldierSearch
-          onPick={(picked) => {
-            setSoldier(picked);
-            setStep('confirm');
-          }}
-        />
+      {restored && soldier && step !== 'soldier' && step !== 'done' && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ctl border border-brass/30 bg-brass-wash px-3 py-2.5 text-body text-ink">
+          <span>{he.form1008.draftRestored(`${soldier.firstName} ${soldier.lastName}`)}</span>
+          <button type="button" onClick={discardDraft} className="min-h-10 px-1 text-meta font-semibold text-oxide hover:underline">
+            {he.form1008.draftDiscard}
+          </button>
+        </div>
       )}
+
+      {step === 'soldier' && <SoldierSearch onPick={pick} />}
 
       {step === 'confirm' && soldier && (
         <ConfirmSoldier
           soldierId={soldier.id}
           onBack={() => {
+            // His draft stays on the device for when he is picked again; the screen itself must not keep it.
+            parkActiveDraft();
             setSoldier(null);
+            clearForm();
+            setRestored(false);
             setStep('soldier');
           }}
           onContinue={() => setStep('basket')}
