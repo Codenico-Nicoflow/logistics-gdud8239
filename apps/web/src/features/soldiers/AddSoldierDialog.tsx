@@ -34,7 +34,9 @@ export function AddSoldierDialog({
   const [lastName, setLastName] = useState('');
   const [personalNumber, setPersonalNumber] = useState('');
   const [phone, setPhone] = useState('');
-  const [company, setCompany] = useState<Company>('A');
+  // Until the operator picks one, the first active company of THIS battalion; never a code that might not exist.
+  const [picked, setPicked] = useState<Company | null>(null);
+  const company = picked ?? companyOptions[0]?.value ?? '';
   const [isAttached, setIsAttached] = useState(false);
   const [duplicates, setDuplicates] = useState<SoldierSummary[] | null>(null);
 
@@ -91,6 +93,7 @@ export function AddSoldierDialog({
   // today gets the field that makes a duplicate impossible rather than merely
   // flagged.
   const ready =
+    company !== '' &&
     firstName.trim().length > 0 && lastName.trim().length > 0 && /^\d{5,9}$/.test(personalNumber.trim());
   const message = apiErrorMessage(error);
 
@@ -118,7 +121,7 @@ export function AddSoldierDialog({
           <Select
             label={he.issue.company}
             value={company}
-            onChange={(v) => v && setCompany(v as Company)}
+            onChange={(v) => v && setPicked(v as Company)}
             options={companyOptions}
           />
           <div className="grid gap-3 sm:grid-cols-2">
