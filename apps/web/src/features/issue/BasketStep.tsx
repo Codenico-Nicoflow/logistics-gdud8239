@@ -8,6 +8,7 @@ import {
   useSoldierEntitlementQuery,
 } from '../../lib/api';
 import { Button, CategoryDot, Modal, Panel, Serial, Tag, TextField } from '../../components/ui';
+import { useModules } from '../modules/useModules';
 import { he } from '../../i18n/he';
 import { itemMatches, normalizeSearch } from '../../lib/search';
 import type { Item, SoldierSummary } from '../../lib/types';
@@ -72,8 +73,10 @@ export function BasketStep({
   // is actually open and the item has been added to its grid. Nothing to warn
   // about otherwise, same as before this existed.
   const activePeriod = useActiveServicePeriodQuery();
+  const { isOn } = useModules();
   const allocations = useCompanyAllocationsQuery(activePeriod.data?.id ?? '', {
-    skip: !activePeriod.data,
+    // With חלוקה לפלוגות off there is no plan to check against, and the server would refuse the read.
+    skip: !activePeriod.data || !isOn('companySplit'),
   });
 
   const catalog = useMemo(

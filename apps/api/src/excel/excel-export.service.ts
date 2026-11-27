@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ReportsService } from '../reports/reports.service';
 import { MovementsService } from '../movements/movements.service';
 import { MesakemService } from '../mesakem/mesakem.service';
+import type { ModuleState } from '../modules/module-manifest';
+import { ModulesService } from '../modules/modules.service';
 import { AllocationsService } from '../allocations/allocations.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ITEM_ORDER } from '../common/item-order';
@@ -84,6 +86,7 @@ export class ExcelExportService {
     private readonly attendance: AttendanceService,
     private readonly companies: CompaniesService,
     private readonly battalion: BattalionService,
+    private readonly modules: ModulesService,
   ) {}
 
   /** The battalion's companies as the sheets lay them out: their order, and a name for any stored code. */
@@ -101,6 +104,8 @@ export class ExcelExportService {
     wb.views = [{ x: 0, y: 0, width: 20000, height: 20000, firstSheet: 0, activeTab: 0, visibility: 'visible' }];
 
     const day = israelToday();
+    // A part the battalion has switched off leaves no empty sheet behind.
+    const on = await this.modules.state();
     // Created first so it is the first tab, filled last once the numbers exist.
     const overview = createSheet(wb, SHEET.overview, [22, 22, 22, 22]);
 
@@ -108,12 +113,14 @@ export class ExcelExportService {
     await this.addCount(wb);
     const held = await this.addSignatures(wb);
     await this.addIfsun(wb);
-    await this.addAttendance(wb);
-    await this.addCompanies(wb);
-    await this.addSoldiers(wb);
+    if (on.attendance) await this.addAttendance(wb);
+    if (on.companySplit) {
+      await this.addCompanies(wb);
+      await this.addSoldiers(wb);
+    }
     await this.movements.addMovementsSheet(wb, {});
 
-    await this.fillOverview(overview, day, held);
+    await this.fillOverview(overview, day, held, on);
     return wb;
   }
 
@@ -129,6 +136,7 @@ export class ExcelExportService {
     ws: ExcelJS.Worksheet,
     day: string,
     held: { units: number; soldiers: number },
+    on: ModuleState,
   ): Promise<void> {
     const COLS = 4;
     const [sheet, movementCount] = await Promise.all([
@@ -157,9 +165,15 @@ export class ExcelExportService {
       [SHEET.count, 'הספירה שנחתמה בערב ובבוקר, עם החתימות'],
       [SHEET.signatures, 'כל הציוד החתום כרגע, לפי פלוגה וחייל'],
       [SHEET.ifsun, 'כל האפסונים: מי הפקיד ומי לקח, ומתי'],
-      [SHEET.attendance, 'ימי יציאה של הצוות: ארבעה שבועות אחורה ושבועיים קדימה'],
-      [SHEET.companies, 'מה יש בכל פלוגה, וכמה מההקצאה נוצל'],
-      [SHEET.soldiers, 'ההקצאה לכל חייל מול מה שנופק לו'],
+      ...(on.attendance
+        ? ([[SHEET.attendance, 'ימי יציאה של הצוות: ארבעה שבועות אחורה ושבועיים קדימה']] as [string, string][])
+        : []),
+      ...(on.companySplit
+        ? ([
+            [SHEET.companies, 'מה יש בכל פלוגה, וכמה מההקצאה נוצל'],
+            [SHEET.soldiers, 'ההקצאה לכל חייל מול מה שנופק לו'],
+          ] as [string, string][])
+        : []),
       [SHEET.movements, 'כל הניפוקים והזיכויים, לפי יום'],
     ];
     contents.forEach(([name, what], i) => {

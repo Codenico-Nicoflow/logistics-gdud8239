@@ -5,6 +5,7 @@ import type { CreateServicePeriodDto, UpdateServicePeriodDto } from './dto/servi
 import type { SetCompanyAllocationDto } from './dto/company-allocation.dto';
 import type { SetOnHandOverrideDto } from './dto/on-hand-override.dto';
 import type { SetSoldierAllocationDto } from './dto/soldier-allocation.dto';
+import { ModulesService } from '../modules/modules.service';
 import { ItemKitsService } from '../item-kits/item-kits.service';
 import { computeOnHand } from './compute-on-hand';
 import type { CompanyCode } from '../companies/company-code';
@@ -22,6 +23,7 @@ export class AllocationsService {
     private readonly prisma: PrismaService,
     private readonly itemKits: ItemKitsService,
     private readonly companies: CompaniesService,
+    private readonly modules: ModulesService,
   ) {}
 
   // ---------- service periods ----------
@@ -388,6 +390,8 @@ export class AllocationsService {
   async findSoldierEntitlement(soldierId: string) {
     const soldier = await this.prisma.soldier.findUnique({ where: { id: soldierId } });
     if (!soldier) throw new NotFoundException('החייל אינו קיים');
+    // ניפוק asks on every soldier, so an unplanned battalion gets an empty list, not an error.
+    if (!(await this.modules.isOn('companySplit'))) return [];
 
     const activePeriod = await this.prisma.servicePeriod.findFirst({ where: { status: 'ACTIVE' } });
     if (!activePeriod) return [];
@@ -407,7 +411,9 @@ export class AllocationsService {
    * What always goes out with an item in the 1008 basket — the kit an admin built on the ערכות screen.
    * Optics and the like are not kit: a soldier gets those through his own entitlement.
    */
-  findIssueBundle(itemName: string) {
+  async findIssueBundle(itemName: string) {
+    // Same reason: ניפוק asks for every line it adds. With kits off nothing rides along.
+    if (!(await this.modules.isOn('kits'))) return [];
     return this.itemKits.resolve(itemName);
   }
 }

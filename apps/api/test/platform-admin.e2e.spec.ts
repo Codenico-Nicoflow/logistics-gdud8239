@@ -49,6 +49,7 @@ async function wipeBattalion(): Promise<void> {
     await ownerExec(`DELETE FROM companies WHERE battalion_id = '${id}'`);
     await ownerExec(`DELETE FROM users WHERE battalion_id = '${id}'`);
     await ownerExec(`DELETE FROM form_counters WHERE battalion_id = '${id}'`);
+    await ownerExec(`DELETE FROM app_settings WHERE battalion_id = '${id}'`);
     await ownerExec(`DELETE FROM battalions WHERE id = '${id}'`);
   }
 }

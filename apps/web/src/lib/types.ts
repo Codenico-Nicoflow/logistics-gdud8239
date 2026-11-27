@@ -7,6 +7,12 @@ export type Company = string;
 /** The signed-in battalion, as `GET /battalion` returns it. `logoVersion` changes with the picture so a cached copy is never stale. */
 export type BattalionInfo = { id: string; name: string; number: string; hasLogo: boolean; logoVersion: number };
 
+/** The optional parts of the product a super admin can switch; mirrors the server's manifest. */
+export const MODULE_IDS = ['companySplit', 'attendance', 'kits'] as const;
+export type ModuleId = (typeof MODULE_IDS)[number];
+export type ModuleState = Record<ModuleId, boolean>;
+export type ModulesInfo = { enabled: ModuleState; canChange: boolean };
+
 /** One of the battalion's companies, as `GET /companies` returns it. */
 export type CompanyInfo = { id: string; code: Company; name: string; sortOrder: number; isActive: boolean };
 export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR' | 'AMMO';

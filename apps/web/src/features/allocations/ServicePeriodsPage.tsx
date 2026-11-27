@@ -8,6 +8,7 @@ import { apiErrorMessage, Button, Modal, Panel, Select, Spinner, Tag, TextField 
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import type { AuthUser, ServicePeriod, ServicePeriodStatus } from '../../lib/types';
+import { useModules } from '../modules/useModules';
 import { CompanyAllocationGrid } from './CompanyAllocationGrid';
 
 /**
@@ -18,6 +19,7 @@ import { CompanyAllocationGrid } from './CompanyAllocationGrid';
  */
 export function ServicePeriodsPage({ user }: { user: AuthUser }) {
   const periods = useServicePeriodsQuery();
+  const { isOn } = useModules();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -75,7 +77,9 @@ export function ServicePeriodsPage({ user }: { user: AuthUser }) {
           {isAdmin && (
             <PeriodStatusBar period={selected} onEdit={() => setEditing(true)} />
           )}
-          <CompanyAllocationGrid servicePeriodId={selected.id} canEdit={canEditGrid} isAdmin={isAdmin} />
+          {isOn('companySplit') && (
+            <CompanyAllocationGrid servicePeriodId={selected.id} canEdit={canEditGrid} isAdmin={isAdmin} />
+          )}
         </>
       )}
 

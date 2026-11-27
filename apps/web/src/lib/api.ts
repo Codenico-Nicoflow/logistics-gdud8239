@@ -3,6 +3,7 @@ import type {
   AuthUser,
   Company,
   BattalionInfo,
+  ModulesInfo,
   CreatedBattalion,
   NewBattalionInput,
   PlatformBattalion,
@@ -93,6 +94,7 @@ export const api = createApi({
   tagTypes: [
     'Auth',
     'Battalion',
+    'Modules',
     'Platform',
     'Signatures',
     'Soldiers',
@@ -439,6 +441,15 @@ export const api = createApi({
     deleteItem: build.mutation<{ deleted: true }, string>({
       query: (id) => ({ url: `/items/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Items', 'Reports', 'Kits'],
+    }),
+    // --- optional modules ---
+    modules: build.query<ModulesInfo, void>({
+      query: () => '/modules',
+      providesTags: ['Modules'],
+    }),
+    setModule: build.mutation<ModulesInfo, { id: string; enabled: boolean }>({
+      query: ({ id, enabled }) => ({ url: `/modules/${id}`, method: 'PUT', body: { enabled } }),
+      invalidatesTags: ['Modules', 'Allocations', 'Kits'],
     }),
     // --- the battalion's own identity ---
     battalion: build.query<BattalionInfo, void>({
@@ -872,6 +883,8 @@ export const {
   useLazyDeletionCheckQuery,
   useItemKitQuery,
   useBattalionQuery,
+  useModulesQuery,
+  useSetModuleMutation,
   usePlatformBattalionsQuery,
   useCreateBattalionMutation,
   useAddBattalionAdminMutation,

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TenantService } from '../tenancy/tenant.service';
 import { SlackFileSender } from '../common/slack-file-sender';
 import { addDaysIso, israelToday } from '../common/israel-date';
+import { ModulesService } from '../modules/modules.service';
 import { AttendanceService, type Week } from './attendance.service';
 import { buildWeekPdf } from './attendance-pdf';
 
@@ -35,6 +36,7 @@ export class AttendanceSlackService {
     private readonly slack: SlackFileSender,
     private readonly tenants: TenantService,
     private readonly battalion: BattalionService,
+    private readonly modules: ModulesService,
   ) {}
 
   /**
@@ -47,6 +49,7 @@ export class AttendanceSlackService {
     if (this.config.get<string>('NODE_ENV') !== 'production') return;
     await this.tenants.forEachBattalion(
       async (battalionId) => {
+        if (!(await this.modules.isOn('attendance'))) return;
         const result = await this.sendWeek(addDaysIso(israelToday(), 7), 'cron');
         if (!result.sent && result.error) this.logger.error(`Weekly ימי יציאה not sent for ${battalionId}: ${result.error}`);
       },

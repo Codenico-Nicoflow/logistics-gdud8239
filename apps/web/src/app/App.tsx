@@ -23,6 +23,9 @@ import { HelpPage } from '../features/help/HelpPage';
 import { KitsPage } from '../features/kits/KitsPage';
 import { NamingPage } from '../features/naming/NamingPage';
 import { BattalionsPage } from '../features/platform/BattalionsPage';
+import { ModulesPage } from '../features/modules/ModulesPage';
+import { useModules } from '../features/modules/useModules';
+import { useViewer } from './useViewer';
 import { IdentityPage } from '../features/battalion/IdentityPage';
 import { CompaniesPage } from '../features/companies/CompaniesPage';
 import { CompanySplitPage } from '../features/allocations/CompanySplitPage';
@@ -73,6 +76,8 @@ function screenFor(tab: TabId, user: AuthUser): ReactNode {
       return <CompaniesPage />;
     case 'identity':
       return <IdentityPage />;
+    case 'modules':
+      return <ModulesPage />;
     case 'battalions':
       return <BattalionsPage user={user} />;
     case 'backups':
@@ -111,18 +116,27 @@ function AuthenticatedApp() {
   if (isLoading) return <Spinner />;
   if (!data?.user) return <LoginPage />;
 
-  const user = data.user;
+  return <SignedInApp user={data.user} />;
+}
+
+function SignedInApp({ user }: { user: AuthUser }) {
+  const viewer = useViewer(user);
+  const { isLoading: modulesLoading } = useModules();
+
+  // The routes are built from which parts are on; building them first with the wrong answer would bounce
+  // a refresh on /attendance to the landing page.
+  if (modulesLoading) return <Spinner />;
 
   return (
     <Routes>
-      <Route element={<Shell user={user} />} path="/">
-        <Route index element={<Navigate to={defaultPathFor(user.role)} replace />} />
+      <Route element={<Shell user={user} viewer={viewer} />} path="/">
+        <Route index element={<Navigate to={defaultPathFor(viewer)} replace />} />
         {HUBS.map((hub) => {
-          const tabs = visibleTabs(hub, user);
+          const tabs = visibleTabs(hub, viewer);
           const [first] = tabs;
           if (!first) return null;
           return (
-            <Route key={hub.id} path={hub.path} element={<HubLayout hub={hub} viewer={user} />}>
+            <Route key={hub.id} path={hub.path} element={<HubLayout hub={hub} viewer={viewer} />}>
               {/* The hub's own address is its index tab; when this role cannot open that one, send it to the first it can. */}
               {first.path !== '' && <Route index element={<Navigate to={tabAddress(hub, first)} replace />} />}
               {tabs.map((tab) =>
@@ -138,7 +152,7 @@ function AuthenticatedApp() {
         {Object.entries(LEGACY_REDIRECTS).map(([from, tab]) => (
           <Route key={from} path={from} element={<LegacyRedirect to={addressOf(tab)} />} />
         ))}
-        <Route path="*" element={<Navigate to={defaultPathFor(user.role)} replace />} />
+        <Route path="*" element={<Navigate to={defaultPathFor(viewer)} replace />} />
       </Route>
     </Routes>
   );

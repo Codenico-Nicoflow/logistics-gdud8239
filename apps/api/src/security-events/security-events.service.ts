@@ -19,6 +19,8 @@ export const SecurityEventType = {
   MFA_ENFORCEMENT_CHANGED: 'MFA_ENFORCEMENT_CHANGED',
   /** A platform admin switched into this battalion (recorded here, under their stand-in account). */
   ACT_AS: 'ACT_AS',
+  /** A super admin switched an optional module on or off for the battalion. */
+  MODULE_CHANGED: 'MODULE_CHANGED',
 } as const;
 export type SecurityEventType = (typeof SecurityEventType)[keyof typeof SecurityEventType];
 

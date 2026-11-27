@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireModule } from '../modules/require-module.decorator';
 import { RequirePermission } from '../auth/decorators/permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AllocationsService } from './allocations.service';
@@ -40,24 +41,28 @@ export class AllocationsController {
   // a weapon would exceed what was allocated to the soldier's company, which
   // has to work regardless of whatever the admin has set in הרשאות.
   @Get('service-periods/:id/company-allocations')
+  @RequireModule('companySplit')
   @RequirePermission('allocations.battalion', 'READ', ['logistics', 'SHLISHUT'])
   findCompanyAllocations(@Param('id') id: string) {
     return this.allocations.findCompanyAllocations(id);
   }
 
   @Post('service-periods/:id/company-allocations')
+  @RequireModule('companySplit')
   @RequirePermission('allocations.battalion', 'WRITE')
   setCompanyAllocation(@Param('id') id: string, @Body() dto: SetCompanyAllocationDto) {
     return this.allocations.setCompanyAllocation(id, dto);
   }
 
   @Post('service-periods/:id/company-allocations/items')
+  @RequireModule('companySplit')
   @RequirePermission('allocations.battalion', 'WRITE')
   addGridItem(@Param('id') id: string, @Body() dto: AddGridItemDto) {
     return this.allocations.addItemToGrid(id, dto.itemId);
   }
 
   @Delete('service-periods/:id/company-allocations/items/:itemId')
+  @RequireModule('companySplit')
   @RequirePermission('allocations.battalion', 'WRITE')
   removeGridItem(@Param('id') id: string, @Param('itemId') itemId: string) {
     return this.allocations.removeItemFromGrid(id, itemId);
@@ -66,6 +71,7 @@ export class AllocationsController {
   /** Admin only — the samgad plans against whatever this says, never above
    *  the item's real בפועל, but deliberately kept off everyone else's screen. */
   @Post('service-periods/:id/on-hand-override')
+  @RequireModule('companySplit')
   @Roles('admin')
   setOnHandOverride(@Param('id') id: string, @Body() dto: SetOnHandOverrideDto) {
     return this.allocations.setOnHandOverride(id, dto);
@@ -76,6 +82,7 @@ export class AllocationsController {
   /** `company` lets admin inspect any company; a סגן מפקד פלוגה is always
    *  locked to their own regardless of what's passed — enforced in the service. */
   @Get('service-periods/:id/soldier-allocations')
+  @RequireModule('companySplit')
   @RequirePermission('allocations.company', 'READ', ['COMPANY_CMDR'])
   findSoldierAllocations(
     @Param('id') id: string,
@@ -86,12 +93,14 @@ export class AllocationsController {
   }
 
   @Get('service-periods/:id/soldier-allocations/soldiers')
+  @RequireModule('companySplit')
   @RequirePermission('allocations.company', 'READ', ['COMPANY_CMDR'])
   findCompanySoldiers(@CurrentUser() actor: AuthUser, @Query('company') company?: CompanyCode) {
     return this.allocations.findCompanySoldiers(actor, company);
   }
 
   @Post('service-periods/:id/soldier-allocations')
+  @RequireModule('companySplit')
   @RequirePermission('allocations.company', 'WRITE', ['COMPANY_CMDR'])
   setSoldierAllocation(
     @Param('id') id: string,
