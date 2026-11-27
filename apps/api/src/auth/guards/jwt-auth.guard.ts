@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { bindBattalion } from '../../tenancy/tenant-context';
+import { TenantService } from '../../tenancy/tenant.service';
 import { toAuthUser } from '../auth-user';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ACCESS_COOKIE } from '../auth.constants';
@@ -29,6 +30,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly tenants: TenantService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -66,7 +68,18 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
     }
 
-    request.user = toAuthUser(user);
+    const authUser = toAuthUser(user);
+    // A platform admin inside another battalion is a stand-in row there. Both halves must agree, and the
+    // real person must still be an active platform admin, so removing their access ends the session now.
+    if (user.actsForId || payload.actorId) {
+      if (!user.actsForId || user.actsForId !== payload.actorId) {
+        throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
+      }
+      const actor = await this.tenants.platformActor(user.actsForId);
+      if (!actor) throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
+      authUser.homeBattalionId = actor.battalionId;
+    }
+    request.user = authUser;
     return true;
   }
 

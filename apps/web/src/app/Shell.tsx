@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useBattalionQuery, useCompaniesQuery, useLogoutMutation } from '../lib/api';
+import { ActingBanner } from '../features/platform/ActingBanner';
+import { BattalionSwitcher } from '../features/platform/BattalionSwitcher';
 import { BattalionMark } from '../components/BattalionMark';
 import { he } from '../i18n/he';
 import type { AuthUser } from '../lib/types';
@@ -140,7 +142,7 @@ export function Shell({ user }: { user: AuthUser }) {
   const hubsByGroup = RAIL_GROUPS.map(({ group, heading }) => ({
     group,
     heading,
-    hubs: HUBS.filter((h) => h.group === group && visibleTabs(h, user.role).length > 0),
+    hubs: HUBS.filter((h) => h.group === group && visibleTabs(h, user).length > 0),
   })).filter((g) => g.hubs.length > 0);
   const activeId = hubsByGroup.flatMap((g) => g.hubs).find((h) => isInHub(pathname, h))?.id ?? null;
 
@@ -313,7 +315,7 @@ export function Shell({ user }: { user: AuthUser }) {
                         if (el) itemRefs.current.set(hub.id, el);
                         else itemRefs.current.delete(hub.id);
                       }}
-                      to={hubEntryAddress(hub, user.role)}
+                      to={hubEntryAddress(hub, user)}
                       aria-current={isActive ? 'page' : undefined}
                       onClick={() => setMenuOpen(false)}
                       style={{ '--i': i, '--hue': HUB_HUES[hub.id] } as CSSProperties}
@@ -341,6 +343,7 @@ export function Shell({ user }: { user: AuthUser }) {
         </div>
 
         <div className="relative z-10 shrink-0 border-t border-white/10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4">
+          <BattalionSwitcher user={user} />
           <div className="liquid-glass flex items-center gap-2.5 rounded-2xl px-3 py-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brass-bright text-body font-bold text-ink">
               {initial}
@@ -396,6 +399,7 @@ export function Shell({ user }: { user: AuthUser }) {
       </nav>
 
       <main className="app-canvas scroll-slim min-w-0 px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 lg:h-screen lg:overflow-y-auto lg:px-8 lg:py-8">
+        <ActingBanner user={user} />
         <Outlet />
       </main>
     </div>

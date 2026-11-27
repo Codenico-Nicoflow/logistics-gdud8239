@@ -22,6 +22,7 @@ import { IntakePage } from '../features/intake/IntakePage';
 import { HelpPage } from '../features/help/HelpPage';
 import { KitsPage } from '../features/kits/KitsPage';
 import { NamingPage } from '../features/naming/NamingPage';
+import { BattalionsPage } from '../features/platform/BattalionsPage';
 import { IdentityPage } from '../features/battalion/IdentityPage';
 import { CompaniesPage } from '../features/companies/CompaniesPage';
 import { CompanySplitPage } from '../features/allocations/CompanySplitPage';
@@ -72,6 +73,8 @@ function screenFor(tab: TabId, user: AuthUser): ReactNode {
       return <CompaniesPage />;
     case 'identity':
       return <IdentityPage />;
+    case 'battalions':
+      return <BattalionsPage user={user} />;
     case 'backups':
       return <BackupsPage />;
     case 'help':
@@ -115,11 +118,11 @@ function AuthenticatedApp() {
       <Route element={<Shell user={user} />} path="/">
         <Route index element={<Navigate to={defaultPathFor(user.role)} replace />} />
         {HUBS.map((hub) => {
-          const tabs = visibleTabs(hub, user.role);
+          const tabs = visibleTabs(hub, user);
           const [first] = tabs;
           if (!first) return null;
           return (
-            <Route key={hub.id} path={hub.path} element={<HubLayout hub={hub} role={user.role} />}>
+            <Route key={hub.id} path={hub.path} element={<HubLayout hub={hub} viewer={user} />}>
               {/* The hub's own address is its index tab; when this role cannot open that one, send it to the first it can. */}
               {first.path !== '' && <Route index element={<Navigate to={tabAddress(hub, first)} replace />} />}
               {tabs.map((tab) =>

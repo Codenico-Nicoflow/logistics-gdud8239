@@ -10,7 +10,7 @@ import { mount, resetApi, respond } from '../test/mockApi';
  * The server is the real gate; this proves the client never offers (or lands on) a screen the role cannot use.
  */
 function user(role: Role, extra: Partial<AuthUser> = {}): AuthUser {
-  return { id: 'u1', username: 'tester', displayName: 'בודק', role, companyScope: null, battalionId: 'b1', isPlatformAdmin: false, ...extra };
+  return { id: 'u1', username: 'tester', displayName: 'בודק', role, companyScope: null, battalionId: 'b1', homeBattalionId: 'b1', actorId: null, isPlatformAdmin: false, ...extra };
 }
 
 function signedInAs(u: AuthUser): void {
@@ -78,7 +78,6 @@ describe('addresses from before the hubs', () => {
     ['admin', '/summary', '/reports'],
     ['admin', '/counts', '/reports/counts'],
     ['admin', '/kits', '/equipment/kits'],
-    ['admin', '/backups', '/system/backups'],
     ['SAMGAD', '/service-periods', '/periods'],
     ['SAMGAD', '/company-split', '/reports/companies'],
     ['COMPANY_CMDR', '/company-allocation', '/periods/by-soldier'],
@@ -90,6 +89,31 @@ describe('addresses from before the hubs', () => {
       await waitFor(() => expect(window.location.pathname).toBe(to));
     });
   }
+});
+
+describe('screens only the platform operator gets', () => {
+  const ROUTES = { '/api/battalion': { status: 200, body: { id: 'b1', name: 'גדוד 8239', number: '8239', hasLogo: false, logoVersion: 0 } }, '/api/platform/battalions': { status: 200, body: [] } };
+
+  it('gives an ordinary admin neither גיבויים nor גדודים, and sends them away from the address', async () => {
+    respond({ '/api/auth/me': { status: 200, body: { user: user('admin') } }, ...ROUTES });
+    mount('/system');
+    await screen.findAllByRole('link', { name: he.nav.companies });
+    expect(screen.queryAllByRole('link', { name: he.nav.backups })).toHaveLength(0);
+    expect(screen.queryAllByRole('link', { name: he.nav.battalions })).toHaveLength(0);
+  });
+
+  it('bounces an ordinary admin who types the backups address by hand', async () => {
+    respond({ '/api/auth/me': { status: 200, body: { user: user('admin') } }, ...ROUTES });
+    mount('/system/backups');
+    await waitFor(() => expect(window.location.pathname).toBe('/issue'));
+  });
+
+  it('gives the platform operator both', async () => {
+    respond({ '/api/auth/me': { status: 200, body: { user: user('admin', { isPlatformAdmin: true }) } }, ...ROUTES });
+    mount('/system');
+    expect((await screen.findAllByRole('link', { name: he.nav.backups })).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: he.nav.battalions }).length).toBeGreaterThan(0);
+  });
 });
 
 describe('where each role lands', () => {

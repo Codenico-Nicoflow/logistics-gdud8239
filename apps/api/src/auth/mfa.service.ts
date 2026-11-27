@@ -225,9 +225,9 @@ export class MfaService {
   async overview(): Promise<{ enforced: boolean; enrolled: number; active: number; exempt: number }> {
     const [enforced, enrolled, active, exempt] = await Promise.all([
       this.policy.isEnforced(),
-      this.prisma.user.count({ where: { isActive: true, totp: { confirmedAt: { not: null } } } }),
-      this.prisma.user.count({ where: { isActive: true } }),
-      this.prisma.user.count({ where: { isActive: true, mfaExempt: true } }),
+      this.prisma.user.count({ where: { isActive: true, actsForId: null, totp: { confirmedAt: { not: null } } } }),
+      this.prisma.user.count({ where: { isActive: true, actsForId: null } }),
+      this.prisma.user.count({ where: { isActive: true, actsForId: null, mfaExempt: true } }),
     ]);
     return { enforced, enrolled, active, exempt };
   }

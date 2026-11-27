@@ -33,6 +33,7 @@ export type TabId =
   | 'naming'
   | 'companies'
   | 'identity'
+  | 'battalions'
   | 'users'
   | 'backups'
   | 'help'
@@ -44,7 +45,12 @@ export type TabDef = {
   path: string;
   label: string;
   roles: readonly Role[];
+  /** Only the platform operator sees it, whatever their role: it spans battalions or is not partitioned by one. */
+  platformOnly?: boolean;
 };
+
+/** Who is looking: what decides which screens exist for them. */
+export type Viewer = { role: Role; isPlatformAdmin: boolean };
 
 export type HubGroup = 'work' | 'admin' | 'account';
 
@@ -118,7 +124,8 @@ export const HUBS: readonly HubDef[] = [
       { id: 'users', path: '', label: he.nav.users, roles: ADMIN },
       { id: 'companies', path: 'companies', label: he.nav.companies, roles: ADMIN },
       { id: 'identity', path: 'identity', label: he.nav.identity, roles: ADMIN },
-      { id: 'backups', path: 'backups', label: he.nav.backups, roles: ADMIN },
+      { id: 'battalions', path: 'battalions', label: he.nav.battalions, roles: ADMIN, platformOnly: true },
+      { id: 'backups', path: 'backups', label: he.nav.backups, roles: ADMIN, platformOnly: true },
     ],
   },
   {
@@ -159,18 +166,18 @@ export function addressOf(tabId: TabId): string {
   throw new Error(`No screen registered for tab "${tabId}"`);
 }
 
-export function visibleTabs(hub: HubDef, role: Role): TabDef[] {
-  return hub.tabs.filter((t) => t.roles.includes(role));
+export function visibleTabs(hub: HubDef, viewer: Viewer): TabDef[] {
+  return hub.tabs.filter((t) => t.roles.includes(viewer.role) && (!t.platformOnly || viewer.isPlatformAdmin));
 }
 
 /** A hub with no tab the role may open is not offered at all. */
-export function visibleHubs(role: Role): HubDef[] {
-  return HUBS.filter((h) => visibleTabs(h, role).length > 0);
+export function visibleHubs(viewer: Viewer): HubDef[] {
+  return HUBS.filter((h) => visibleTabs(h, viewer).length > 0);
 }
 
 /** Where a hub's rail link goes: the first tab this role may open. */
-export function hubEntryAddress(hub: HubDef, role: Role): string {
-  const [first] = visibleTabs(hub, role);
+export function hubEntryAddress(hub: HubDef, viewer: Viewer): string {
+  const [first] = visibleTabs(hub, viewer);
   return first ? tabAddress(hub, first) : hub.path;
 }
 

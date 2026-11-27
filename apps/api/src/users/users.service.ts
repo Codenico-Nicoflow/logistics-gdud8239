@@ -10,8 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CompaniesService } from '../companies/companies.service';
 import { AuthService } from '../auth/auth.service';
 import { MfaService } from '../auth/mfa.service';
+import { buildSetupLink, type SetupLink } from '../auth/setup-link';
 import { InvitesService } from '../auth/invites.service';
-import { normalizeOrigin } from '../common/origin-check.middleware';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
@@ -35,8 +35,7 @@ export type PublicUser = {
   mfaExempt: boolean;
 };
 
-/** The one-time link, returned exactly once when it is created. */
-export type SetupLink = { url: string; expiresAt: Date };
+export type { SetupLink };
 
 const PUBLIC_FIELDS = {
   id: true,
@@ -66,12 +65,13 @@ export class UsersService {
   ) {}
 
   private linkFor(token: string, expiresAt: Date): SetupLink {
-    const origin = normalizeOrigin(this.config.get<string>('WEB_ORIGIN') ?? 'http://localhost:5173');
-    return { url: `${origin}/setup/${token}`, expiresAt };
+    return buildSetupLink(this.config.get<string>('WEB_ORIGIN'), token, expiresAt);
   }
 
   async findAll(): Promise<PublicUser[]> {
+    // A platform admin's hidden stand-in is not one of the battalion's people: never listed, never counted.
     const rows = await this.prisma.user.findMany({
+      where: { actsForId: null },
       select: { ...PUBLIC_FIELDS, totp: { select: { confirmedAt: true } } },
       orderBy: [{ isActive: 'desc' }, { username: 'asc' }],
     });
@@ -167,7 +167,7 @@ export class UsersService {
     }
     if (user.role === 'admin' && (dto.role && dto.role !== 'admin' || dto.isActive === false)) {
       const otherActiveAdmins = await this.prisma.user.count({
-        where: { role: 'admin', isActive: true, id: { not: id } },
+        where: { role: 'admin', isActive: true, id: { not: id }, actsForId: null },
       });
       if (otherActiveAdmins === 0) {
         throw new BadRequestException('חייב להישאר לפחות מנהל אחד פעיל');
@@ -283,7 +283,7 @@ export class UsersService {
 
     if (user.role === 'admin') {
       const otherActiveAdmins = await this.prisma.user.count({
-        where: { role: 'admin', isActive: true, id: { not: id } },
+        where: { role: 'admin', isActive: true, id: { not: id }, actsForId: null },
       });
       if (otherActiveAdmins === 0) {
         throw new BadRequestException('חייב להישאר לפחות מנהל אחד פעיל');

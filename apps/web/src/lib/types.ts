@@ -27,6 +27,10 @@ export type AuthUser = {
   companyScope: Company | null;
   /** The battalion this session serves; everything the API returns is that battalion's. */
   battalionId: string;
+  /** Where the person really belongs. Differs from `battalionId` only while acting inside another battalion. */
+  homeBattalionId: string;
+  /** The real person's id while acting inside another battalion; null otherwise. */
+  actorId: string | null;
   /** The platform operator: the only one who may use full-database backups and the permission matrix. */
   isPlatformAdmin: boolean;
 };
@@ -326,6 +330,20 @@ export type PublicUser = {
 
 /** The one-time link an admin hands to a person; the server returns it exactly once. */
 export type SetupLink = { url: string; expiresAt: string };
+
+/** One row of the platform operator's list of battalions. */
+export type PlatformBattalion = {
+  id: string;
+  name: string;
+  number: string;
+  createdAt: string;
+  userCount: number;
+  /** Active admins who have chosen a password. Zero means nobody can run the battalion yet. */
+  adminCount: number;
+  hasLogo: boolean;
+};
+export type CreatedBattalion = { battalion: PlatformBattalion; admin: { id: string; username: string }; setup: SetupLink };
+export type NewBattalionInput = { name: string; number: string; adminUsername: string; adminDisplayName: string };
 
 export type SecurityEventRow = {
   id: string;
