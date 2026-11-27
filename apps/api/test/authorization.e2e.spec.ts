@@ -14,6 +14,7 @@ import type { Company, Role } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AllExceptionsFilter } from '../src/common/all-exceptions.filter';
+import { takeFormNo } from '../src/issue-forms/form-no';
 
 const PASSWORD = 'e2e-authz-password-123';
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
@@ -72,6 +73,7 @@ beforeAll(async () => {
     const soldier = await prisma.soldier.create({ data: { firstName: `חייל-${company}`, lastName: LAST, company } });
     const form = await prisma.issueForm.create({
       data: {
+        formNo: await takeFormNo(prisma),
         soldierId: soldier.id,
         soldierNameSnapshot: `חייל-${company} ${LAST}`,
         companySnapshot: company,

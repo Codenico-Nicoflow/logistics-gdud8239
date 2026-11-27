@@ -121,40 +121,106 @@ enum DbBackupKind {
   manual
 }
 
+// ---------- tenancy ----------
+
+/// One tenant: a gdud with its own soldiers, catalog, users and history. Every tenant table carries
+/// `battalionId`, defaulted in the database from `current_battalion_id()` (see the migration), so a
+/// create never passes it and a forgotten filter can later be caught by RLS.
+model Battalion {
+  id        String   @id @default(uuid())
+  name      String
+  /// "8239", "5033". Unique across the platform.
+  number    String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  formCounter                FormCounter?
+  users                      User[]
+  soldiers                   Soldier[]
+  soldierEnlistments         SoldierEnlistment[]
+  teamMembers                TeamMember[]
+  items                      Item[]
+  itemKits                   ItemKit[]
+  itemKitLines               ItemKitLine[]
+  itemKitChanges             ItemKitChange[]
+  itemReplacements           ItemReplacement[]
+  itemInstances              ItemInstance[]
+  signatures                 Signature[]
+  issueForms                 IssueForm[]
+  issueFormLines             IssueFormLine[]
+  issueFormAmendments        IssueFormAmendment[]
+  movements                  Movement[]
+  servicePeriods             ServicePeriod[]
+  companyAllocations         CompanyAllocation[]
+  servicePeriodItemOverrides ServicePeriodItemOverride[]
+  soldierAllocations         SoldierAllocation[]
+  countSessions              CountSession[]
+  countSessionFigures        CountSessionFigure[]
+  countLines                 CountLine[]
+  countSessionReopens        CountSessionReopen[]
+  dailySummaryLines          DailySummaryLine[]
+  dailySummaryExports        DailySummaryExport[]
+  attendance                 Attendance[]
+  importIssues               ImportIssue[]
+  importLogs                 ImportLog[]
+  snapshots                  Snapshot[]
+  countSessionDeletions      CountSessionDeletion[]
+  ifsunRecords               IfsunRecord[]
+  attendanceWeekSends        AttendanceWeekSend[]
+  appSettings                AppSetting[]
+  securityEvents             SecurityEvent[]
+
+  @@map("battalions")
+}
+
+/// Next 1008 form number for a battalion. Incremented inside the transaction that creates the form,
+/// so a form that fails to save leaves no gap, and each battalion's numbering starts at 1.
+model FormCounter {
+  battalionId String @id @map("battalion_id")
+  nextFormNo  Int    @default(1) @map("next_form_no")
+
+  battalion Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+
+  @@map("form_counters")
+}
+
 // ---------- auth ----------
 
 model User {
-  id                String    @id @default(uuid())
-  username          String    @unique
+  id                String     @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId       String?    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion         Battalion? @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  username          String     @unique
   /// Null until a new user opens his invite link and chooses his own password: nobody else ever
   /// knows or sets it, and a user without one cannot log in.
-  passwordHash      String?   @map("password_hash")
-  displayName       String    @map("display_name")
+  passwordHash      String?    @map("password_hash")
+  displayName       String     @map("display_name")
   role              Role
-  companyScope      Company?  @map("company_scope")
-  isActive          Boolean   @default(true) @map("is_active")
-  createdAt         DateTime  @default(now()) @map("created_at")
+  companyScope      Company?   @map("company_scope")
+  isActive          Boolean    @default(true) @map("is_active")
+  createdAt         DateTime   @default(now()) @map("created_at")
   /// A single top-level admin above the regular `admin` role — can edit or
   /// deactivate any user including other admins. A regular admin cannot
   /// touch a super-admin's account or grant this flag to anyone; only
   /// a super-admin can. Role stays `admin` either way, so every existing
   /// `admin`-scoped guard and permission check keeps working unchanged —
   /// this only widens what a super-admin may additionally do in users.service.
-  isSuperAdmin      Boolean   @default(false) @map("is_super_admin")
+  isSuperAdmin      Boolean    @default(false) @map("is_super_admin")
   /// Consecutive wrong passwords. Past a threshold the account is locked for a growing
   /// time (`lockedUntil`), counted per ACCOUNT rather than per IP so an attack spread over
   /// many addresses is still stopped. Reset on a successful login.
-  failedLoginCount  Int       @default(0) @map("failed_login_count")
-  lockedUntil       DateTime? @map("locked_until")
+  failedLoginCount  Int        @default(0) @map("failed_login_count")
+  lockedUntil       DateTime?  @map("locked_until")
   /// Access tokens issued before this instant are refused, so changing or resetting a
   /// password ends other sessions now, not when their 15-minute token runs out.
-  passwordChangedAt DateTime? @map("password_changed_at")
-  lastLoginAt       DateTime? @map("last_login_at")
+  passwordChangedAt DateTime?  @map("password_changed_at")
+  lastLoginAt       DateTime?  @map("last_login_at")
   /// True from the moment an admin issues a setup link (new user, or a forgotten password / lost
   /// device) until it is used. While set, the account cannot log in.
-  mustSetup         Boolean   @default(false) @map("must_setup")
+  mustSetup         Boolean    @default(false) @map("must_setup")
   /// A super-admin has excused this person from the authenticator step (even while it is required for everyone else).
-  mfaExempt         Boolean   @default(false) @map("mfa_exempt")
+  mfaExempt         Boolean    @default(false) @map("mfa_exempt")
 
   refreshTokens       RefreshToken[]
   invites             UserInvite[]         @relation("inviteFor")
@@ -173,6 +239,7 @@ model User {
   dailySummaryLines   DailySummaryLine[]
   countReopens        CountSessionReopen[]
 
+  @@index([battalionId])
   @@map("users")
 }
 
@@ -199,19 +266,23 @@ model RefreshToken {
 // ---------- people ----------
 
 model Soldier {
-  id             String   @id @default(uuid())
-  firstName      String   @map("first_name")
-  lastName       String   @map("last_name")
-  personalNumber String?  @unique @map("personal_number")
+  id             String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId    String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion      Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  firstName      String    @map("first_name")
+  lastName       String    @map("last_name")
+  personalNumber String?   @unique @map("personal_number")
   phone          String?
   company        Company
-  receiptNo      String?  @map("receipt_no")
+  receiptNo      String?   @map("receipt_no")
   notes          String?
   /// מסופח — attached from another unit rather than organic to the battalion.
-  isAttached     Boolean  @default(false) @map("is_attached")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  isAttached     Boolean   @default(false) @map("is_attached")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   signatures  Signature[]
   movements   Movement[]
@@ -219,8 +290,10 @@ model Soldier {
   enlistments SoldierEnlistment[]
   allocations SoldierAllocation[]
 
+  @@unique([battalionId, personalNumber])
   @@index([lastName, firstName])
   @@index([company])
+  @@index([battalionId])
   @@map("soldiers")
 }
 
@@ -230,30 +303,41 @@ model Soldier {
 /// in the currently active service period — enforced in
 /// `SignaturesService.issue`.
 model SoldierEnlistment {
-  id              String   @id @default(uuid())
-  soldierId       String   @map("soldier_id")
-  servicePeriodId String   @map("service_period_id")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id              String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  soldierId       String    @map("soldier_id")
+  servicePeriodId String    @map("service_period_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   soldier       Soldier       @relation(fields: [soldierId], references: [id], onDelete: Cascade)
   servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
 
   @@unique([soldierId, servicePeriodId])
+  @@index([battalionId])
   @@map("soldier_enlistments")
 }
 
 model TeamMember {
-  id             String   @id @default(uuid())
-  nickname       String   @unique
-  fullName       String?  @map("full_name")
-  personalNumber String?  @map("personal_number")
-  gender         Gender   @default(M)
-  isActive       Boolean  @default(true) @map("is_active")
-  sortOrder      Int      @default(0) @map("sort_order")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id             String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId    String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion      Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  nickname       String    @unique
+  fullName       String?   @map("full_name")
+  personalNumber String?   @map("personal_number")
+  gender         Gender    @default(M)
+  isActive       Boolean   @default(true) @map("is_active")
+  sortOrder      Int       @default(0) @map("sort_order")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   attendance Attendance[]
 
+  @@unique([battalionId, nickname])
+  @@index([battalionId])
   @@map("team_members")
 }
 
@@ -261,6 +345,10 @@ model TeamMember {
 
 model Item {
   id            String       @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId   String       @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion     Battalion    @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   name          String       @unique
   aliases       String[]     @default([])
   category      ItemCategory
@@ -309,6 +397,8 @@ model Item {
   kit                ItemKit?
   kitLines           ItemKitLine[]
 
+  @@unique([battalionId, name])
+  @@index([battalionId])
   @@map("items")
 }
 
@@ -316,23 +406,32 @@ model Item {
 /// 3 מתפסים) — edited by an admin on the ערכות screen. Optics and the like are NOT kit: a soldier gets those
 /// through his own allocation. Replaces the rules that used to be hardcoded in `issue-bundle-rules.ts`.
 model ItemKit {
-  id         String   @id @default(uuid())
-  baseItemId String   @unique @map("base_item_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id          String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  baseItemId  String    @unique @map("base_item_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   baseItem Item          @relation(fields: [baseItemId], references: [id], onDelete: Cascade)
   lines    ItemKitLine[]
 
+  @@index([battalionId])
   @@map("item_kits")
 }
 
 model ItemKitLine {
-  id       String @id @default(uuid())
-  kitId    String @map("kit_id")
-  itemId   String @map("item_id")
-  quantity Int
-  position Int
+  id          String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  kitId       String    @map("kit_id")
+  itemId      String    @map("item_id")
+  quantity    Int
+  position    Int
 
   kit  ItemKit @relation(fields: [kitId], references: [id], onDelete: Cascade)
   /// Restrict: an item that is still in a kit cannot be deleted from under it.
@@ -340,22 +439,28 @@ model ItemKitLine {
 
   @@unique([kitId, itemId])
   @@index([itemId])
+  @@index([battalionId])
   @@map("item_kit_lines")
 }
 
 /// Append-only history of kit edits (DB trigger, like movements). Holds names, not foreign keys, so
 /// the history stays readable after an item or a user is gone.
 model ItemKitChange {
-  id           String   @id @default(uuid())
-  at           DateTime @default(now())
-  baseItemId   String   @map("base_item_id")
-  baseItemName String   @map("base_item_name")
-  actorName    String   @map("actor_name")
+  id           String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId  String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion    Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  at           DateTime  @default(now())
+  baseItemId   String    @map("base_item_id")
+  baseItemName String    @map("base_item_name")
+  actorName    String    @map("actor_name")
   /// `[{ itemName, quantity }]` before and after the save.
   before       Json
   after        Json
 
   @@index([baseItemId, at])
+  @@index([battalionId])
   @@map("item_kit_changes")
 }
 
@@ -363,33 +468,43 @@ model ItemKitChange {
 /// the books, the new one takes its place. Append-only. The item id is a loose reference, not a foreign
 /// key, so the log survives the item being deleted.
 model ItemReplacement {
-  id               String   @id @default(uuid())
-  itemId           String   @map("item_id")
-  itemNameSnapshot String   @map("item_name_snapshot")
-  oldSerial        String?  @map("old_serial")
-  newSerial        String   @map("new_serial")
+  id               String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId      String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion        Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  itemId           String    @map("item_id")
+  itemNameSnapshot String    @map("item_name_snapshot")
+  oldSerial        String?   @map("old_serial")
+  newSerial        String    @map("new_serial")
   notes            String?
-  byName           String   @map("by_name")
-  createdAt        DateTime @default(now()) @map("created_at")
+  byName           String    @map("by_name")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   @@index([itemId])
   @@index([createdAt])
+  @@index([battalionId])
   @@map("item_replacements")
 }
 
 model ItemInstance {
-  id        String         @id @default(uuid())
-  itemId    String         @map("item_id")
-  serial    String
-  status    InstanceStatus @default(OK)
-  notes     String?
-  createdAt DateTime       @default(now()) @map("created_at")
+  id          String         @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String         @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion      @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  itemId      String         @map("item_id")
+  serial      String
+  status      InstanceStatus @default(OK)
+  notes       String?
+  createdAt   DateTime       @default(now()) @map("created_at")
 
   item       Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
   signatures Signature[]
 
   @@unique([itemId, serial])
   @@index([serial])
+  @@index([battalionId])
   @@map("item_instances")
 }
 
@@ -397,6 +512,10 @@ model ItemInstance {
 
 model Signature {
   id               String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId      String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion        Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   soldierId        String    @map("soldier_id")
   itemId           String    @map("item_id")
   itemInstanceId   String?   @map("item_instance_id")
@@ -423,6 +542,7 @@ model Signature {
   @@index([itemId])
   @@index([returnedAt])
   @@index([needsAttention])
+  @@index([battalionId])
   @@map("signatures")
 }
 
@@ -436,10 +556,14 @@ model Signature {
 /// what was signed on a date, and must not change because a soldier later
 /// moved company or an item was renamed.
 model IssueForm {
-  id        String @id @default(uuid())
+  id          String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   /// Sequential, human-quotable form number. Printed on the PDF.
-  formNo    Int    @unique @default(autoincrement()) @map("form_no")
-  soldierId String @map("soldier_id")
+  formNo      Int       @unique @default(autoincrement()) @map("form_no")
+  soldierId   String    @map("soldier_id")
 
   /// `פרטי החייל השואל` — the borrower, as they were when they signed.
   soldierNameSnapshot    String  @map("soldier_name_snapshot")
@@ -468,34 +592,41 @@ model IssueForm {
   lines      IssueFormLine[]
   amendments IssueFormAmendment[]
 
+  @@unique([battalionId, formNo])
   @@index([soldierId])
   @@index([signedAt])
+  @@index([battalionId])
   @@map("issue_forms")
 }
 
 /// One line of a 1008: an item, how many, and its מסד when it has one.
 model IssueFormLine {
-  id               String  @id @default(uuid())
-  issueFormId      String  @map("issue_form_id")
-  itemId           String  @map("item_id")
+  id               String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId      String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion        Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  issueFormId      String    @map("issue_form_id")
+  itemId           String    @map("item_id")
   /// Snapshotted for the same reason as the soldier's name.
-  itemNameSnapshot String  @map("item_name_snapshot")
+  itemNameSnapshot String    @map("item_name_snapshot")
   /// `מזהה` on the paper form: the weapon's serial, known as מסד or צ׳.
-  serialSnapshot   String? @map("serial_snapshot")
+  serialSnapshot   String?   @map("serial_snapshot")
   /// `י"ח` — the unit the quantity is counted in, as it was when signed.
-  unitOfMeasure    String  @default("יח'") @map("unit_of_measure")
-  quantity         Int     @default(1)
+  unitOfMeasure    String    @default("יח'") @map("unit_of_measure")
+  quantity         Int       @default(1)
   /// `הערות` — the per-line note column the paper form has.
-  lineNotes        String? @map("line_notes")
+  lineNotes        String?   @map("line_notes")
   /// The signature this line created, so a return can be traced back to the
   /// form it was issued on. Not a foreign key: an Excel import replaces every
   /// signature, and a signed form must outlive that.
-  signatureId      String? @map("signature_id")
+  signatureId      String?   @map("signature_id")
 
   issueForm IssueForm @relation(fields: [issueFormId], references: [id], onDelete: Cascade)
   item      Item      @relation(fields: [itemId], references: [id])
 
   @@index([issueFormId])
+  @@index([battalionId])
   @@map("issue_form_lines")
 }
 
@@ -509,23 +640,32 @@ model IssueFormLine {
 /// latest amendment for that form, falling back to `IssueForm`'s own
 /// original field when none exists yet.
 model IssueFormAmendment {
-  id              String   @id @default(uuid())
-  issueFormId     String   @map("issue_form_id")
-  receiptNo       String?  @map("receipt_no")
+  id              String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  issueFormId     String    @map("issue_form_id")
+  receiptNo       String?   @map("receipt_no")
   notes           String?
-  amendedByUserId String   @map("amended_by_user_id")
-  amendedAt       DateTime @default(now()) @map("amended_at")
+  amendedByUserId String    @map("amended_by_user_id")
+  amendedAt       DateTime  @default(now()) @map("amended_at")
 
   issueForm IssueForm @relation(fields: [issueFormId], references: [id], onDelete: Cascade)
   amendedBy User      @relation(fields: [amendedByUserId], references: [id])
 
   @@index([issueFormId, amendedAt])
+  @@index([battalionId])
   @@map("issue_form_amendments")
 }
 
 // Append-only audit log. No update/delete route exists for this table.
 model Movement {
   id                      String         @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId             String         @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion               Battalion      @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   action                  MovementAction
   soldierId               String?        @map("soldier_id")
   soldierNameSnapshot     String         @map("soldier_name_snapshot")
@@ -551,6 +691,7 @@ model Movement {
   @@index([action])
   @@index([soldierId])
   @@index([itemId])
+  @@index([battalionId])
   @@map("movements")
 }
 
@@ -567,18 +708,23 @@ enum ServicePeriodStatus {
 /// One stretch of reserve duty — e.g. "מרץ 2027". Allocations are scoped to a
 /// period so last cycle's assignments never bleed into the next one.
 model ServicePeriod {
-  id        String              @id @default(uuid())
-  name      String
-  startsAt  DateTime            @map("starts_at") @db.Date
-  endsAt    DateTime            @map("ends_at") @db.Date
-  status    ServicePeriodStatus @default(PLANNING)
-  createdAt DateTime            @default(now()) @map("created_at")
+  id          String              @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String              @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion           @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  name        String
+  startsAt    DateTime            @map("starts_at") @db.Date
+  endsAt      DateTime            @map("ends_at") @db.Date
+  status      ServicePeriodStatus @default(PLANNING)
+  createdAt   DateTime            @default(now()) @map("created_at")
 
   companyAllocations CompanyAllocation[]
   enlistments        SoldierEnlistment[]
   onHandOverrides    ServicePeriodItemOverride[]
   soldierAllocations SoldierAllocation[]
 
+  @@index([battalionId])
   @@map("service_periods")
 }
 
@@ -587,16 +733,21 @@ model ServicePeriod {
 /// all five companies for one item can never exceed what is physically on
 /// hand, enforced in `AllocationsService.setCompanyAllocation`.
 model CompanyAllocation {
-  id              String  @id @default(uuid())
-  servicePeriodId String  @map("service_period_id")
-  itemId          String  @map("item_id")
+  id              String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  servicePeriodId String    @map("service_period_id")
+  itemId          String    @map("item_id")
   company         Company
-  quantity        Int     @default(0)
+  quantity        Int       @default(0)
 
   servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
   item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@unique([servicePeriodId, itemId, company])
+  @@index([battalionId])
   @@map("company_allocations")
 }
 
@@ -607,15 +758,20 @@ model CompanyAllocation {
 /// Never exceeds the item's real בפועל — enforced in
 /// `AllocationsService.setOnHandOverride`. Absent means "use the real בפועל".
 model ServicePeriodItemOverride {
-  id              String @id @default(uuid())
-  servicePeriodId String @map("service_period_id")
-  itemId          String @map("item_id")
-  onHand          Int    @map("on_hand")
+  id              String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  servicePeriodId String    @map("service_period_id")
+  itemId          String    @map("item_id")
+  onHand          Int       @map("on_hand")
 
   servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
   item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@unique([servicePeriodId, itemId])
+  @@index([battalionId])
   @@map("service_period_item_overrides")
 }
 
@@ -626,22 +782,31 @@ model ServicePeriodItemOverride {
 /// constrain what an actual 1008 can issue, unlike the בפועל cap on
 /// `CompanyAllocation` itself — see CLAUDE.md.
 model SoldierAllocation {
-  id              String @id @default(uuid())
-  servicePeriodId String @map("service_period_id")
-  itemId          String @map("item_id")
-  soldierId       String @map("soldier_id")
-  quantity        Int    @default(0)
+  id              String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  servicePeriodId String    @map("service_period_id")
+  itemId          String    @map("item_id")
+  soldierId       String    @map("soldier_id")
+  quantity        Int       @default(0)
 
   servicePeriod ServicePeriod @relation(fields: [servicePeriodId], references: [id], onDelete: Cascade)
   item          Item          @relation(fields: [itemId], references: [id], onDelete: Cascade)
   soldier       Soldier       @relation(fields: [soldierId], references: [id], onDelete: Cascade)
 
   @@unique([servicePeriodId, itemId, soldierId])
+  @@index([battalionId])
   @@map("soldier_allocations_v2")
 }
 
 model CountSession {
   id                        String     @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId               String     @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion                 Battalion  @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   sessionDate               DateTime   @map("session_date") @db.Date
   shift                     CountShift
   responsibleName           String?    @map("responsible_name")
@@ -665,6 +830,8 @@ model CountSession {
   reopens    CountSessionReopen[]
 
   @@unique([sessionDate, shift])
+  @@unique([battalionId, sessionDate, shift])
+  @@index([battalionId])
   @@map("count_sessions")
 }
 
@@ -674,6 +841,10 @@ model CountSession {
 /// when the count closes, dropped when it is reopened.
 model CountSessionFigure {
   id             String       @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId    String       @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion      Battalion    @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   countSessionId String       @map("count_session_id")
   itemId         String       @map("item_id")
   itemName       String       @map("item_name")
@@ -684,21 +855,27 @@ model CountSessionFigure {
   item         Item         @relation(fields: [itemId], references: [id])
 
   @@unique([countSessionId, itemId])
+  @@index([battalionId])
   @@map("count_session_figures")
 }
 
 model CountLine {
-  id             String  @id @default(uuid())
-  countSessionId String  @map("count_session_id")
-  itemId         String  @map("item_id")
-  countedQty     Int     @default(0) @map("counted_qty")
-  faultyQty      Int     @default(0) @map("faulty_qty")
+  id             String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId    String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion      Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  countSessionId String    @map("count_session_id")
+  itemId         String    @map("item_id")
+  countedQty     Int       @default(0) @map("counted_qty")
+  faultyQty      Int       @default(0) @map("faulty_qty")
   notes          String?
 
   countSession CountSession @relation(fields: [countSessionId], references: [id], onDelete: Cascade)
   item         Item         @relation(fields: [itemId], references: [id])
 
   @@unique([countSessionId, itemId])
+  @@index([battalionId])
   @@map("count_lines")
 }
 
@@ -706,16 +883,21 @@ model CountLine {
 /// final-looking act, so undoing it leaves a record of who, when and why,
 /// even though the signatures themselves are cleared and must be redone.
 model CountSessionReopen {
-  id               String   @id @default(uuid())
-  countSessionId   String   @map("count_session_id")
-  reopenedByUserId String   @map("reopened_by_user_id")
+  id               String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId      String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion        Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  countSessionId   String    @map("count_session_id")
+  reopenedByUserId String    @map("reopened_by_user_id")
   reason           String
-  reopenedAt       DateTime @default(now()) @map("reopened_at")
+  reopenedAt       DateTime  @default(now()) @map("reopened_at")
 
   countSession CountSession @relation(fields: [countSessionId], references: [id], onDelete: Cascade)
   reopenedBy   User         @relation(fields: [reopenedByUserId], references: [id])
 
   @@index([countSessionId])
+  @@index([battalionId])
   @@map("count_session_reopens")
 }
 
@@ -725,17 +907,22 @@ model CountSessionReopen {
 /// back as the figure the two signers verify together — one number is typed
 /// once here, never re-typed there.
 model DailySummaryLine {
-  id              String   @id @default(uuid())
-  sessionDate     DateTime @map("session_date") @db.Date
-  itemId          String   @map("item_id")
-  nashkiyaQty     Int      @map("nashkiya_qty")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  updatedByUserId String   @map("updated_by_user_id")
+  id              String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  sessionDate     DateTime  @map("session_date") @db.Date
+  itemId          String    @map("item_id")
+  nashkiyaQty     Int       @map("nashkiya_qty")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  updatedByUserId String    @map("updated_by_user_id")
 
   item      Item @relation(fields: [itemId], references: [id])
   updatedBy User @relation(fields: [updatedByUserId], references: [id])
 
   @@unique([sessionDate, itemId])
+  @@index([battalionId])
   @@map("daily_summary_lines")
 }
 
@@ -745,16 +932,26 @@ model DailySummaryLine {
 /// instead of silently lost.
 model DailySummaryExport {
   id          String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   sessionDate DateTime  @unique @map("session_date") @db.Date
   createdAt   DateTime  @default(now()) @map("created_at")
   slackSentAt DateTime? @map("slack_sent_at")
   slackError  String?   @map("slack_error")
 
+  @@unique([battalionId, sessionDate])
+  @@index([battalionId])
   @@map("daily_summary_exports")
 }
 
 model Attendance {
   id           String           @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId  String           @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion    Battalion        @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   teamMemberId String           @map("team_member_id")
   date         DateTime         @db.Date
   status       AttendanceStatus
@@ -764,6 +961,7 @@ model Attendance {
 
   @@unique([teamMemberId, date])
   @@index([date])
+  @@index([battalionId])
   @@map("attendance")
 }
 
@@ -771,6 +969,10 @@ model Attendance {
 /// these rows are what the "דרוש טיפול" tab lists so the gaps get fixed by hand.
 model ImportIssue {
   id          String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   kind        IssueKind
   rowNumber   Int       @map("row_number")
   rawRow      String    @map("raw_row")
@@ -784,33 +986,43 @@ model ImportIssue {
 
   @@index([kind])
   @@index([resolvedAt])
+  @@index([battalionId])
   @@map("import_issues")
 }
 
 /// Excel imports, kept out of `movements` so דוח תנועות contains only the two
 /// real actions: giving an item to a soldier and taking it back.
 model ImportLog {
-  id                      String   @id @default(uuid())
-  occurredAt              DateTime @default(now()) @map("occurred_at")
-  fileName                String?  @map("file_name")
-  totalRows               Int      @map("total_rows")
+  id                      String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId             String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion               Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  occurredAt              DateTime  @default(now()) @map("occurred_at")
+  fileName                String?   @map("file_name")
+  totalRows               Int       @map("total_rows")
   signatures              Int
   soldiers                Int
   flagged                 Int
   issues                  Int
-  snapshotId              String?  @map("snapshot_id")
-  performedByUserId       String?  @map("performed_by_user_id")
-  performedByNameSnapshot String   @map("performed_by_name_snapshot")
+  snapshotId              String?   @map("snapshot_id")
+  performedByUserId       String?   @map("performed_by_user_id")
+  performedByNameSnapshot String    @map("performed_by_name_snapshot")
   notes                   String?
 
   performedBy User? @relation(fields: [performedByUserId], references: [id], onDelete: Restrict)
 
   @@index([occurredAt])
+  @@index([battalionId])
   @@map("import_logs")
 }
 
 model Snapshot {
   id              String       @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String       @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion    @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   createdAt       DateTime     @default(now()) @map("created_at")
   kind            SnapshotKind
   filePath        String       @map("file_path")
@@ -823,6 +1035,7 @@ model Snapshot {
   createdBy User? @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+  @@index([battalionId])
   @@map("snapshots")
 }
 
@@ -866,6 +1079,10 @@ model RolePermission {
 /// this row behind. No relation to the session on purpose: it must outlive it.
 model CountSessionDeletion {
   id              String     @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String     @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion  @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   sessionDate     DateTime   @map("session_date") @db.Date
   shift           CountShift
   responsibleName String?    @map("responsible_name")
@@ -874,6 +1091,7 @@ model CountSessionDeletion {
   reason          String
   deletedAt       DateTime   @default(now()) @map("deleted_at")
 
+  @@index([battalionId])
   @@map("count_session_deletions")
 }
 
@@ -889,6 +1107,10 @@ model CountSessionDeletion {
 /// correctly after a soldier or item is renamed.
 model IfsunRecord {
   id                  String      @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId         String      @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion           Battalion   @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   signatureId         String      @map("signature_id")
   soldierId           String      @map("soldier_id")
   soldierNameSnapshot String      @map("soldier_name_snapshot")
@@ -920,6 +1142,7 @@ model IfsunRecord {
   @@index([status])
   @@index([signatureId])
   @@index([soldierId])
+  @@index([battalionId])
   @@map("ifsun_records")
 }
 
@@ -929,15 +1152,21 @@ model IfsunRecord {
 /// when two API instances overlap during a deploy at 15:00 only one can claim the
 /// week — the other's insert fails and it stays quiet. Manual sends leave it null.
 model AttendanceWeekSend {
-  id        String   @id @default(uuid())
-  weekStart DateTime @map("week_start") @db.Date
-  sentAt    DateTime @default(now()) @map("sent_at")
-  trigger   String
-  sentBy    String?  @map("sent_by")
-  cronKey   String?  @unique @map("cron_key")
-  error     String?
+  id          String    @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  weekStart   DateTime  @map("week_start") @db.Date
+  sentAt      DateTime  @default(now()) @map("sent_at")
+  trigger     String
+  sentBy      String?   @map("sent_by")
+  cronKey     String?   @unique @map("cron_key")
+  error       String?
 
+  @@unique([battalionId, cronKey])
   @@index([weekStart])
+  @@index([battalionId])
   @@map("attendance_week_sends")
 }
 
@@ -965,11 +1194,15 @@ model UserInvite {
 /// password, token or signature. A failed login for a username that does not exist is not stored (it
 /// would let anyone fill the table), only logged.
 model SecurityEvent {
-  id          String   @id @default(uuid())
-  at          DateTime @default(now())
+  id          String     @id @default(uuid())
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId String?    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion? @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  at          DateTime   @default(now())
   type        String
-  userId      String?  @map("user_id")
-  actorUserId String?  @map("actor_user_id")
+  userId      String?    @map("user_id")
+  actorUserId String?    @map("actor_user_id")
   ip          String?
   detail      String?
 
@@ -977,6 +1210,7 @@ model SecurityEvent {
 
   @@index([userId, at])
   @@index([at])
+  @@index([battalionId])
   @@map("security_events")
 }
 
@@ -1012,10 +1246,16 @@ model TotpBackupCode {
 
 /// Small key/value switches an admin flips in the UI (instead of a redeploy), e.g. `mfa.enforced`.
 model AppSetting {
-  key             String   @id
+  key             String    @id
+  /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
+  /// never has to pass it; see docs/feat-mt-foundation.md.
+  battalionId     String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion       Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
   value           String
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  updatedByUserId String?  @map("updated_by_user_id")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  updatedByUserId String?   @map("updated_by_user_id")
 
+  @@unique([battalionId, key])
+  @@index([battalionId])
   @@map("app_settings")
 }

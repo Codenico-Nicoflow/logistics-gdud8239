@@ -86,8 +86,8 @@ export class CountsService {
         where: { sessionDate: new Date(figureDay) },
         _max: { updatedAt: true },
       }),
-      this.prisma.countSession.findUnique({
-        where: { sessionDate_shift: { sessionDate: date, shift } },
+      this.prisma.countSession.findFirst({
+        where: { sessionDate: date, shift },
         include: {
           reopens: {
             orderBy: { reopenedAt: 'desc' },
@@ -146,41 +146,28 @@ export class CountsService {
     const date = new Date(dto.sessionDate);
     if (Number.isNaN(date.getTime())) throw new BadRequestException('תאריך לא תקין');
 
-    const existing = await this.prisma.countSession.findUnique({
-      where: { sessionDate_shift: { sessionDate: date, shift: dto.shift } },
+    const existing = await this.prisma.countSession.findFirst({
+      where: { sessionDate: date, shift: dto.shift },
     });
     if (existing?.isClosed) {
       throw new BadRequestException('הספירה נסגרה ולא ניתן לשנות אותה');
     }
 
-    const session = await this.prisma.countSession.upsert({
-      where: { sessionDate_shift: { sessionDate: date, shift: dto.shift } },
-      update: {
-        responsibleName: dto.responsibleName ?? null,
-        responsiblePn: dto.responsiblePn ?? null,
-        responsibleRank: dto.responsibleRank ?? null,
-        officerName: dto.officerName ?? null,
-        officerPn: dto.officerPn ?? null,
-        officerRank: dto.officerRank ?? null,
-        responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
-        officerSignatureImage: dto.officerSignatureImage ?? null,
-        recordedByUserId: actor.id,
-        recordedAt: new Date(),
-      },
-      create: {
-        sessionDate: date,
-        shift: dto.shift,
-        responsibleName: dto.responsibleName ?? null,
-        responsiblePn: dto.responsiblePn ?? null,
-        responsibleRank: dto.responsibleRank ?? null,
-        officerName: dto.officerName ?? null,
-        officerPn: dto.officerPn ?? null,
-        officerRank: dto.officerRank ?? null,
-        responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
-        officerSignatureImage: dto.officerSignatureImage ?? null,
-        recordedByUserId: actor.id,
-      },
-    });
+    const fields = {
+      responsibleName: dto.responsibleName ?? null,
+      responsiblePn: dto.responsiblePn ?? null,
+      responsibleRank: dto.responsibleRank ?? null,
+      officerName: dto.officerName ?? null,
+      officerPn: dto.officerPn ?? null,
+      officerRank: dto.officerRank ?? null,
+      responsibleSignatureImage: dto.responsibleSignatureImage ?? null,
+      officerSignatureImage: dto.officerSignatureImage ?? null,
+      recordedByUserId: actor.id,
+    };
+    // (date, shift) is only unique within a battalion, so Prisma has no single-key `upsert` for it.
+    const session = existing
+      ? await this.prisma.countSession.update({ where: { id: existing.id }, data: { ...fields, recordedAt: new Date() } })
+      : await this.prisma.countSession.create({ data: { sessionDate: date, shift: dto.shift, ...fields } });
 
     return { id: session.id };
   }

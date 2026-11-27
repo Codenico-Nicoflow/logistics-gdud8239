@@ -17,16 +17,16 @@ export class MfaPolicy {
   constructor(private readonly prisma: PrismaService) {}
 
   async isEnforced(): Promise<boolean> {
-    const row = await this.prisma.appSetting.findUnique({ where: { key: MFA_ENFORCED_KEY } });
+    const row = await this.prisma.appSetting.findFirst({ where: { key: MFA_ENFORCED_KEY } });
     return row?.value === 'true';
   }
 
   async setEnforced(enforced: boolean, actorUserId: string): Promise<void> {
-    await this.prisma.appSetting.upsert({
-      where: { key: MFA_ENFORCED_KEY },
-      create: { key: MFA_ENFORCED_KEY, value: String(enforced), updatedByUserId: actorUserId },
-      update: { value: String(enforced), updatedByUserId: actorUserId },
-    });
+    // The key is only unique together with the battalion, so there is no `upsert` by key alone; the
+    // battalion itself is filled in by the database on create.
+    const data = { value: String(enforced), updatedByUserId: actorUserId };
+    const { count } = await this.prisma.appSetting.updateMany({ where: { key: MFA_ENFORCED_KEY }, data });
+    if (count === 0) await this.prisma.appSetting.create({ data: { key: MFA_ENFORCED_KEY, ...data } });
   }
 
   async hasTotp(userId: string): Promise<boolean> {

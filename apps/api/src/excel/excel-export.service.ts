@@ -192,11 +192,11 @@ export class ExcelExportService {
     const morningDay = addDaysIso(eveningDay, 1);
 
     const [eveningRow, morningRow, items, nashkiya] = await Promise.all([
-      this.prisma.countSession.findUnique({
-        where: { sessionDate_shift: { sessionDate: new Date(eveningDay), shift: 'EVENING' } },
+      this.prisma.countSession.findFirst({
+        where: { sessionDate: new Date(eveningDay), shift: 'EVENING' },
       }),
-      this.prisma.countSession.findUnique({
-        where: { sessionDate_shift: { sessionDate: new Date(morningDay), shift: 'MORNING' } },
+      this.prisma.countSession.findFirst({
+        where: { sessionDate: new Date(morningDay), shift: 'MORNING' },
       }),
       this.prisma.item.findMany({ where: { isActive: true, inSummary: true }, orderBy: ITEM_ORDER }),
       this.mesakem.nashkiyaFor(eveningDay),

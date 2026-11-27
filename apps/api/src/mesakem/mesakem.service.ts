@@ -94,7 +94,7 @@ export class MesakemService {
         _sum: { quantity: true },
       }),
       this.prisma.dailySummaryLine.findMany({ where: { sessionDate: date } }),
-      this.prisma.dailySummaryExport.findUnique({ where: { sessionDate: date } }),
+      this.prisma.dailySummaryExport.findFirst({ where: { sessionDate: date } }),
       this.signedCountsFor(date),
       storedQtyByItem(this.prisma),
     ]);
@@ -254,13 +254,10 @@ export class MesakemService {
 
     // A second send for a day already sent is a correction, and must say so —
     // two files with the same name in the channel are indistinguishable.
-    const alreadySent = !!(await this.prisma.dailySummaryExport.findUnique({ where: { sessionDate: date } }))
-      ?.slackSentAt;
-    const exportRow = await this.prisma.dailySummaryExport.upsert({
-      where: { sessionDate: date },
-      update: {},
-      create: { sessionDate: date },
-    });
+    const previous = await this.prisma.dailySummaryExport.findFirst({ where: { sessionDate: date } });
+    const alreadySent = !!previous?.slackSentAt;
+    // (day) is only unique within a battalion, so there is no single-key `upsert`; an existing row is kept as is.
+    const exportRow = previous ?? (await this.prisma.dailySummaryExport.create({ data: { sessionDate: date } }));
 
     const token = this.config.get<string>('SLACK_BOT_TOKEN');
     // Its own channel, separate from SLACK_CHANNEL_ID (db-backups/snapshots)

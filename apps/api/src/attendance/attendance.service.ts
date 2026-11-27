@@ -127,7 +127,7 @@ export class AttendanceService {
   }
 
   async createMember(dto: CreateTeamMemberDto) {
-    const clash = await this.prisma.teamMember.findUnique({ where: { nickname: dto.nickname } });
+    const clash = await this.prisma.teamMember.findFirst({ where: { nickname: dto.nickname } });
     if (clash?.isActive) throw new ConflictException(`"${dto.nickname}" כבר קיים ברשימה`);
     // An earlier version of "remove" only deactivated the person, which left the nickname
     // taken and invisible. Such a leftover is cleared here so the name can be used again.
@@ -162,7 +162,7 @@ export class AttendanceService {
     if (!member) throw new NotFoundException('חבר הצוות אינו קיים');
 
     if (dto.nickname && dto.nickname !== member.nickname) {
-      const clash = await this.prisma.teamMember.findUnique({ where: { nickname: dto.nickname } });
+      const clash = await this.prisma.teamMember.findFirst({ where: { nickname: dto.nickname } });
       if (clash) throw new ConflictException(`"${dto.nickname}" כבר קיים ברשימה`);
     }
 
