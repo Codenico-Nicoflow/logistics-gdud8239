@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "workspaces": ["apps/api", "apps/web"],
   "scripts": {
+    "start": "bash scripts/dev.sh",
+    "stop": "bash scripts/dev.sh stop",
     "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",

@@ -29,6 +29,8 @@ npm workspaces monorepo (`apps/api`, `apps/web`), no other monorepo tool.
 
 ## Running locally
 
+**Easiest:** `npm start` does everything below (db up, `prisma generate`, `migrate deploy`, api + web, Ctrl+C stops both); `npm run stop` kills leftovers on :3000/:5173. See `scripts/dev.sh`.
+
 ```bash
 npm run db:up          # docker compose up -d postgres (port 5433, container logistics-db)
 npm run migrate        # prisma migrate dev (apps/api)
