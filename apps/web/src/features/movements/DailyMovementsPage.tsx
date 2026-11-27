@@ -133,14 +133,14 @@ export function DailyMovementsPage() {
                 onChange={setCustomFrom}
                 type="date"
                 required
-                className="w-44"
+                className="w-[calc(50%-0.5rem)] sm:w-44"
               />
               <TextField
                 label={he.dailyMovements.untilDate}
                 value={customTo}
                 onChange={setCustomTo}
                 type="date"
-                className="w-44"
+                className="w-[calc(50%-0.5rem)] sm:w-44"
               />
             </>
           )}

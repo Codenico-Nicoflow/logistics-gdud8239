@@ -170,7 +170,7 @@ export function CountsPage() {
             onChange={setDate}
             type="date"
             required
-            className="w-44"
+            className="w-full sm:w-44"
           />
           <label className="block">
             <span className="mb-1 block text-meta font-semibold text-ink-soft">
