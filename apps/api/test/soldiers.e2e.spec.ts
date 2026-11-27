@@ -206,3 +206,50 @@ describe('מסופח', () => {
     expect((await prisma.soldier.findUniqueOrThrow({ where: { id: made.body.id } })).isAttached).toBe(true);
   });
 });
+
+describe('מספר קבלה', () => {
+  const create = (body: object) =>
+    request(app.getHttpServer())
+      .post('/api/soldiers')
+      .set('Cookie', jar)
+      .send({ firstName: 'קבלה', lastName: LAST, company: 'A', ...body });
+  const patch = (id: string, body: object) =>
+    request(app.getHttpServer()).patch(`/api/soldiers/${id}`).set('Cookie', jar).send(body);
+
+  it('can be set before any weapon exists, and is found by search', async () => {
+    const made = await create({ receiptNo: ' 90011 ' }).expect(201);
+    expect(made.body.receiptNo).toBe('90011');
+    const found = await request(app.getHttpServer()).get('/api/soldiers').query({ q: '90011' }).set('Cookie', jar).expect(200);
+    expect((found.body.rows as { id: string; receiptNo: string | null }[]).find((r) => r.id === made.body.id)?.receiptNo).toBe('90011');
+  });
+
+  it('belongs to one soldier of a company, and another company can use the same number', async () => {
+    await create({ receiptNo: '90012' }).expect(201);
+    const clash = await create({ receiptNo: '90012' }).expect(409);
+    expect(JSON.stringify(clash.body)).toContain('90012');
+    await create({ receiptNo: '90012', company: 'B' }).expect(201);
+  });
+
+  it('is checked on an edit and when the soldier moves company, and can be cleared', async () => {
+    const a = await create({ receiptNo: '90013' }).expect(201);
+    const b = await create({ receiptNo: '90014' }).expect(201);
+    await patch(b.body.id, { receiptNo: '90013' }).expect(409);
+    await patch(a.body.id, { receiptNo: '90013' }).expect(200);
+
+    const other = await create({ receiptNo: '90013', company: 'B' }).expect(201);
+    await patch(other.body.id, { company: 'A' }).expect(409);
+
+    const cleared = await patch(a.body.id, { receiptNo: '  ' }).expect(200);
+    expect(cleared.body.receiptNo).toBeNull();
+    await patch(other.body.id, { company: 'A' }).expect(200);
+  });
+
+  it('suggests the last number a company used and the one after it, ignoring free text', async () => {
+    await create({ receiptNo: '90021' }).expect(201);
+    await create({ receiptNo: '90027' }).expect(201);
+    await create({ receiptNo: 'ללא-מספר' }).expect(201);
+    const hint = await request(app.getHttpServer()).get('/api/soldiers/receipt-hint').query({ company: 'A' }).set('Cookie', jar).expect(200);
+    expect(hint.body).toEqual({ last: '90027', next: '90028' });
+    await request(app.getHttpServer()).get('/api/soldiers/receipt-hint').set('Cookie', jar).expect(400);
+  });
+});

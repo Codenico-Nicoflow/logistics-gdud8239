@@ -65,7 +65,8 @@ export function IssuePage() {
     setSoldier(picked);
     setSignature(null);
     setLines(draft?.lines ?? []);
-    setReceiptNo(draft?.receiptNo ?? '');
+    // His saved number starts the form, so a second signing needs no typing; a draft's own edit wins.
+    setReceiptNo(draft?.receiptNo ?? picked.receiptNo ?? '');
     setNotes(draft?.notes ?? '');
     // Back to where the work is: a basket with items reopens on the basket, not one tap short of it.
     setStep(draft ? (draft.step === 'confirm' && draft.lines.length > 0 ? 'basket' : draft.step) : 'confirm');

@@ -13,7 +13,7 @@ import { SoldiersPage } from './SoldiersPage';
 function soldier(over: Partial<SoldierSummary> = {}): SoldierSummary {
   return {
     id: 's1', firstName: 'דנה', lastName: 'כהן', personalNumber: '1234567', phone: '0501234567',
-    company: 'A', isActive: true, isAttached: false, openSignatureCount: 0, isEnlisted: true, ...over,
+    receiptNo: null, company: 'A', isActive: true, isAttached: false, openSignatureCount: 0, isEnlisted: true, ...over,
   };
 }
 function user(role: Role, over: Partial<AuthUser> = {}): AuthUser {

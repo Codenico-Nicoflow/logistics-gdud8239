@@ -31,6 +31,7 @@ import type {
   Paginated,
   Signature,
   SoldierSummary,
+  ReceiptHint,
   Snapshot,
   SummaryRow,
   MesakemSheet,
@@ -170,6 +171,10 @@ export const api = createApi({
       providesTags: ['Soldiers'],
     }),
 
+    receiptHint: build.query<ReceiptHint, string>({
+      query: (company) => ({ url: '/soldiers/receipt-hint', params: { company } }),
+      providesTags: ['Soldiers'],
+    }),
     soldier: build.query<SoldierDetail, string>({
       query: (id) => `/soldiers/${id}`,
       providesTags: ['Soldiers', 'Signatures'],
@@ -918,6 +923,7 @@ export const {
   useReplaceRepairedMutation,
   useWeekQuery,
   useSoldierQuery,
+  useReceiptHintQuery,
   useUpdateSoldierMutation,
   useCreateSoldierMutation,
   useCheckDuplicateSoldierMutation,

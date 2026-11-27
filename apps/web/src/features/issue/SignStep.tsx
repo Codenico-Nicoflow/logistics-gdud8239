@@ -4,6 +4,7 @@ import { he } from '../../i18n/he';
 import type { SoldierSummary } from '../../lib/types';
 import type { BasketLine } from './BasketStep';
 import { useCompanies } from '../companies/useCompanies';
+import { ReceiptNoField } from '../soldiers/ReceiptNoField';
 
 /**
  * Step 4 — the signature.
@@ -41,6 +42,8 @@ export function SignStep({
   error: string | null;
 }) {
   const { nameOf } = useCompanies();
+  const hasWeapon = lines.some((l) => l.item.category === 'WEAPON');
+  const missingReceipt = hasWeapon && receiptNo.trim() === '';
   return (
     <Panel title={he.form1008.stepSign}>
       <div className="space-y-4 px-4 py-4">
@@ -90,7 +93,7 @@ export function SignStep({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label={he.form1008.receiptNo} value={receiptNo} onChange={onReceiptNo} />
+          <ReceiptNoField company={soldier.company} value={receiptNo} onChange={onReceiptNo} required={hasWeapon} />
           <TextField label={he.form1008.formNotes} value={notes} onChange={onNotes} />
         </div>
 
@@ -107,13 +110,14 @@ export function SignStep({
         )}
 
         <div className="flex gap-2">
-          <Button onClick={onSubmit} disabled={isSubmitting || !signature}>
+          <Button onClick={onSubmit} disabled={isSubmitting || !signature || missingReceipt}>
             {isSubmitting ? he.form1008.submitting : he.form1008.submit}
           </Button>
           <Button variant="quiet" onClick={onBack} disabled={isSubmitting}>
             {he.issue.back}
           </Button>
         </div>
+        {missingReceipt && <p className="text-meta font-semibold text-oxide">{he.receiptNo.requiredForWeapon}</p>}
         {!signature && <p className="text-meta text-graphite">{he.form1008.signatureRequired}</p>}
       </div>
     </Panel>

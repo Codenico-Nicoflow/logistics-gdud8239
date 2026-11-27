@@ -58,6 +58,8 @@ export type SoldierSummary = {
   lastName: string;
   personalNumber: string | null;
   phone: string | null;
+  /** The number on the note beside his personal weapon on the shelf; unique within his company. */
+  receiptNo: string | null;
   company: Company;
   isActive: boolean;
   /** מסופח — attached from another unit rather than organic to the battalion. */
@@ -74,6 +76,7 @@ export type SoldierDetail = {
   lastName: string;
   personalNumber: string | null;
   phone: string | null;
+  receiptNo: string | null;
   company: Company;
   isActive: boolean;
   isAttached: boolean;
@@ -94,8 +97,13 @@ export type NewSoldier = {
   company: Company;
   personalNumber?: string;
   phone?: string;
+  /** An empty string clears it. */
+  receiptNo?: string;
   isAttached?: boolean;
 };
+
+/** What a company has used so far, so the next note can be numbered without counting the shelf. */
+export type ReceiptHint = { last: string | null; next: string };
 
 export type Item = {
   id: string;
