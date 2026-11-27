@@ -31,12 +31,16 @@ function esc(value: string | null | undefined): string {
   );
 }
 
+// Israel's clock, not the server's: Render runs in UTC, which printed signing times two or three hours early and
+// the previous day's date between midnight and 02:00-03:00.
+const TZ = 'Asia/Jerusalem';
+
 function formatDate(d: Date): string {
-  return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return d.toLocaleDateString('he-IL', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function formatTime(d: Date): string {
-  return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString('he-IL', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
 }
 
 /**

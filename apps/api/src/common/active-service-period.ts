@@ -1,4 +1,5 @@
 import type { PrismaClient, ServicePeriod } from '@prisma/client';
+import { israelToday } from './israel-date';
 
 /**
  * The service period that actually governs weapon issue right now — not
@@ -15,22 +16,24 @@ import type { PrismaClient, ServicePeriod } from '@prisma/client';
  * without this extra check, since planning for a תעסוקה is meant to start
  * before it's actually underway.
  */
-/** Midnight-normalized date, for comparing against a stored date-only column —
- *  dropping the time-of-day on both sides, not just one, since a period's
- *  own `startsAt` can carry a non-midnight time (e.g. `new Date()` at
- *  creation) and comparing that directly against a zeroed "today" would
- *  wrongly exclude a period that starts later the same day. */
-function dateOnly(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+/**
+ * A stored date-only value as a comparable day number, read as the calendar date it holds (a `@db.Date` arrives as
+ * midnight UTC, so its UTC fields are the date; a period's `startsAt` can also carry a time of day, which is dropped).
+ */
+function dayOf(d: Date): number {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
 export async function findOperationalServicePeriod(
   prisma: Pick<PrismaClient, 'servicePeriod'>,
 ): Promise<ServicePeriod | null> {
-  const today = dateOnly(new Date());
+  // Today in Israel: on a UTC server `new Date()` is still yesterday until 02:00-03:00, which kept a period that
+  // starts today shut, and one that ended yesterday open, during those hours.
+  const [y, m, d] = israelToday().split('-').map(Number) as [number, number, number];
+  const today = Date.UTC(y, m - 1, d);
 
   const candidates = await prisma.servicePeriod.findMany({ where: { status: 'ACTIVE' } });
   return (
-    candidates.find((p) => dateOnly(p.startsAt) <= today && today <= dateOnly(p.endsAt)) ?? null
+    candidates.find((p) => dayOf(p.startsAt) <= today && today <= dayOf(p.endsAt)) ?? null
   );
 }

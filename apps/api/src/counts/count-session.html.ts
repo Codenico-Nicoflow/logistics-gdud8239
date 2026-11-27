@@ -25,7 +25,8 @@ function esc(value: string | null | undefined): string {
 }
 
 function formatDate(d: Date): string {
-  return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  // A date column arrives as midnight UTC; read it in Israel's calendar like every other printed date.
+  return d.toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 const SHIFT_HE: Record<CountShift, string> = { EVENING: 'ספירת ערב', MORNING: 'ספירת בוקר' };

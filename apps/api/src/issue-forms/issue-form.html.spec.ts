@@ -74,6 +74,15 @@ describe('renderIssueForm layout', () => {
     expect(onPaper(renderIssueForm({ ...form(37), formNo: 4321 }, UNIT, 'n'))).not.toContain('4321');
   });
 
+  it("prints the signing time and date on Israel's clock, whatever timezone the server is in", () => {
+    // 22:30 UTC on the 27th is 00:30 on the 28th in Israel (winter time, UTC+2).
+    const html = renderIssueForm({ ...form(3), signedAt: new Date('2026-11-27T22:30:00Z') }, UNIT, 'n');
+    expect(html).toContain('28.11.2026');
+    expect(html).toContain('00:30');
+    expect(html).not.toContain('27.11.2026');
+    expect(html).not.toContain('22:30');
+  });
+
   it("names the battalion it was printed for, never another's", () => {
     const html = renderIssueForm(form(6), UNIT, 'n');
     expect(html).toContain('5033');
