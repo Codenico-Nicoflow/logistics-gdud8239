@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** A number that rolls to its new value instead of jumping, so a changed count is noticed. Never on first paint. */
@@ -76,7 +77,11 @@ export function Modal({
     };
   }, []);
 
-  return (
+  // Rendered at the top of the page, not where it was written: a dialog opened from inside another dialog is
+  // `position: fixed` inside an ancestor with a blur and animation, which makes that ancestor its frame
+  // instead of the screen. The inner dialog was then sized to, and scrolled with, the outer one, and its
+  // buttons ended up below the fold of a box that was itself scrolling.
+  return createPortal(
     <div
       // `!m-0`: a page's `space-y-*` would otherwise push this fixed backdrop down and leave a strip uncovered.
       // Padded by the safe areas, so a dialog never sits under the notch or the home bar.
@@ -98,7 +103,8 @@ export function Modal({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
