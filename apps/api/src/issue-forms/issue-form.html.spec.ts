@@ -53,7 +53,7 @@ describe('renderIssueForm layout', () => {
     expect(html.match(/alt="חתימת השואל"/g)).toHaveLength(4);
     expect(html.match(/class="declaration"/g)).toHaveLength(4);
     expect(html.match(/class="header-box"/g)).toHaveLength(4);
-    for (const n of [1, 2, 3, 4]) expect(html).toContain(`טופס 1 · עמוד ${n} מתוך 4`);
+    for (const n of [1, 2, 3, 4]) expect(html).toContain(`עמוד ${n} מתוך 4`);
   });
 
   it('numbers the rows straight through the pages and pads every page to a full sheet', () => {
@@ -64,6 +64,16 @@ describe('renderIssueForm layout', () => {
     expect(numbers).toHaveLength(48);
     expect(numbers.filter(Boolean).map(Number)).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
     expect(html.match(/class="blank"/g)).toHaveLength(11);
+  });
+
+  it('prints no form number and no system note, only what the operator wrote', () => {
+    // The tab title (the default name of a saved PDF) keeps the number; the sheet itself does not show it.
+    const onPaper = (html: string): string => html.split('</head>')[1] ?? '';
+    const single = onPaper(renderIssueForm({ ...form(3), formNo: 4321, notes: 'הערה של המנפק' }, UNIT, 'n'));
+    expect(single).not.toContain('4321');
+    expect(single).not.toContain('מספר שובר');
+    expect(single).toContain('הערה של המנפק');
+    expect(onPaper(renderIssueForm({ ...form(37), formNo: 4321 }, UNIT, 'n'))).not.toContain('4321');
   });
 
   it("names the battalion it was printed for, never another's", () => {

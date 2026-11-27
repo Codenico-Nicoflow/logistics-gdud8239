@@ -121,7 +121,7 @@ export function renderIssueForm(
       <div class="titles">
         <h1>שובר השאלה פנימית 1008</h1>
       </div>
-      <div class="doc-no">מספר שובר<strong class="mono">${form.formNo}</strong></div>
+      <div class="spacer" aria-hidden="true"></div>
     </div>
 
     <div class="header-box">
@@ -177,7 +177,7 @@ export function renderIssueForm(
     </div>
 
     <footer>
-      <span>הופק ממערכת הלוגיסטיקה של ${esc(unit.name)}${pageCount > 1 ? ` · טופס ${form.formNo} · עמוד ${pageNo} מתוך ${pageCount}` : ''}</span>
+      <span>הופק ממערכת הלוגיסטיקה של ${esc(unit.name)}${pageCount > 1 ? ` · עמוד ${pageNo} מתוך ${pageCount}` : ''}</span>
       <span class="mono">${formatDate(form.signedAt)} ${formatTime(form.signedAt)}</span>
     </footer>
   </div>`;
@@ -230,8 +230,9 @@ export function renderIssueForm(
   .unit-no small { display: block; font-size: 8.5pt; font-weight: 400; letter-spacing: 0; }
   .titles { text-align: center; flex: 1; }
   h1 { font-size: 16pt; margin: 0; }
-  .doc-no { font-size: 10pt; white-space: nowrap; text-align: left; }
-  .doc-no strong { display: block; font-size: 14pt; }
+  /* Mirrors the unit number's width, so the title stays centred. */
+  .masthead .spacer { min-width: 48pt; }
+  .unit-no { min-width: 48pt; }
 
   /* מס קבלה / פלוגה / מס' נייד — the header box, as on the sheet. */
   .header-box {

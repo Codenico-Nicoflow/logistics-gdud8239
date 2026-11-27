@@ -329,8 +329,10 @@ export class IssueFormsService {
       throw new ConflictException('לחייל יש פריטים מאופסנים — יש לקחת או לזכות אותם ממסך האפסון לפני עריכת הטופס');
     }
 
-    const supersedeNote = `מחליף טופס 1008 מספר ${original.formNo} (${new Date().toLocaleDateString('he-IL')})`;
-    const notes = dto.notes ? `${supersedeNote} — ${dto.notes}` : supersedeNote;
+    // Which form this replaces is recorded on the movements it writes (the audit trail), not in the form's own
+    // notes: those are printed and are for what the operator wrote, not for the system's bookkeeping.
+    const supersedeNote = `מחליף טופס 1008 מספר ${original.formNo}`;
+    const notes = dto.notes ?? null;
 
     try {
       return await this.prisma.$transaction(async (tx) => {
