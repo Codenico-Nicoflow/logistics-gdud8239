@@ -3,6 +3,7 @@ import { SignaturePad } from '../../components/SignaturePad';
 import { he } from '../../i18n/he';
 import type { SoldierSummary } from '../../lib/types';
 import type { BasketLine } from './BasketStep';
+import { useCompanies } from '../companies/useCompanies';
 
 /**
  * Step 4 — the signature.
@@ -39,6 +40,7 @@ export function SignStep({
   isSubmitting: boolean;
   error: string | null;
 }) {
+  const { nameOf } = useCompanies();
   return (
     <Panel title={he.form1008.stepSign}>
       <div className="space-y-4 px-4 py-4">
@@ -48,7 +50,7 @@ export function SignStep({
           </span>
           <span className="text-meta text-graphite">
             {' · '}
-            {he.companies[soldier.company]}
+            {nameOf(soldier.company)}
             {soldier.personalNumber ? ` · ${he.issue.personalNumber} ${soldier.personalNumber}` : ''}
           </span>
         </div>

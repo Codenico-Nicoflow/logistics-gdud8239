@@ -1,19 +1,11 @@
-import type { Company } from '@prisma/client';
 import { printButton } from '../common/print-page';
-
-const COMPANY_HE: Record<Company, string> = {
-  A: 'א',
-  B: 'ב',
-  C: 'ג',
-  SUPPORT: 'מסייעת',
-  HQ: 'מפקדה',
-};
+import type { CompanyCode } from '../companies/company-code';
 
 export type FormForPrint = {
   formNo: number;
   soldierNameSnapshot: string;
   personalNumberSnapshot: string | null;
-  companySnapshot: Company;
+  companySnapshot: CompanyCode;
   phoneSnapshot: string | null;
   receiptNo: string | null;
   signatureImage: string;
@@ -65,7 +57,8 @@ function formatTime(d: Date): string {
 /** More lines than this and the sheet stops being stretched to a full page and flows over several. */
 export const MAX_FILL_LINES = 14;
 
-export function renderIssueForm(form: FormForPrint, nonce: string): string {
+/** `companyName` is the company's current name for the code the form stored; the code itself is shown if there is none. */
+export function renderIssueForm(form: FormForPrint, nonce: string, companyName: string = form.companySnapshot): string {
   const rows = form.lines
     .map(
       (line, i) => `
@@ -207,7 +200,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string): string {
 
     <div class="header-box">
       <div><span class="label">מס קבלה</span><span class="value mono">${esc(form.receiptNo) || ''}</span></div>
-      <div><span class="label">פלוגה</span><span class="value">${esc(COMPANY_HE[form.companySnapshot])}</span></div>
+      <div><span class="label">פלוגה</span><span class="value">${esc(companyName)}</span></div>
       <div><span class="label">מס' נייד</span><span class="value mono">${esc(form.phoneSnapshot) || ''}</span></div>
     </div>
 

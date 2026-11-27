@@ -1,5 +1,4 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Company } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
 import type { CreateServicePeriodDto, UpdateServicePeriodDto } from './dto/service-period.dto';
@@ -8,12 +7,12 @@ import type { SetOnHandOverrideDto } from './dto/on-hand-override.dto';
 import type { SetSoldierAllocationDto } from './dto/soldier-allocation.dto';
 import { ItemKitsService } from '../item-kits/item-kits.service';
 import { computeOnHand } from './compute-on-hand';
-
-const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
+import type { CompanyCode } from '../companies/company-code';
+import { CompaniesService } from '../companies/companies.service';
 
 /**
  * תקופת שרות planning: the samgad splits each item's בפועל (what is actually
- * on hand, not מצבה) across the five companies before the period opens. Once
+ * on hand, not מצבה) across the battalion's companies before the period opens. Once
  * a soldier actually signs, the basket is built fresh in `IssueFormsService` —
  * this screen is only the battalion-level planning step, nothing per-soldier.
  */
@@ -22,6 +21,7 @@ export class AllocationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly itemKits: ItemKitsService,
+    private readonly companies: CompaniesService,
   ) {}
 
   // ---------- service periods ----------
@@ -62,13 +62,14 @@ export class AllocationsService {
    */
   async findCompanyAllocations(servicePeriodId: string) {
     await this.getPeriod(servicePeriodId);
+    const COMPANIES = (await this.companies.listActive()).map((c) => c.code);
 
     const rows = await this.prisma.companyAllocation.findMany({
       where: { servicePeriodId },
       include: { item: true },
     });
 
-    const byItem = new Map<string, { item: (typeof rows)[number]['item']; byCompany: Partial<Record<Company, number>> }>();
+    const byItem = new Map<string, { item: (typeof rows)[number]['item']; byCompany: Partial<Record<CompanyCode, number>> }>();
     for (const row of rows) {
       const entry = byItem.get(row.itemId) ?? { item: row.item, byCompany: {} };
       entry.byCompany[row.company] = row.quantity;
@@ -109,13 +110,13 @@ export class AllocationsService {
         const onHand = override ?? realOnHand;
         const quantities = Object.fromEntries(
           COMPANIES.map((c) => [c, byCompany[c] ?? 0]),
-        ) as Record<Company, number>;
+        ) as Record<CompanyCode, number>;
         const issued = Object.fromEntries(
           COMPANIES.map((c) => [c, issuedByItemCompany.get(`${item.id}|${c}`) ?? 0]),
-        ) as Record<Company, number>;
+        ) as Record<CompanyCode, number>;
         const remaining = Object.fromEntries(
           COMPANIES.map((c) => [c, quantities[c] - issued[c]]),
-        ) as Record<Company, number>;
+        ) as Record<CompanyCode, number>;
         const total = COMPANIES.reduce((sum, c) => sum + quantities[c], 0);
         return {
           itemId: item.id,
@@ -176,14 +177,15 @@ export class AllocationsService {
     return { onHand: dto.onHand, onHandOverride: dto.onHand };
   }
 
-  /** Adds an item to the grid at 0 for every company, so it shows up at all. */
+  /** Adds an item to the grid at 0 for every active company, so it shows up at all. */
   async addItemToGrid(servicePeriodId: string, itemId: string) {
     await this.getPeriod(servicePeriodId);
     const item = await this.prisma.item.findUnique({ where: { id: itemId } });
     if (!item) throw new NotFoundException('הפריט אינו קיים');
+    const codes = (await this.companies.listActive()).map((c) => c.code);
 
     await this.prisma.$transaction(
-      COMPANIES.map((company) =>
+      codes.map((company) =>
         this.prisma.companyAllocation.upsert({
           where: { servicePeriodId_itemId_company: { servicePeriodId, itemId, company } },
           update: {},
@@ -193,7 +195,7 @@ export class AllocationsService {
     );
   }
 
-  /** Drops an item from the grid entirely — deletes all five company rows. */
+  /** Drops an item from the grid entirely — deletes every company's row. */
   async removeItemFromGrid(servicePeriodId: string, itemId: string) {
     await this.getPeriod(servicePeriodId);
     await this.prisma.companyAllocation.deleteMany({ where: { servicePeriodId, itemId } });
@@ -201,12 +203,13 @@ export class AllocationsService {
 
   /**
    * One cell of the grid. Validated against the item's בפועל: the sum across
-   * all five companies can never exceed what is physically on hand — there is
+   * all companies can never exceed what is physically on hand — there is
    * no override, unlike the old battalion cap, since this is a hard physical
    * limit rather than a planning target.
    */
   async setCompanyAllocation(servicePeriodId: string, dto: SetCompanyAllocationDto) {
     await this.getPeriod(servicePeriodId);
+    await this.companies.assertActive(dto.company);
 
     const item = await this.prisma.item.findUnique({ where: { id: dto.itemId } });
     if (!item) throw new NotFoundException('הפריט אינו קיים');
@@ -244,7 +247,7 @@ export class AllocationsService {
   // ---------- soldier allocations (סגן מפקד פלוגה) ----------
 
   /** A COMPANY_CMDR's own company — admin may pass any, everyone else is locked to their own. */
-  private resolveCompanyScope(actor: AuthUser, requested?: Company): Company {
+  private resolveCompanyScope(actor: AuthUser, requested?: CompanyCode): CompanyCode {
     if (actor.role === 'admin') {
       if (!requested) throw new BadRequestException('יש לבחור פלוגה');
       return requested;
@@ -265,7 +268,8 @@ export class AllocationsService {
    * was given. Items the samgad hasn't allocated anything to for this
    * company don't appear: there is nothing to break down yet.
    */
-  async findSoldierAllocations(servicePeriodId: string, actor: AuthUser, requestedCompany?: Company) {
+  async findSoldierAllocations(servicePeriodId: string, actor: AuthUser, requestedCompany?: CompanyCode) {
+    if (requestedCompany) await this.companies.assertExists(requestedCompany);
     await this.getPeriod(servicePeriodId);
     const company = this.resolveCompanyScope(actor, requestedCompany);
 
@@ -313,7 +317,8 @@ export class AllocationsService {
   }
 
   /** The soldiers a סגן מפקד פלוגה can break an item's quantity down across. */
-  async findCompanySoldiers(actor: AuthUser, requestedCompany?: Company) {
+  async findCompanySoldiers(actor: AuthUser, requestedCompany?: CompanyCode) {
+    if (requestedCompany) await this.companies.assertExists(requestedCompany);
     const company = this.resolveCompanyScope(actor, requestedCompany);
     return this.prisma.soldier.findMany({
       where: { company, isActive: true },

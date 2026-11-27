@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery, type BaseQueryFn } from '@reduxjs/toolkit/qu
 import type {
   AuthUser,
   Company,
+  CompanyInfo,
   CountSheet,
   CountShift,
   DeletionCheck,
@@ -104,6 +105,7 @@ export const api = createApi({
     'Allocations',
     'IssueForms',
     'Kits',
+    'Companies',
   ],
   endpoints: (build) => ({
     // --- auth ---
@@ -433,6 +435,21 @@ export const api = createApi({
       invalidatesTags: ['Items', 'Reports', 'Kits'],
     }),
     // --- kits (ערכות) ---
+    companies: build.query<CompanyInfo[], void>({
+      query: () => '/companies',
+      providesTags: ['Companies'],
+    }),
+    createCompany: build.mutation<CompanyInfo, { name: string }>({
+      query: (body) => ({ url: '/companies', method: 'POST', body }),
+      invalidatesTags: ['Companies'],
+    }),
+    updateCompany: build.mutation<
+      CompanyInfo,
+      { id: string; name?: string; sortOrder?: number; isActive?: boolean }
+    >({
+      query: ({ id, ...body }) => ({ url: `/companies/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['Companies', 'Soldiers', 'Allocations', 'Reports'],
+    }),
     itemKits: build.query<ItemKitSummary[], void>({
       query: () => '/item-kits',
       providesTags: ['Kits'],
@@ -810,6 +827,9 @@ export const {
   useUpdateItemMutation,
   useLazyDeletionCheckQuery,
   useItemKitQuery,
+  useCompaniesQuery,
+  useCreateCompanyMutation,
+  useUpdateCompanyMutation,
   useItemKitsQuery,
   useItemKitHistoryQuery,
   useSaveItemKitMutation,

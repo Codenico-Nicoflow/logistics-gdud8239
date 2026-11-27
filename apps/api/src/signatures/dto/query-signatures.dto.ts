@@ -1,7 +1,7 @@
-import { Company } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { PaginationDto } from '../../common/pagination.dto';
+import type { CompanyCode } from '../../companies/company-code';
 
 export class QuerySignaturesDto extends PaginationDto {
   /** Free-text search across soldier name, מ.א. and serial. */
@@ -11,8 +11,9 @@ export class QuerySignaturesDto extends PaginationDto {
   q?: string;
 
   @IsOptional()
-  @IsEnum(Company, { message: 'פלוגה לא חוקית' })
-  company?: Company;
+  @IsString({ message: 'פלוגה לא חוקית' })
+  @MaxLength(40, { message: 'פלוגה לא חוקית' })
+  company?: CompanyCode;
 
   @IsOptional()
   @IsUUID('4')

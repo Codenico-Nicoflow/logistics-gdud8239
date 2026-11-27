@@ -9,6 +9,7 @@ import { ConfirmSoldier } from './ConfirmSoldier';
 import { BasketStep, type BasketLine } from './BasketStep';
 import { SignStep } from './SignStep';
 import { clearDraft, loadActiveDraft, loadDraft, parkActiveDraft, saveDraft } from './issueDraft';
+import { useCompanies } from '../companies/useCompanies';
 
 type Step = 'soldier' | 'confirm' | 'basket' | 'sign' | 'done';
 
@@ -178,6 +179,7 @@ export function IssuePage() {
  * soldier rather than reading it.
  */
 function Signed({ form, onNew }: { form: IssueForm; onNew: () => void }) {
+  const { nameOf } = useCompanies();
   return (
     <Panel title={he.form1008.created(form.formNo)}>
       <div className="space-y-4 px-4 py-4">
@@ -185,7 +187,7 @@ function Signed({ form, onNew }: { form: IssueForm; onNew: () => void }) {
           <span className="font-semibold">{form.soldierNameSnapshot}</span>
           <span className="text-meta text-graphite">
             {' · '}
-            {he.companies[form.companySnapshot]}
+            {nameOf(form.companySnapshot)}
             {' · '}
             {he.form1008.linesCount(form.lines.length)}
           </span>

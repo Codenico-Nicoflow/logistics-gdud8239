@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { CompaniesService } from '../companies/companies.service';
 import type { QueryMovementsDto } from './dto/query-movements.dto';
 import type { Paginated } from '../common/pagination.dto';
 import {
@@ -19,13 +20,6 @@ import {
 } from '../excel/excel-theme';
 
 const ACTION_HE: Record<string, string> = { ISSUE: 'ניפוק', RETURN: 'זיכוי', STORE: 'אופסן', COLLECT: 'נלקח מאפסון' };
-const COMPANY_HE: Record<string, string> = {
-  A: 'א',
-  B: 'ב',
-  C: 'ג',
-  SUPPORT: 'מסייעת',
-  HQ: 'מפקדה',
-};
 
 /**
  * One row of `דוח תנועות`, flattened for display and export.
@@ -55,7 +49,10 @@ export type MovementRow = {
  */
 @Injectable()
 export class MovementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly companies: CompaniesService,
+  ) {}
 
   /**
    * Only צל"מ items: anything serialized, and everything that is not a bulk
@@ -142,6 +139,7 @@ export class MovementsService {
   /** Adds the styled תנועות sheet — shared by the standalone file and the full workbook. */
   async addMovementsSheet(wb: ExcelJS.Workbook, query: QueryMovementsDto): Promise<void> {
     const rows = await this.findAllForExport(query);
+    const companyNames = await this.companies.nameByCode();
 
     const COLS = 8;
     const ws = createSheet(wb, 'דוח תנועות יומי', [11, 11, 24, 11, 22, 16, 9, 20]);
@@ -215,7 +213,7 @@ export class MovementsService {
             time,
             ACTION_HE[m.action] ?? m.action,
             m.soldierName,
-            m.company ? COMPANY_HE[m.company] ?? m.company : '',
+            m.company ? companyNames.get(m.company) ?? m.company : '',
             m.itemName,
             m.serial ?? '',
             m.quantity,

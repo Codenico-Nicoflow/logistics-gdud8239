@@ -46,7 +46,8 @@ describe('no raw SQL or shell escape hatches in src/', () => {
 
   it('knows about the one static raw query that exists and keeps it free of interpolation', () => {
     const text = readFileSync(join(SRC, 'reports/reports.service.ts'), 'utf8');
-    const m = /\$queryRaw`([^`]*)`/.exec(text);
+    // The tag may carry a type argument — `$queryRaw<Row[]>` — which a bare `$queryRaw`` would not match.
+    const m = /\$queryRaw(?:<[^`]*?>)?`([^`]*)`/.exec(text);
     expect(m).not.toBeNull();
     expect(m?.[1]).not.toContain('${');
   });

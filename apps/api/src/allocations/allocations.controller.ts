@@ -1,5 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseEnumPipe, Patch, Post, Query } from '@nestjs/common';
-import { Company } from '@prisma/client';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermission } from '../auth/decorators/permission.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -9,6 +8,7 @@ import { AddGridItemDto, SetCompanyAllocationDto } from './dto/company-allocatio
 import { SetOnHandOverrideDto } from './dto/on-hand-override.dto';
 import { SetSoldierAllocationDto } from './dto/soldier-allocation.dto';
 import type { AuthUser } from '../auth/auth.types';
+import type { CompanyCode } from '../companies/company-code';
 
 @Controller()
 export class AllocationsController {
@@ -80,14 +80,14 @@ export class AllocationsController {
   findSoldierAllocations(
     @Param('id') id: string,
     @CurrentUser() actor: AuthUser,
-    @Query('company', new ParseEnumPipe(Company, { optional: true })) company?: Company,
+    @Query('company') company?: CompanyCode,
   ) {
     return this.allocations.findSoldierAllocations(id, actor, company);
   }
 
   @Get('service-periods/:id/soldier-allocations/soldiers')
   @RequirePermission('allocations.company', 'READ', ['COMPANY_CMDR'])
-  findCompanySoldiers(@CurrentUser() actor: AuthUser, @Query('company', new ParseEnumPipe(Company, { optional: true })) company?: Company) {
+  findCompanySoldiers(@CurrentUser() actor: AuthUser, @Query('company') company?: CompanyCode) {
     return this.allocations.findCompanySoldiers(actor, company);
   }
 

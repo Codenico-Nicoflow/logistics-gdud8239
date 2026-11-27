@@ -27,6 +27,7 @@ export const he = {
     intake: 'קליטת ציוד',
     naming: 'מיפוי שמות',
     kits: 'ערכות',
+    companies: 'פלוגות',
     help: 'מדריך',
     myAccount: 'החשבון שלי',
     security: 'אבטחה',
@@ -62,13 +63,6 @@ export const he = {
     COMPANY_CMDR: 'סגן מפקד פלוגה',
   },
 
-  companies: {
-    A: 'א',
-    B: 'ב',
-    C: 'ג',
-    SUPPORT: 'מסייעת',
-    HQ: 'מפקדה',
-  },
 
   categories: {
     WEAPON: 'נשק',
@@ -669,6 +663,23 @@ export const he = {
     submitted: 'הקליטה הושלמה',
     submittedDetail: (serials: number, bulk: number) =>
       `${serials} מסדים נוספו, ${bulk} פריטים עודכנו בכמות`,
+  },
+
+  companiesAdmin: {
+    title: 'פלוגות',
+    subtitle:
+      'הפלוגות של הגדוד. כל רשימה, עמודה ודוח במערכת מציגים את הפלוגות מכאן. פלוגה שכבר שימשה לא נמחקת — משביתים אותה, והיסטוריית החתימות נשארת קריאה.',
+    newName: 'שם הפלוגה',
+    newNamePlaceholder: 'למשל: פלוגה א׳ או מסייעת',
+    add: 'הוסף פלוגה',
+    added: (name: string) => `הפלוגה "${name}" נוספה`,
+    empty: 'עדיין אין פלוגות. הוסיפו את הראשונה כדי שאפשר יהיה לשייך אליה חיילים.',
+    inactive: 'מושבתת',
+    moveUp: 'למעלה',
+    moveDown: 'למטה',
+    rename: 'שנה שם',
+    deactivate: 'השבת',
+    activate: 'הפעל',
   },
 
   naming: {

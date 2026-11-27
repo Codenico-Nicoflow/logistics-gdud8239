@@ -27,7 +27,8 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import { COMPANIES, type Company, type PublicUser, type Role } from '../../lib/types';
+import { type Company, type PublicUser, type Role } from '../../lib/types';
+import { useCompanies } from '../companies/useCompanies';
 
 const ROLES: Role[] = ['admin', 'logistics', 'viewer', 'SHLISHUT', 'SAMGAD', 'COMPANY_CMDR'];
 
@@ -318,6 +319,7 @@ function EditUserDialog({
   canRename: boolean;
   onClose: () => void;
 }) {
+  const { options: companyOptions } = useCompanies();
   const [displayName, setDisplayName] = useState(user.displayName);
   const [role, setRole] = useState<Role>(user.role);
   const [companyScope, setCompanyScope] = useState<Company | ''>(
@@ -379,7 +381,7 @@ function EditUserDialog({
               onChange={setCompanyScope}
               options={[
                 { value: '', label: he.soldiers.allCompanies },
-                ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
+                ...companyOptions,
               ]}
             />
           )}
@@ -450,6 +452,7 @@ function AddUserDialog({
   onClose: () => void;
   onCreated: (name: string, url: string) => void;
 }) {
+  const { options: companyOptions } = useCompanies();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<Role>('logistics');
@@ -512,7 +515,7 @@ function AddUserDialog({
               onChange={setCompanyScope}
               options={[
                 { value: '', label: he.soldiers.allCompanies },
-                ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
+                ...companyOptions,
               ]}
             />
           )}

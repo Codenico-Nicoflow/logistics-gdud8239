@@ -11,6 +11,7 @@ import { Button, CategoryDot, Modal, Panel, Serial, Tag, TextField } from '../..
 import { he } from '../../i18n/he';
 import { itemMatches, normalizeSearch } from '../../lib/search';
 import type { Item, SoldierSummary } from '../../lib/types';
+import { useCompanies } from '../companies/useCompanies';
 
 /** One row of the handover, as it is being assembled on screen. */
 export type BasketLine = {
@@ -82,11 +83,12 @@ export function BasketStep({
 
   /** Remaining headroom for this soldier's company on this item, or `null`
    *  when there's nothing to check against (no active period, or the item
-   *  isn't on its grid at all). */
+   *  isn't on its grid at all, or the soldier's company has no column on it).
+   *  "Not planned" is "nothing to check", never zero — see CLAUDE.md. */
   function remainingForCompany(item: Item): number | null {
     const row = allocations.data?.find((r) => r.itemId === item.id);
     if (!row) return null;
-    return row.remaining[soldier.company];
+    return row.remaining[soldier.company] ?? null;
   }
 
   function ask(next: Prompt): Promise<boolean> {
@@ -516,6 +518,7 @@ function OverAllocationDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { nameOf } = useCompanies();
   return (
     <Modal onClose={onCancel} role="alertdialog" className="w-full max-w-sm">
         <div className="space-y-3 px-5 py-5">
@@ -526,7 +529,7 @@ function OverAllocationDialog({
             <h2 className="text-lead font-semibold">{he.issue.overAllocationTitle(item.name)}</h2>
           </div>
           <p className="text-meta text-ink-soft">
-            {he.issue.overAllocationBody(he.companies[company])}
+            {he.issue.overAllocationBody(nameOf(company))}
           </p>
           <div className="flex gap-2 pt-1">
             <Button variant="danger" onClick={onConfirm}>

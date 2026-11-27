@@ -27,6 +27,7 @@ import { addDays, todayIso } from '../../lib/dates';
 import { type IfsunRecord, type IfsunStatus, type SignatureHolder } from '../../lib/types';
 import { SignerFields, type SignerValue } from './SignerFields';
 import { StoreDialog, storedQty, type StorableSignature } from './StoreDialog';
+import { useCompanies } from '../companies/useCompanies';
 
 const PAGE_SIZE = 25;
 type Tab = 'STORED' | 'ALL';
@@ -37,6 +38,7 @@ type Closing = { record: IfsunRecord; mode: 'collect' | 'credit' };
  * logistics only. The list is cards, not a table, so it works on a phone.
  */
 export function IfsunPage() {
+  const { nameOf } = useCompanies();
   const [tab, setTab] = useState<Tab>('STORED');
   const [q, setQ] = useState('');
   // History can run to thousands of rows, so it is filtered on the server and read a page at a time.
@@ -177,7 +179,7 @@ export function IfsunPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{r.soldierNameSnapshot}</span>
                     {r.companySnapshot && (
-                      <span className="text-meta text-graphite">{he.companies[r.companySnapshot]}</span>
+                      <span className="text-meta text-graphite">{nameOf(r.companySnapshot)}</span>
                     )}
                     <Tag
                       tone={r.status === 'STORED' ? 'brass' : r.status === 'COLLECTED' ? 'field' : 'neutral'}
@@ -340,6 +342,7 @@ function CloseDialog({ closing, onClose }: { closing: Closing; onClose: () => vo
 
 /** Find the soldier, then the signed item to store. Uses the same holders list as חתימות. */
 function NewIfsunDialog({ onClose }: { onClose: () => void }) {
+  const { nameOf } = useCompanies();
   const [q, setQ] = useState('');
   const [holder, setHolder] = useState<SignatureHolder | null>(null);
   const [picked, setPicked] = useState<StorableSignature | null>(null);
@@ -389,7 +392,7 @@ function NewIfsunDialog({ onClose }: { onClose: () => void }) {
                     <span className="font-semibold">
                       {h.firstName} {h.lastName}
                     </span>
-                    <span className="text-meta text-graphite">{he.companies[h.company]}</span>
+                    <span className="text-meta text-graphite">{nameOf(h.company)}</span>
                   </button>
                 </li>
               ))}

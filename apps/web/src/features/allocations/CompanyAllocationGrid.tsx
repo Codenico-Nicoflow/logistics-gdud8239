@@ -10,7 +10,7 @@ import {
 import { apiErrorMessage, Button, CategoryDot, Panel, Select, TableScroll, Td, Th } from '../../components/ui';
 import { he } from '../../i18n/he';
 import type { Company, CompanyAllocationRow } from '../../lib/types';
-import { COMPANIES } from '../../lib/types';
+import { useCompanies } from '../companies/useCompanies';
 
 /**
  * A plain number cell, editable only while the row is in edit mode. Outside
@@ -67,6 +67,7 @@ export function CompanyAllocationGrid({
   canEdit: boolean;
   isAdmin: boolean;
 }) {
+  const { active: companies } = useCompanies();
   const { data: rows } = useCompanyAllocationsQuery(servicePeriodId);
   const items = useItemsQuery();
   const [addItem, { isLoading: isAdding }] = useAddGridItemMutation();
@@ -107,9 +108,9 @@ export function CompanyAllocationGrid({
             <tr>
               <Th>{he.servicePeriods.name}</Th>
               <Th numeric className="w-28">{he.servicePeriods.onHand}</Th>
-              {COMPANIES.map((c) => (
-                <Th key={c} numeric className="w-32">
-                  {he.companies[c]}
+              {companies.map((c) => (
+                <Th key={c.code} numeric className="w-32">
+                  {c.name}
                 </Th>
               ))}
               <Th numeric className="w-20">{he.servicePeriods.total}</Th>
@@ -181,13 +182,19 @@ function GridRow({
   isAdmin: boolean;
   onRemove: () => void;
 }) {
+  const { active, nameOf } = useCompanies();
+  const codes = active.map((c) => c.code);
+  // A company created after this row was built has no entry yet: that is 0 planned, nothing issued.
+  const planned = (c: Company): number => row.quantities[c] ?? 0;
+  const issuedTo = (c: Company): number => row.issued[c] ?? 0;
+  const leftFor = (c: Company): number => row.remaining[c] ?? 0;
   const [set] = useSetCompanyAllocationMutation();
   const [setOnHandOverride] = useSetOnHandOverrideMutation();
   const [editing, setEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [onHandDraft, setOnHandDraft] = useState(String(row.onHand));
   const [draftByCompany, setDraftByCompany] = useState<Record<Company, string>>(
-    () => Object.fromEntries(COMPANIES.map((c) => [c, String(row.quantities[c])])) as Record<Company, string>,
+    () => Object.fromEntries(codes.map((c) => [c, String(planned(c))])) as Record<Company, string>,
   );
   const [errorByCell, setErrorByCell] = useState<Record<string, string>>({});
   const [onHandError, setOnHandError] = useState<string | null>(null);
@@ -198,7 +205,7 @@ function GridRow({
   function startEditing(): void {
     setOnHandDraft(String(row.onHand));
     setDraftByCompany(
-      Object.fromEntries(COMPANIES.map((c) => [c, String(row.quantities[c])])) as Record<Company, string>,
+      Object.fromEntries(codes.map((c) => [c, String(planned(c))])) as Record<Company, string>,
     );
     setErrorByCell({});
     setOnHandError(null);
@@ -220,9 +227,10 @@ function GridRow({
       }
     }
 
-    for (const c of COMPANIES) {
-      const n = Number(draftByCompany[c]);
-      if (draftByCompany[c].trim() === '' || Number.isNaN(n) || n === row.quantities[c]) continue;
+    for (const c of codes) {
+      const draft = draftByCompany[c] ?? '';
+      const n = Number(draft);
+      if (draft.trim() === '' || Number.isNaN(n) || n === planned(c)) continue;
       const result = await set({ servicePeriodId, itemId: row.itemId, company: c, quantity: n });
       if (result.error) nextErrorByCell[c] = apiErrorMessage(result.error) ?? he.toast.failed;
     }
@@ -254,25 +262,25 @@ function GridRow({
           </>
         ),
       },
-      ...COMPANIES.map((c) => ({
+      ...codes.map((c) => ({
         key: c,
-        label: he.companies[c],
+        label: nameOf(c),
         node: canEdit ? (
           <EditableCell
-            value={row.quantities[c]}
-            draft={draftByCompany[c]}
+            value={planned(c)}
+            draft={draftByCompany[c] ?? ''}
             editing={editing}
             onDraftChange={(next) => setDraftByCompany((m) => ({ ...m, [c]: next }))}
           />
         ) : (
-          <span className="font-semibold">{row.quantities[c]}</span>
+          <span className="font-semibold">{planned(c)}</span>
         ),
         note: (
           <>
             {errorByCell[c] && <span className="block text-micro text-oxide">{errorByCell[c]}</span>}
-            <span className="block text-micro text-graphite">{he.servicePeriods.issuedOfPlanned(row.issued[c])}</span>
-            <span className={`block text-micro ${row.remaining[c] < 0 ? 'font-semibold text-oxide' : 'text-graphite'}`}>
-              {he.servicePeriods.remainingOfPlanned(row.remaining[c])}
+            <span className="block text-micro text-graphite">{he.servicePeriods.issuedOfPlanned(issuedTo(c))}</span>
+            <span className={`block text-micro ${leftFor(c) < 0 ? 'font-semibold text-oxide' : 'text-graphite'}`}>
+              {he.servicePeriods.remainingOfPlanned(leftFor(c))}
             </span>
           </>
         ),
@@ -355,21 +363,21 @@ function GridRow({
           <span className="font-semibold">{row.onHand}</span>
         )}
       </Td>
-      {COMPANIES.map((c) => {
+      {codes.map((c) => {
         const cellError = errorByCell[c];
-        const issued = row.issued[c];
-        const remaining = row.remaining[c];
+        const issued = issuedTo(c);
+        const remaining = leftFor(c);
         return (
           <Td key={c} numeric className="w-32 align-top">
             {canEdit ? (
               <EditableCell
-                value={row.quantities[c]}
-                draft={draftByCompany[c]}
+                value={planned(c)}
+                draft={draftByCompany[c] ?? ''}
                 editing={editing}
                 onDraftChange={(next) => setDraftByCompany((m) => ({ ...m, [c]: next }))}
               />
             ) : (
-              <span className="font-semibold">{row.quantities[c]}</span>
+              <span className="font-semibold">{planned(c)}</span>
             )}
             {cellError && <p className="mt-0.5 text-micro text-oxide">{cellError}</p>}
             <p className="text-micro text-graphite">

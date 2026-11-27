@@ -10,17 +10,18 @@ import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
-import type { Company, Role } from '@prisma/client';
+import type { Role } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AllExceptionsFilter } from '../src/common/all-exceptions.filter';
 import { takeFormNo } from '../src/issue-forms/form-no';
+import type { CompanyCode } from '../src/companies/company-code';
 
 const PASSWORD = 'e2e-authz-password-123';
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 const LAST = 'E2E-הרשאות';
 
-type Account = { username: string; role: Role; companyScope?: Company };
+type Account = { username: string; role: Role; companyScope?: CompanyCode };
 const ACCOUNTS: Record<string, Account> = {
   admin: { username: 'e2e_az_admin', role: 'admin' },
   logistics: { username: 'e2e_az_logistics', role: 'logistics' },
@@ -69,7 +70,7 @@ beforeAll(async () => {
   }
 
   const issuer = await prisma.user.findUniqueOrThrow({ where: { username: ACCOUNTS.admin!.username } });
-  const make = async (company: Company): Promise<string> => {
+  const make = async (company: CompanyCode): Promise<string> => {
     const soldier = await prisma.soldier.create({ data: { firstName: `חייל-${company}`, lastName: LAST, company } });
     const form = await prisma.issueForm.create({
       data: {

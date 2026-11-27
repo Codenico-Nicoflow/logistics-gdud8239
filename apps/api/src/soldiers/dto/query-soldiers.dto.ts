@@ -1,7 +1,7 @@
-import { Company } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationDto } from '../../common/pagination.dto';
+import type { CompanyCode } from '../../companies/company-code';
 
 export class QuerySoldiersDto extends PaginationDto {
   /** Free-text search across name, מ.א. and phone. */
@@ -11,8 +11,9 @@ export class QuerySoldiersDto extends PaginationDto {
   q?: string;
 
   @IsOptional()
-  @IsEnum(Company, { message: 'פלוגה לא חוקית' })
-  company?: Company;
+  @IsString({ message: 'פלוגה לא חוקית' })
+  @MaxLength(40, { message: 'פלוגה לא חוקית' })
+  company?: CompanyCode;
 
   @IsOptional()
   @Type(() => Boolean)
