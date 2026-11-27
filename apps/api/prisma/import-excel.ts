@@ -11,15 +11,16 @@
  * Usage: tsx prisma/import-excel.ts <path-to-xlsx>
  */
 import 'dotenv/config';
-import { PrismaClient, Company, IssueKind, Prisma } from '@prisma/client';
+import { PrismaClient, IssueKind, Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import ExcelJS from 'exceljs';
+import type { CompanyCode } from '../src/companies/company-code';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
-const COMPANY_BY_HEBREW: Record<string, Company> = {
+const COMPANY_BY_HEBREW: Record<string, CompanyCode> = {
   'א': 'A',
   'ב': 'B',
   'ג': 'C',
@@ -30,7 +31,7 @@ const COMPANY_BY_HEBREW: Record<string, Company> = {
 /** Placeholder item for rows whose `סוג` column is empty. */
 const UNKNOWN_ITEM_NAME = 'לא מזוהה';
 /** Placeholder company for rows whose `פלוגה` column is empty or unrecognised. */
-const FALLBACK_COMPANY: Company = 'HQ';
+const FALLBACK_COMPANY: CompanyCode = 'HQ';
 
 type RawRow = {
   rowNumber: number;

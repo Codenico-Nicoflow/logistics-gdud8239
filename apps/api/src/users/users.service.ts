@@ -7,6 +7,7 @@ import {
 import { Prisma, Role } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { CompaniesService } from '../companies/companies.service';
 import { AuthService } from '../auth/auth.service';
 import { MfaService } from '../auth/mfa.service';
 import { InvitesService } from '../auth/invites.service';
@@ -61,6 +62,7 @@ export class UsersService {
     private readonly mfa: MfaService,
     private readonly events: SecurityEventsService,
     private readonly config: ConfigService,
+    private readonly companies: CompaniesService,
   ) {}
 
   private linkFor(token: string, expiresAt: Date): SetupLink {
@@ -96,6 +98,7 @@ export class UsersService {
     if (dto.role === 'COMPANY_CMDR' && !dto.companyScope) {
       throw new BadRequestException('סגן מפקד פלוגה חייב להיות משויך לפלוגה');
     }
+    if (dto.companyScope) await this.companies.assertActive(dto.companyScope);
 
     const user = await this.prisma.user.create({
       data: {
@@ -170,6 +173,8 @@ export class UsersService {
         throw new BadRequestException('חייב להישאר לפחות מנהל אחד פעיל');
       }
     }
+
+    if (dto.companyScope && dto.companyScope !== user.companyScope) await this.companies.assertActive(dto.companyScope);
 
     const updated = await this.prisma.user.update({
       where: { id },

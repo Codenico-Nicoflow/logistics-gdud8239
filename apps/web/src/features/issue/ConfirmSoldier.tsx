@@ -4,8 +4,9 @@ import { useSoldierQuery, useUpdateSoldierMutation } from '../../lib/api';
 import { apiErrorMessage, Button, Checkbox, Panel, Select, Spinner, Tag, TextField } from '../../components/ui';
 import { he } from '../../i18n/he';
 import { addressOf } from '../../app/navConfig';
-import { COMPANIES, type Company } from '../../lib/types';
+import { type Company } from '../../lib/types';
 import type { DocumentsLocationState } from '../signatures/DocumentsPage';
+import { useCompanies } from '../companies/useCompanies';
 
 /**
  * Step 2 — confirm the soldier before anything is signed to them.
@@ -24,6 +25,7 @@ export function ConfirmSoldier({
   onBack: () => void;
   onContinue: () => void;
 }) {
+  const { nameOf } = useCompanies();
   const { data, isLoading } = useSoldierQuery(soldierId);
   const [editing, setEditing] = useState(false);
   const navigate = useNavigate();
@@ -51,7 +53,7 @@ export function ConfirmSoldier({
                 value={`${data.firstName} ${data.lastName}${data.isAttached ? ` · ${he.soldiers.attached}` : ''}`}
               />
               <Detail label={he.issue.personalNumber} value={data.personalNumber} mono />
-              <Detail label={he.issue.company} value={he.companies[data.company]} />
+              <Detail label={he.issue.company} value={nameOf(data.company)} />
               <Detail label={he.issue.phone} value={data.phone} mono />
             </dl>
 
@@ -148,6 +150,7 @@ function EditSoldier({
   soldier: import('../../lib/types').SoldierDetail;
   onDone: () => void;
 }) {
+  const { options: companyOptions } = useCompanies();
   const [firstName, setFirstName] = useState(soldier.firstName);
   const [lastName, setLastName] = useState(soldier.lastName);
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
@@ -186,7 +189,7 @@ function EditSoldier({
           label={he.issue.company}
           value={company}
           onChange={(v) => v && setCompany(v as Company)}
-          options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
+          options={companyOptions}
         />
       </div>
       <Checkbox checked={isAttached} onChange={setIsAttached} label={he.soldiers.attachedHint} />

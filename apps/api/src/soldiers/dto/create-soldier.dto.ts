@@ -1,13 +1,5 @@
-import { Company } from '@prisma/client';
-import {
-  IsBoolean,
-  IsEnum,
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import type { CompanyCode } from '../../companies/company-code';
 
 export class CreateSoldierDto {
   @IsString()
@@ -32,8 +24,9 @@ export class CreateSoldierDto {
   @Matches(/^0\d{1,2}-?\d{7}$/, { message: 'מספר טלפון לא תקין' })
   phone?: string;
 
-  @IsEnum(Company, { message: 'פלוגה לא חוקית' })
-  company!: Company;
+  @IsString({ message: 'פלוגה לא חוקית' })
+  @MaxLength(40, { message: 'פלוגה לא חוקית' })
+  company!: CompanyCode;
 
   @IsOptional()
   @IsString()

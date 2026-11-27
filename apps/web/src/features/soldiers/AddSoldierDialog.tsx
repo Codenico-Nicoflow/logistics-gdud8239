@@ -6,7 +6,8 @@ import {
 import { apiErrorMessage, Button, Checkbox, Modal, Select, TextField } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import { COMPANIES, type Company, type NewSoldier, type SoldierSummary } from '../../lib/types';
+import { type Company, type NewSoldier, type SoldierSummary } from '../../lib/types';
+import { useCompanies } from '../companies/useCompanies';
 
 /**
  * Creating a soldier.
@@ -28,6 +29,7 @@ export function AddSoldierDialog({
   onClose: () => void;
   onCreated: (soldier: SoldierSummary) => void;
 }) {
+  const { nameOf, options: companyOptions } = useCompanies();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [personalNumber, setPersonalNumber] = useState('');
@@ -74,7 +76,7 @@ export function AddSoldierDialog({
       const created = result.data;
       toast.success({
         title: he.toast.soldierCreated,
-        detail: `${created.firstName} ${created.lastName} · ${he.companies[created.company]}${
+        detail: `${created.firstName} ${created.lastName} · ${nameOf(created.company)}${
           created.personalNumber ? ` · ${created.personalNumber}` : ''
         }`,
       });
@@ -117,7 +119,7 @@ export function AddSoldierDialog({
             label={he.issue.company}
             value={company}
             onChange={(v) => v && setCompany(v as Company)}
-            options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
+            options={companyOptions}
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Company, Prisma, type Item, type ItemInstance, type Signature, type Soldier } from '@prisma/client';
+import { Prisma, type Item, type ItemInstance, type Signature, type Soldier } from '@prisma/client';
 import { storedQtyForSignature } from '../ifsun/stored-qty';
 import { PrismaService } from '../prisma/prisma.service';
 import { syncAuthorizedQty } from '../items/sync-authorized-qty';
@@ -14,6 +14,7 @@ import type { IssueDto } from './dto/issue.dto';
 import type { ReturnDto } from './dto/return.dto';
 import type { QuerySignaturesDto } from './dto/query-signatures.dto';
 import type { Paginated } from '../common/pagination.dto';
+import type { CompanyCode } from '../companies/company-code';
 
 /** Postgres error code for a unique-constraint violation. */
 const UNIQUE_VIOLATION = 'P2002';
@@ -59,7 +60,7 @@ type SoldierRef = {
   id: string;
   firstName: string;
   lastName: string;
-  company: Company;
+  company: CompanyCode;
 };
 
 /** The same search as `searchClauses`, expressed against a soldier row. */

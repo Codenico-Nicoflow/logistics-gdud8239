@@ -4,13 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, type Company } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { findOperationalServicePeriod } from '../common/active-service-period';
 import { takeFormNo } from './form-no';
 import type { AuthUser } from '../auth/auth.types';
 import type { CreateIssueFormDto } from './dto/create-issue-form.dto';
+import type { CompanyCode } from '../companies/company-code';
 
 const UNIQUE_VIOLATION = 'P2002';
 
@@ -495,7 +496,7 @@ export class IssueFormsService {
   }
 
   /** Forms for the list view, newest first. The signature image is omitted. */
-  async findAll(query: { soldierId?: string; take?: number; skip?: number; scope?: Company | null }) {
+  async findAll(query: { soldierId?: string; take?: number; skip?: number; scope?: CompanyCode | null }) {
     const where = {
       ...(query.soldierId ? { soldierId: query.soldierId } : {}),
       // A user scoped to one company only ever lists that company's forms.
@@ -530,7 +531,7 @@ export class IssueFormsService {
    * original row, since `issue_forms` itself is append-only and that is
    * exactly what was actually signed.
    */
-  async findOne(id: string, scope: Company | null = null) {
+  async findOne(id: string, scope: CompanyCode | null = null) {
     const form = await this.prisma.issueForm.findFirstOrThrow({
       // Another company's form is "not found", not "forbidden": ids must not be probeable.
       where: { id, ...(scope ? { companySnapshot: scope } : {}) },

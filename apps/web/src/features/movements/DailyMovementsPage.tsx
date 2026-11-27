@@ -11,7 +11,8 @@ import {
 } from '../../components/ui';
 import { he } from '../../i18n/he';
 import { addDays, todayIso } from '../../lib/dates';
-import { COMPANIES, type Company, type MovementAction, type MovementRow } from '../../lib/types';
+import { type Company, type MovementAction, type MovementRow } from '../../lib/types';
+import { useCompanies } from '../companies/useCompanies';
 
 function buildExportUrl(params: URLSearchParams): string {
   return `/api/movements/export/daily?${params.toString()}`;
@@ -41,6 +42,7 @@ const RANGES: RangeKey[] = ['today', 'yesterday', 'week', 'custom'];
  * what's actually wanted.
  */
 export function DailyMovementsPage() {
+  const { options: companyOptions } = useCompanies();
   const [q, setQ] = useState('');
   const [action, setAction] = useState<MovementAction | ''>('');
   const [company, setCompany] = useState<Company | ''>('');
@@ -163,7 +165,7 @@ export function DailyMovementsPage() {
             onChange={setCompany}
             options={[
               { value: '', label: he.signatures.allCompanies },
-              ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
+              ...companyOptions,
             ]}
           />
         </div>
@@ -189,6 +191,7 @@ export function DailyMovementsPage() {
 }
 
 function DayCard({ day, rows }: { day: string; rows: MovementRow[] }) {
+  const { nameOf } = useCompanies();
   const sorted = [...rows].sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
   return (
     <Panel
@@ -204,7 +207,7 @@ function DayCard({ day, rows }: { day: string; rows: MovementRow[] }) {
               </Tag>
               <span className="font-semibold">{m.soldierName}</span>
               <span className="text-meta text-graphite">
-                {m.company ? he.companies[m.company as Company] : ''}
+                {m.company ? nameOf(m.company as Company) : ''}
               </span>
               <span className="text-meta">
                 {m.itemName}

@@ -8,7 +8,8 @@ import { AllocationsService } from '../allocations/allocations.service';
 import { AttendanceService } from '../attendance/attendance.service';
 import { ITEM_ORDER } from '../common/item-order';
 import { addDaysIso, israelToday } from '../common/israel-date';
-import { CATEGORY_HE, COMPANY_HE, COMPANY_ORDER } from './excel.constants';
+import { CATEGORY_HE } from './excel.constants';
+import { CompaniesService, type CompanyRow } from '../companies/companies.service';
 import {
   CATEGORY_TONE,
   PALETTE,
@@ -24,6 +25,7 @@ import {
   mono,
   pill,
 } from './excel-theme';
+import type { CompanyCode } from '../companies/company-code';
 
 /** One sheet per page the people actually use. */
 const SHEET = {
@@ -37,8 +39,6 @@ const SHEET = {
   soldiers: 'חלוקה לפי חייל',
   movements: 'דוח תנועות יומי',
 } as const;
-
-type CompanyKey = (typeof COMPANY_ORDER)[number];
 
 const FOOTER = 'מערכת הלוגיסטיקה של גדוד 8239';
 const BOLD = { name: 'Arial', size: 10.5, bold: true, color: { argb: PALETTE.ink } };
@@ -82,7 +82,15 @@ export class ExcelExportService {
     private readonly mesakem: MesakemService,
     private readonly allocations: AllocationsService,
     private readonly attendance: AttendanceService,
+    private readonly companies: CompaniesService,
   ) {}
+
+  /** The battalion's companies as the sheets lay them out: their order, and a name for any stored code. */
+  private async companyLayout(): Promise<{ list: CompanyRow[]; order: string[]; nameOf: (code: string) => string }> {
+    const list = await this.companies.list();
+    const names = new Map(list.map((c) => [c.code, c.name]));
+    return { list, order: list.map((c) => c.code), nameOf: (code) => names.get(code) ?? code };
+  }
 
   async build(): Promise<ExcelJS.Workbook> {
     const wb = new ExcelJS.Workbook();
@@ -300,6 +308,7 @@ export class ExcelExportService {
 
   /** Everything signed out right now, grouped by company and soldier. */
   private async addSignatures(wb: ExcelJS.Workbook): Promise<{ units: number; soldiers: number }> {
+    const { order, nameOf } = await this.companyLayout();
     const [signatures, items] = await Promise.all([
       this.prisma.signature.findMany({
         where: { returnedAt: null },
@@ -313,7 +322,7 @@ export class ExcelExportService {
       this.prisma.item.findMany({ orderBy: ITEM_ORDER, select: { id: true } }),
     ]);
     const rank = new Map(items.map((it, i) => [it.id, i]));
-    const company = (c: string) => COMPANY_ORDER.indexOf(c as CompanyKey);
+    const company = (c: string) => order.indexOf(c);
     signatures.sort(
       (a, b) =>
         company(a.soldier.company) - company(b.soldier.company) ||
@@ -336,14 +345,14 @@ export class ExcelExportService {
     const header = addHeaderRow(ws, ['חייל', 'מ.א.', 'צל"מ', 'מסד', 'כמות', 'נחתם', 'אפסון']);
 
     let index = 0;
-    for (const c of COMPANY_ORDER) {
+    for (const c of order) {
       const mine = signatures.filter((s) => s.soldier.company === c);
       if (mine.length === 0) continue;
       const people = new Set(mine.map((s) => s.soldierId)).size;
       addBandRow(
         ws,
         COLS,
-        `פלוגה ${COMPANY_HE[c]}   ·   ${people} חיילים   ·   ${mine.reduce((n, s) => n + s.quantity, 0)} יחידות`,
+        `פלוגה ${nameOf(c)}   ·   ${people} חיילים   ·   ${mine.reduce((n, s) => n + s.quantity, 0)} יחידות`,
       );
       let previous = '';
       for (const s of mine) {
@@ -518,22 +527,30 @@ export class ExcelExportService {
     ]);
     const rows = matrix.filter((r) => r.inSummary);
 
-    const totals = Object.fromEntries(COMPANY_ORDER.map((c) => [c, 0])) as Record<CompanyKey, number>;
-    for (const r of rows) for (const c of COMPANY_ORDER) totals[c] += r.byCompany[c];
-    const grand = COMPANY_ORDER.reduce((sum, c) => sum + totals[c], 0);
+    // A column per active company, plus any deactivated one that still holds equipment, so nothing it
+    // holds drops out of the totals.
+    const { list, nameOf } = await this.companyLayout();
+    const order = list.filter((c) => c.isActive || rows.some((r) => (r.byCompany[c.code] ?? 0) > 0)).map((c) => c.code);
+    const n = order.length;
+    const qty = (r: { byCompany: Record<string, number> }, c: string): number => r.byCompany[c] ?? 0;
 
-    const usage = (c: CompanyKey): string => {
+    const totals = Object.fromEntries(order.map((c) => [c, 0])) as Record<string, number>;
+    for (const r of rows) for (const c of order) totals[c] += qty(r, c);
+    const grand = order.reduce((sum, c) => sum + totals[c], 0);
+
+    const usage = (c: string): string => {
       let allocated = 0;
       let used = 0;
       for (const row of grid) {
-        allocated += row.quantities[c];
-        used += Math.min(row.issued[c], row.quantities[c]);
+        allocated += row.quantities[c] ?? 0;
+        used += Math.min(row.issued[c] ?? 0, row.quantities[c] ?? 0);
       }
       return allocated === 0 ? 'ללא הקצאה' : `${Math.round((used / allocated) * 100)}%`;
     };
 
-    const COLS = 7;
-    const ws = createSheet(wb, SHEET.companies, [24, 13, 13, 13, 13, 13, 13]);
+    const COLS = n + 2;
+    const numeric = Array.from({ length: n + 1 }, (_, k) => k + 2);
+    const ws = createSheet(wb, SHEET.companies, [24, ...Array.from({ length: n + 1 }, () => 13)]);
     addTitleBlock(
       ws,
       COLS,
@@ -541,8 +558,8 @@ export class ExcelExportService {
       ['מה יש כרגע בכל פלוגה, לפי החתימות הפתוחות', `הופק ${generatedAtLabel()}`].join('   ·   '),
     );
     addKpiRow(ws, COLS, [
-      ...COMPANY_ORDER.map((c) => ({
-        label: COMPANY_HE[c],
+      ...order.map((c) => ({
+        label: nameOf(c),
         value: totals[c],
         tone: 'field' as const,
       })),
@@ -552,27 +569,27 @@ export class ExcelExportService {
       ws,
       COLS,
       period
-        ? `ניצול ההקצאה (${period.name})   ·   ${COMPANY_ORDER.map((c) => `${COMPANY_HE[c]}: ${usage(c)}`).join('   ·   ')}`
+        ? `ניצול ההקצאה (${period.name})   ·   ${order.map((c) => `${nameOf(c)}: ${usage(c)}`).join('   ·   ')}`
         : 'אין תקופת שרות פעילה, ולכן אין ניצול הקצאה',
     );
 
-    const header = addHeaderRow(ws, ['צל"מ', ...COMPANY_ORDER.map((c) => COMPANY_HE[c]), 'סה"כ']);
+    const header = addHeaderRow(ws, ['צל"מ', ...order.map((c) => nameOf(c)), 'סה"כ']);
     rows.forEach((r, i) => {
       const row = addBodyRow(
         ws,
-        [r.itemName, ...COMPANY_ORDER.map((c) => (r.byCompany[c] === 0 ? '—' : r.byCompany[c])), r.total],
+        [r.itemName, ...order.map((c) => (qty(r, c) === 0 ? '—' : qty(r, c))), r.total],
         i,
-        [2, 3, 4, 5, 6, 7],
+        numeric,
       );
       row.getCell(1).font = BOLD;
-      COMPANY_ORDER.forEach((c, k) => {
+      order.forEach((c, k) => {
         const cell = row.getCell(2 + k);
-        if (r.byCompany[c] === 0) cell.font = MUTED;
+        if (qty(r, c) === 0) cell.font = MUTED;
         else pill(cell, 'field');
       });
-      row.getCell(7).font = BOLD;
+      row.getCell(n + 2).font = BOLD;
     });
-    addTotalsRow(ws, ['סה"כ', ...COMPANY_ORDER.map((c) => totals[c]), grand], [2, 3, 4, 5, 6, 7]);
+    addTotalsRow(ws, ['סה"כ', ...order.map((c) => totals[c]), grand], numeric);
     finalizeSheet(ws, header, COLS, FOOTER);
   }
 
@@ -580,6 +597,7 @@ export class ExcelExportService {
 
   /** The per-soldier split of each company's allocation, against what was actually issued. */
   private async addSoldiers(wb: ExcelJS.Workbook): Promise<void> {
+    const { order, nameOf } = await this.companyLayout();
     const period = await this.allocations.findActivePeriod();
     const COLS = 5;
     const ws = createSheet(wb, SHEET.soldiers, [26, 26, 10, 10, 14]);
@@ -609,7 +627,7 @@ export class ExcelExportService {
     ]);
     const issuedBy = new Map(issuedRows.map((r) => [`${r.soldierId}|${r.itemId}`, r._sum.quantity ?? 0]));
     const rank = new Map(items.map((it, i) => [it.id, i]));
-    const company = (c: string) => COMPANY_ORDER.indexOf(c as CompanyKey);
+    const company = (c: string) => order.indexOf(c);
     allocations.sort(
       (a, b) =>
         company(a.soldier.company) - company(b.soldier.company) ||
@@ -633,13 +651,13 @@ export class ExcelExportService {
     const header = addHeaderRow(ws, ['חייל', 'צל"מ', 'הוקצה', 'נופק', 'מצב']);
 
     let index = 0;
-    for (const c of COMPANY_ORDER) {
+    for (const c of order) {
       const mine = lines.filter((l) => l.a.soldier.company === c);
       if (mine.length === 0) continue;
       addBandRow(
         ws,
         COLS,
-        `פלוגה ${COMPANY_HE[c]}   ·   ${new Set(mine.map((l) => l.a.soldierId)).size} חיילים   ·   ${mine.reduce((n, l) => n + l.a.quantity, 0)} יחידות שהוקצו`,
+        `פלוגה ${nameOf(c)}   ·   ${new Set(mine.map((l) => l.a.soldierId)).size} חיילים   ·   ${mine.reduce((n, l) => n + l.a.quantity, 0)} יחידות שהוקצו`,
       );
       let previous = '';
       for (const { a, issued } of mine) {

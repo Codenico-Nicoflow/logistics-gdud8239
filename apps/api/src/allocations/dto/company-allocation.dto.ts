@@ -1,20 +1,15 @@
 import { Type } from 'class-transformer';
-import { Company } from '@prisma/client';
-import {
-  IsEnum,
-  IsInt,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsInt, IsString, Max, Min, MaxLength } from 'class-validator';
+import type { CompanyCode } from '../../companies/company-code';
 
 /** One cell of the samgad's grid — "פלוגה א מקבלת 82 M-4". */
 export class SetCompanyAllocationDto {
   @IsString()
   itemId!: string;
 
-  @IsEnum(Company, { message: 'פלוגה לא חוקית' })
-  company!: Company;
+  @IsString({ message: 'פלוגה לא חוקית' })
+  @MaxLength(40, { message: 'פלוגה לא חוקית' })
+  company!: CompanyCode;
 
   @Type(() => Number)
   @IsInt()

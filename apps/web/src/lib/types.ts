@@ -1,7 +1,11 @@
-/** Mirrors the API contract. The API speaks enum keys; `he.ts` holds the labels. */
+/** Mirrors the API contract. The API speaks enum keys; `he.ts` holds the labels (except company names, which are data). */
 
 export type Role = 'admin' | 'logistics' | 'viewer' | 'SHLISHUT' | 'SAMGAD' | 'COMPANY_CMDR';
-export type Company = 'A' | 'B' | 'C' | 'SUPPORT' | 'HQ';
+/** A company's stable code ("A", "SUPPORT", or a generated one). Its name is data: see `CompanyInfo` and `useCompanies()`. */
+export type Company = string;
+
+/** One of the battalion's companies, as `GET /companies` returns it. */
+export type CompanyInfo = { id: string; code: Company; name: string; sortOrder: number; isActive: boolean };
 export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR' | 'AMMO';
 export type InstanceStatus = 'OK' | 'FAULTY' | 'DISABLED' | 'IN_REPAIR';
 /** דוח תנועות holds weapon movements only: an item given out, or taken back. */
@@ -11,7 +15,6 @@ export type SnapshotKind = 'daily' | 'pre_import' | 'manual';
 export type DbBackupKind = 'daily' | 'manual';
 /** What a new item of each category starts with for אפסון; the admin can change it per item. */
 export const IFSUN_DEFAULT_CATEGORIES: ItemCategory[] = ['WEAPON', 'OPTICS', 'DRONE'];
-export const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
 
 export type AuthUser = {
   id: string;

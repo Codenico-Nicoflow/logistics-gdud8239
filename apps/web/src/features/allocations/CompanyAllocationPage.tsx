@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useServicePeriodsQuery } from '../../lib/api';
 import { Panel, Select, Spinner, Tag } from '../../components/ui';
 import { he } from '../../i18n/he';
-import { COMPANIES, type Company } from '../../lib/types';
+import { type Company } from '../../lib/types';
 import { SoldierAllocationGrid } from './SoldierAllocationGrid';
+import { useCompanies } from '../companies/useCompanies';
 
 /**
  * סגן מפקד פלוגה's own screen — a standalone page rather than a mode inside
@@ -20,6 +21,7 @@ import { SoldierAllocationGrid } from './SoldierAllocationGrid';
  * else's.
  */
 export function CompanyAllocationPage({ isAdmin }: { isAdmin: boolean }) {
+  const { options: companyOptions } = useCompanies();
   const periods = useServicePeriodsQuery();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [company, setCompany] = useState<Company | ''>('');
@@ -44,7 +46,7 @@ export function CompanyAllocationPage({ isAdmin }: { isAdmin: boolean }) {
               onChange={setCompany}
               options={[
                 { value: '', label: he.soldiers.allCompanies },
-                ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
+                ...companyOptions,
               ]}
               className="max-w-xs"
             />

@@ -7,13 +7,17 @@ import { IssueFormsService } from './issue-forms.service';
 import { CreateIssueFormDto } from './dto/create-issue-form.dto';
 import { UpdateIssueFormDto } from './dto/update-issue-form.dto';
 import { renderIssueForm } from './issue-form.html';
+import { CompaniesService } from '../companies/companies.service';
 import { sendPrintPage } from '../common/print-page';
 import type { AuthUser } from '../auth/auth.types';
 import { BoundedIntPipe, OptionalUuidPipe } from '../common/pipes';
 
 @Controller('issue-forms')
 export class IssueFormsController {
-  constructor(private readonly forms: IssueFormsService) {}
+  constructor(
+    private readonly forms: IssueFormsService,
+    private readonly companies: CompaniesService,
+  ) {}
 
   // A 1008 carries a soldier's name, מ.א., phone and drawn signature. Reading one was open to any
   // logged-in user, and by id — so it needs the same roles as the חתימות screen it belongs to.
@@ -53,7 +57,8 @@ export class IssueFormsController {
     @Res() res: Response,
   ): Promise<void> {
     const form = await this.forms.findOne(id, actor.companyScope);
-    sendPrintPage(res, (nonce) => renderIssueForm(form, nonce));
+    const companyName = (await this.companies.nameByCode()).get(form.companySnapshot);
+    sendPrintPage(res, (nonce) => renderIssueForm(form, nonce, companyName));
   }
 
   @Post()

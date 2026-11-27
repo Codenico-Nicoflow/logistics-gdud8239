@@ -1,8 +1,9 @@
-import { Company, MovementAction } from '@prisma/client';
+import { MovementAction } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import { IsDate, IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { PaginationDto } from '../../common/pagination.dto';
 import { israelDayEnd, israelDayStart } from '../../common/israel-date';
+import type { CompanyCode } from '../../companies/company-code';
 
 const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -33,8 +34,9 @@ export class QueryMovementsDto extends PaginationDto {
   action?: MovementAction;
 
   @IsOptional()
-  @IsEnum(Company, { message: 'פלוגה לא חוקית' })
-  company?: Company;
+  @IsString({ message: 'פלוגה לא חוקית' })
+  @MaxLength(40, { message: 'פלוגה לא חוקית' })
+  company?: CompanyCode;
 
   @IsOptional()
   @IsUUID('4')

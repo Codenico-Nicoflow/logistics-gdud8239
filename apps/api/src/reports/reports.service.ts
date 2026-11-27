@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Company } from '@prisma/client';
 import { storedQtyByItem } from '../ifsun/stored-qty';
 import { PrismaService } from '../prisma/prisma.service';
 import { ITEM_ORDER } from '../common/item-order';
+import type { CompanyCode } from '../companies/company-code';
+import { CompaniesService } from '../companies/companies.service';
 
 export type SummaryRow = {
   itemName: string;
@@ -22,40 +23,17 @@ export type MatrixRow = {
   category: string;
   /** The catalog's `מופיע במסכם` flag — lets a screen limit itself to the daily list. */
   inSummary: boolean;
-  byCompany: Record<Company, number>;
+  byCompany: Record<CompanyCode, number>;
   total: number;
   inArmory: number;
 };
 
-const COMPANIES: Company[] = ['A', 'B', 'C', 'SUPPORT', 'HQ'];
-
-/**
- * Raw SQL returns the database label of the `Company` enum (`א`, `מסייעת`, ...),
- * not the Prisma client key (`A`, `SUPPORT`). Prisma maps this automatically for
- * ordinary queries but not for `$queryRaw`, so grouped raw results are translated
- * back here.
- */
-const COMPANY_BY_DB_LABEL: Record<string, Company> = {
-  'א': 'A',
-  'ב': 'B',
-  'ג': 'C',
-  'מסייעת': 'SUPPORT',
-  'מפקדה': 'HQ',
-};
-
-function toCompany(label: string): Company {
-  const company = COMPANY_BY_DB_LABEL[label];
-  if (!company) throw new Error(`Unrecognised company label from database: "${label}"`);
-  return company;
-}
-
-function emptyByCompany(): Record<Company, number> {
-  return { A: 0, B: 0, C: 0, SUPPORT: 0, HQ: 0 };
-}
-
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly companies: CompaniesService,
+  ) {}
 
   /**
    * The `מסכם` sheet, for a given date (defaults to today).
@@ -113,10 +91,10 @@ export class ReportsService {
    * reach through the relation to `soldier.company`, so this is one raw query.
    */
   private async issuedPerItemPerCompany(): Promise<
-    { itemId: string; company: Company; qty: number }[]
+    { itemId: string; company: CompanyCode; qty: number }[]
   > {
     const rows = await this.prisma.$queryRaw<{ item_id: string; company: string; qty: bigint }[]>`
-      SELECT sg.item_id, s.company::text AS company, SUM(sg.quantity)::bigint AS qty
+      SELECT sg.item_id, s.company AS company, SUM(sg.quantity)::bigint AS qty
       FROM signatures sg
       JOIN soldiers s ON s.id = sg.soldier_id
       WHERE sg.returned_at IS NULL
@@ -124,7 +102,7 @@ export class ReportsService {
     `;
     return rows.map((r) => ({
       itemId: r.item_id,
-      company: toCompany(r.company),
+      company: r.company,
       qty: Number(r.qty),
     }));
   }
@@ -141,7 +119,10 @@ export class ReportsService {
     const perCompany = await this.issuedPerItemPerCompany();
 
     const items = await this.prisma.item.findMany({ where: { isActive: true }, orderBy: ITEM_ORDER });
-    const byItem = new Map<string, Record<Company, number>>();
+    // Every company, deactivated ones too: equipment a company still holds must not drop out of the totals.
+    const codes = (await this.companies.list()).map((c) => c.code);
+    const emptyByCompany = (): Record<CompanyCode, number> => Object.fromEntries(codes.map((c) => [c, 0]));
+    const byItem = new Map<string, Record<CompanyCode, number>>();
     for (const r of perCompany) {
       const bucket = byItem.get(r.itemId) ?? emptyByCompany();
       bucket[r.company] = r.qty;
@@ -156,7 +137,7 @@ export class ReportsService {
         category: item.category,
         inSummary: item.inSummary,
         byCompany,
-        total: COMPANIES.reduce((sum, c) => sum + byCompany[c], 0),
+        total: codes.reduce((sum, c) => sum + (byCompany[c] ?? 0), 0),
         // Unissued stock, which is what the sheet's בנשקיה column means here.
         // The counted figure lives in the מסכם report, where it is entered.
         inArmory: Math.max(item.authorizedQty - (totals.get(item.id) ?? 0), 0),

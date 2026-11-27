@@ -25,7 +25,8 @@ import {
 import { AddSoldierDialog } from './AddSoldierDialog';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
-import { COMPANIES, type AuthUser, type Company, type SoldierSummary } from '../../lib/types';
+import { type AuthUser, type Company, type SoldierSummary } from '../../lib/types';
+import { useCompanies } from '../companies/useCompanies';
 
 const PAGE_SIZE = 50;
 
@@ -38,6 +39,7 @@ const PAGE_SIZE = 50;
  * lacking a מ.א. or a phone, and they are invisible until someone goes looking.
  */
 export function SoldiersPage({ user }: { user: AuthUser }) {
+  const { nameOf, options: companyOptions } = useCompanies();
   const [q, setQ] = useState('');
   // A user scoped to one company (סגן מפקד פלוגה) only ever sees that company; the server
   // enforces it, the UI just does not offer a filter that cannot widen anything.
@@ -95,10 +97,10 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
             aria-hidden="true"
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-field text-title font-bold text-white"
           >
-            {he.companies[scope]}
+            {nameOf(scope)}
           </span>
           <div className="min-w-0">
-            <p className="text-lead font-semibold text-field-dark">{he.soldiers.scopeTitle(he.companies[scope])}</p>
+            <p className="text-lead font-semibold text-field-dark">{he.soldiers.scopeTitle(nameOf(scope))}</p>
             <p className="text-meta text-ink-soft">
               {he.soldiers.scopeHint}
               {data && ` · ${he.soldiers.scopeCount(data.total)}`}
@@ -121,7 +123,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
               onChange={setCompany}
               options={[
                 { value: '', label: he.soldiers.allCompanies },
-                ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
+                ...companyOptions,
               ]}
             />
           )}
@@ -183,7 +185,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                         {s.isAttached && <Tag tone="brass">{he.soldiers.attached}</Tag>}
                       </div>
                     </div>
-                    <Tag tone="neutral">{he.companies[s.company]}</Tag>
+                    <Tag tone="neutral">{nameOf(s.company)}</Tag>
                   </div>
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-meta">
                     <dt className="text-graphite">{he.soldiers.personalNumber}</dt>
@@ -258,7 +260,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                       </Td>
                       <Missing value={s.personalNumber} mono />
                       <Missing value={s.phone} mono />
-                      <Td>{he.companies[s.company]}</Td>
+                      <Td>{nameOf(s.company)}</Td>
                       <Td>
                         <EnlistedCell
                           soldier={s}
@@ -536,6 +538,7 @@ function EditSoldierDialog({
   lockedCompany?: Company;
   onClose: () => void;
 }) {
+  const { options: companyOptions } = useCompanies();
   const [firstName, setFirstName] = useState(soldier.firstName);
   const [lastName, setLastName] = useState(soldier.lastName);
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
@@ -591,7 +594,7 @@ function EditSoldierDialog({
             value={company}
             disabled={lockedCompany !== undefined}
             onChange={(v) => v && setCompany(v as Company)}
-            options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
+            options={companyOptions}
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField

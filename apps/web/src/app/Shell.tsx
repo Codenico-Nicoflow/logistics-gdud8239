@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { useLogoutMutation } from '../lib/api';
+import { useCompaniesQuery, useLogoutMutation } from '../lib/api';
 import { Logo } from '../components/Logo';
 import { he } from '../i18n/he';
 import type { AuthUser } from '../lib/types';
@@ -130,6 +130,8 @@ function isInHub(pathname: string, hub: HubDef): boolean {
 export function Shell({ user }: { user: AuthUser }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logout] = useLogoutMutation();
+  // Warm the companies list so every screen has names the moment it renders, not after its own fetch.
+  useCompaniesQuery();
 
   const { pathname } = useLocation();
   const initial = user.displayName.trim().charAt(0) || '?';

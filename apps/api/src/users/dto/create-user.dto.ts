@@ -1,5 +1,6 @@
-import { Company, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import type { CompanyCode } from '../../companies/company-code';
 
 export class CreateUserDto {
   @IsString()
@@ -16,8 +17,9 @@ export class CreateUserDto {
   role!: Role;
 
   @IsOptional()
-  @IsEnum(Company, { message: 'פלוגה לא חוקית' })
-  companyScope?: Company;
+  @IsString({ message: 'פלוגה לא חוקית' })
+  @MaxLength(40, { message: 'פלוגה לא חוקית' })
+  companyScope?: CompanyCode;
 
   /** Optional: when omitted the API generates one and returns it once. */
 }

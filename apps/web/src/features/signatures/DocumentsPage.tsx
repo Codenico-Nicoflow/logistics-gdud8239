@@ -32,7 +32,6 @@ import { useToast } from '../../components/toast';
 import { StoreDialog, storedQty, type StorableSignature } from '../ifsun/StoreDialog';
 import { he } from '../../i18n/he';
 import {
-  COMPANIES,
   type AuthUser,
   type Company,
   type IssueForm,
@@ -41,6 +40,7 @@ import {
 } from '../../lib/types';
 import { BasketStep, newLine, type BasketLine } from '../issue/BasketStep';
 import { SignStep } from '../issue/SignStep';
+import { useCompanies } from '../companies/useCompanies';
 
 const PAGE_SIZE = 100;
 
@@ -66,6 +66,7 @@ function asDocumentsState(value: unknown): DocumentsLocationState | null {
  * this guy's signatures" and splitting them just meant re-finding him twice.
  */
 export function DocumentsPage({ user }: { user: AuthUser }) {
+  const { nameOf, options: companyOptions } = useCompanies();
   const arrivedWith = asDocumentsState(useLocation().state);
   const [q, setQ] = useState(arrivedWith?.q ?? '');
   const [company, setCompany] = useState<Company | ''>('');
@@ -103,7 +104,7 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
             onChange={setCompany}
             options={[
               { value: '', label: he.signatures.allCompanies },
-              ...COMPANIES.map((c) => ({ value: c, label: he.companies[c] })),
+              ...companyOptions,
             ]}
           />
           <Select
@@ -144,7 +145,7 @@ export function DocumentsPage({ user }: { user: AuthUser }) {
                         <Td className="font-semibold">
                           {h.firstName} {h.lastName}
                         </Td>
-                        <Td>{he.companies[h.company]}</Td>
+                        <Td>{nameOf(h.company)}</Td>
                         <Td numeric>{h.itemCount}</Td>
                       </tr>
                     ))}
@@ -184,6 +185,7 @@ function SoldierDetail({
   holder: SignatureHolder;
   canEditForm: boolean;
 }) {
+  const { nameOf } = useCompanies();
   const [tab, setTab] = useState<'items' | 'form'>('items');
   const [reissuing, setReissuing] = useState(false);
   const [confirmingReturnAll, setConfirmingReturnAll] = useState(false);
@@ -203,7 +205,7 @@ function SoldierDetail({
       title={`${holder.firstName} ${holder.lastName}`}
       action={
         <span className="flex items-center gap-2 text-meta text-graphite">
-          {he.companies[holder.company]}
+          {nameOf(holder.company)}
           {holder.personalNumber && <span className="serial">{holder.personalNumber}</span>}
         </span>
       }
@@ -393,6 +395,7 @@ function SoldierLatestForm({ soldierId, canEdit }: { soldierId: string; canEdit:
  * gated to admin/logistics; anyone else sees the fields read-only.
  */
 function FormDocument({ formId, canEdit }: { formId: string; canEdit: boolean }) {
+  const { nameOf } = useCompanies();
   const [editing, setEditing] = useState(false);
   const { data: full, isLoading } = useIssueFormQuery(formId);
   const [update, { isLoading: isSaving, error }] = useUpdateIssueFormMutation();
@@ -429,7 +432,7 @@ function FormDocument({ formId, canEdit }: { formId: string; canEdit: boolean })
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">{he.form1008.created(full.formNo)}</span>
         <span className="text-meta text-graphite">
-          {he.companies[full.companySnapshot]} · {formatDateTime(full.signedAt)}
+          {nameOf(full.companySnapshot)} · {formatDateTime(full.signedAt)}
         </span>
       </div>
 

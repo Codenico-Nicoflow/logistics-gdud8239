@@ -3,6 +3,7 @@ import { useSoldiersQuery } from '../../lib/api';
 import { Panel, SearchField, Spinner, Tag } from '../../components/ui';
 import { he } from '../../i18n/he';
 import type { SoldierSummary } from '../../lib/types';
+import { useCompanies } from '../companies/useCompanies';
 
 /**
  * Step 1 — finding the soldier.
@@ -17,6 +18,7 @@ import type { SoldierSummary } from '../../lib/types';
  * such thing" instead of "unknown".
  */
 export function SoldierSearch({ onPick }: { onPick: (soldier: SoldierSummary) => void }) {
+  const { nameOf } = useCompanies();
   const [query, setQuery] = useState('');
   const soldiers = useSoldiersQuery({ q: query, take: 8 }, { skip: query.length < 2 });
 
@@ -46,7 +48,7 @@ export function SoldierSearch({ onPick }: { onPick: (soldier: SoldierSummary) =>
                       {s.firstName} {s.lastName}
                     </span>
                     <span className="mt-0.5 flex flex-wrap gap-x-3 text-meta text-graphite">
-                      <span>{he.companies[s.company]}</span>
+                      <span>{nameOf(s.company)}</span>
                       <span>
                         {he.issue.personalNumber}:{' '}
                         {s.personalNumber ? (
