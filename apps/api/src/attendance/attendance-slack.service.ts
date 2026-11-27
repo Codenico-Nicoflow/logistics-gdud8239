@@ -62,7 +62,7 @@ export class AttendanceSlackService {
     const weekStart = week.dates[0] as string;
     const weekEnd = week.dates[6] as string;
 
-    const channel = this.slack.channelFor('ATTENDANCE_SLACK_CHANNEL_ID');
+    const channel = await this.slack.channelFor('attendance');
     if (!channel) return { sent: false, error: 'Slack אינו מוגדר', weekStart };
 
     // Claim the scheduled send before posting: a second instance running the same job

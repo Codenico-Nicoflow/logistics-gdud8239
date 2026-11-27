@@ -24,6 +24,7 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { DeleteDialog } from '../../components/DeleteDialog';
+import { useSlack } from '../slack/useSlack';
 import { he } from '../../i18n/he';
 
 export function BackupsPage() {
@@ -50,6 +51,7 @@ function SnapshotPanel() {
   const [createSnapshot, createState] = useCreateSnapshotMutation();
   const toast = useToast();
   const [sendSlack] = useSendSnapshotToSlackMutation();
+  const slack = useSlack();
   const [remove, removeState] = useDeleteSnapshotMutation();
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -120,6 +122,8 @@ function SnapshotPanel() {
                     <Td>
                       {s.slackSentAt ? (
                         <Tag tone="field">{he.backups.sent}</Tag>
+                      ) : !slack.isConfigured('snapshots') ? (
+                        <span className="text-meta text-graphite">{he.slack.notConfigured}</span>
                       ) : (
                         <button
                           onClick={() => void sendSlack(s.id)}

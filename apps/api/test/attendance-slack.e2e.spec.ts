@@ -25,7 +25,7 @@ let failNextFile = false;
 let configured = true;
 
 const fakeSender = {
-  channelFor: (): string | undefined => (configured ? 'C_TEST_CHANNEL' : undefined),
+  channelFor: async (): Promise<string | undefined> => (configured ? 'C_TEST_CHANNEL' : undefined),
   sendFile: async (channel: string, bytes: Buffer, name: string, text: string): Promise<void> => {
     if (failNextFile) {
       failNextFile = false;

@@ -21,7 +21,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AllExceptionsFilter } from '../src/common/all-exceptions.filter';
-import { HOME_BATTALION_ID, slackAllowedHere } from '../src/common/slack-bridge';
+import { HOME_BATTALION_ID } from '../src/common/home-battalion';
 import { rlsProblems } from '../src/prisma/rls-check';
 import { TenantPool } from '../src/tenancy/tenant-pool';
 import { runAsBattalion } from '../src/tenancy/tenant-context';
@@ -370,9 +370,4 @@ describe('the startup check and the Slack bridge', () => {
     }
   });
 
-  it('allows Slack for 8239 only', () => {
-    expect(runAsBattalion(HOME_BATTALION_ID, slackAllowedHere)).toBe(true);
-    expect(runAsBattalion(B, slackAllowedHere)).toBe(false);
-    expect(slackAllowedHere()).toBe(false);
-  });
 });

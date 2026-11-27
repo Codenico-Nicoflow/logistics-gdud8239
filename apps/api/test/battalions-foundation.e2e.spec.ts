@@ -9,7 +9,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { takeFormNo } from '../src/issue-forms/form-no';
 import { TenantPool } from '../src/tenancy/tenant-pool';
-import { HOME_BATTALION_ID } from '../src/common/slack-bridge';
+import { HOME_BATTALION_ID } from '../src/common/home-battalion';
 
 const ROLLBACK = 'rollback-on-purpose';
 

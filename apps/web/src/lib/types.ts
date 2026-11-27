@@ -13,6 +13,15 @@ export type ModuleId = (typeof MODULE_IDS)[number];
 export type ModuleState = Record<ModuleId, boolean>;
 export type ModulesInfo = { enabled: ModuleState; canChange: boolean };
 
+export const SLACK_KINDS = ['snapshots', 'mesakem', 'attendance'] as const;
+export type SlackKind = (typeof SLACK_KINDS)[number];
+/** What Slack can do for this battalion. `channels` (the ids themselves) is only sent to the platform admin. */
+export type SlackOverview = {
+  botReady: boolean;
+  configured: Record<SlackKind, boolean>;
+  channels: Record<SlackKind, string | null> | null;
+};
+
 /** One of the battalion's companies, as `GET /companies` returns it. */
 export type CompanyInfo = { id: string; code: Company; name: string; sortOrder: number; isActive: boolean };
 export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR' | 'AMMO';

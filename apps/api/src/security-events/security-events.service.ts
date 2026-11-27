@@ -21,6 +21,8 @@ export const SecurityEventType = {
   ACT_AS: 'ACT_AS',
   /** A super admin switched an optional module on or off for the battalion. */
   MODULE_CHANGED: 'MODULE_CHANGED',
+  /** The platform admin set or cleared one of a battalion's Slack channels. */
+  SLACK_CHANGED: 'SLACK_CHANGED',
 } as const;
 export type SecurityEventType = (typeof SecurityEventType)[keyof typeof SecurityEventType];
 

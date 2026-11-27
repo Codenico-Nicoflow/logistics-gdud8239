@@ -19,6 +19,7 @@ import {
 } from '../../components/ui';
 import { DeleteDialog } from '../../components/DeleteDialog';
 import { useToast } from '../../components/toast';
+import { useSlack } from '../slack/useSlack';
 import { he } from '../../i18n/he';
 import { todayIso } from '../../lib/dates';
 import type { AttendanceStatus, AuthUser, Gender, WeekRow } from '../../lib/types';
@@ -57,6 +58,7 @@ function weeksFromToday(anchor: string): number {
  */
 export function AttendancePage({ user }: { user: AuthUser }) {
   const isAdmin = user.role === 'admin';
+  const slack = useSlack();
   const [anchor, setAnchor] = useState(todayIso());
   const [adding, setAdding] = useState(false);
   const [sending, setSending] = useState(false);
@@ -91,9 +93,11 @@ export function AttendancePage({ user }: { user: AuthUser }) {
         </div>
         {isAdmin && (
           <div className="flex gap-2">
-            <Button variant="quiet" onClick={() => setSending(true)} disabled={!data}>
-              {he.attendance.sendToSlack}
-            </Button>
+            {slack.isConfigured('attendance') && (
+              <Button variant="quiet" onClick={() => setSending(true)} disabled={!data}>
+                {he.attendance.sendToSlack}
+              </Button>
+            )}
             <Button variant="quiet" onClick={() => setAdding(true)}>
               {he.attendance.addMember}
             </Button>

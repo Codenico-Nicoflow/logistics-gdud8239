@@ -16,6 +16,7 @@ import { SignaturesModule } from './signatures/signatures.module';
 import { IssueFormsModule } from './issue-forms/issue-forms.module';
 import { AllocationsModule } from './allocations/allocations.module';
 import { ItemKitsModule } from './item-kits/item-kits.module';
+import { SlackModule } from './slack/slack.module';
 import { ModulesModule } from './modules/modules.module';
 import { ModulesGuard } from './modules/modules.guard';
 import { PlatformModule } from './platform/platform.module';
@@ -111,6 +112,7 @@ import { PlatformAdminGuard } from './auth/guards/platform-admin.guard';
     BattalionModule,
     PlatformModule,
     ModulesModule,
+    SlackModule,
     PermissionsModule,
     IntakeModule,
     MovementsModule,
