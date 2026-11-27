@@ -7,6 +7,7 @@ import { addressOf } from '../../app/navConfig';
 import { type Company } from '../../lib/types';
 import type { DocumentsLocationState } from '../signatures/DocumentsPage';
 import { useCompanies } from '../companies/useCompanies';
+import { ReceiptNoField } from '../soldiers/ReceiptNoField';
 
 /**
  * Step 2 — confirm the soldier before anything is signed to them.
@@ -55,6 +56,7 @@ export function ConfirmSoldier({
               <Detail label={he.issue.personalNumber} value={data.personalNumber} mono />
               <Detail label={he.issue.company} value={nameOf(data.company)} />
               <Detail label={he.issue.phone} value={data.phone} mono />
+              <Detail label={he.receiptNo.label} value={data.receiptNo} mono />
             </dl>
 
             {data.isEnlisted === false && (
@@ -155,6 +157,7 @@ function EditSoldier({
   const [lastName, setLastName] = useState(soldier.lastName);
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
   const [phone, setPhone] = useState(soldier.phone ?? '');
+  const [receiptNo, setReceiptNo] = useState(soldier.receiptNo ?? '');
   const [company, setCompany] = useState<Company>(soldier.company);
   const [isAttached, setIsAttached] = useState(soldier.isAttached);
   const [update, { isLoading, error }] = useUpdateSoldierMutation();
@@ -166,6 +169,7 @@ function EditSoldier({
       lastName: lastName.trim(),
       company,
       isAttached,
+      receiptNo: receiptNo.trim(),
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
     });
@@ -191,6 +195,7 @@ function EditSoldier({
           onChange={(v) => v && setCompany(v as Company)}
           options={companyOptions}
         />
+        <ReceiptNoField company={company} value={receiptNo} onChange={setReceiptNo} />
       </div>
       <Checkbox checked={isAttached} onChange={setIsAttached} label={he.soldiers.attachedHint} />
       {message && (

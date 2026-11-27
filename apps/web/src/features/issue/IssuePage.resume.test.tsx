@@ -13,7 +13,7 @@ import { loadDraft, saveDraft } from './issueDraft';
 import { IssuePage } from './IssuePage';
 
 const soldier: SoldierSummary = {
-  id: 's1', firstName: 'דנה', lastName: 'כהן', personalNumber: '1234567', phone: null, company: 'A',
+  id: 's1', firstName: 'דנה', lastName: 'כהן', personalNumber: '1234567', phone: null, receiptNo: null, company: 'A',
   isActive: true, isAttached: false, openSignatureCount: 0, isEnlisted: true,
 };
 const item: Item = {

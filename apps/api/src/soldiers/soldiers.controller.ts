@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { RequirePermission } from '../auth/decorators/permission.decorator';
@@ -15,6 +15,13 @@ export class SoldiersController {
   @Get()
   findAll(@Query() query: QuerySoldiersDto, @CurrentUser() actor: AuthUser) {
     return this.soldiers.findAll(query, actor.companyScope);
+  }
+
+  /** Declared before `:id`, or "receipt-hint" would be read as a soldier id. */
+  @Get('receipt-hint')
+  receiptHint(@Query('company') company: string, @CurrentUser() actor: AuthUser) {
+    if (!company) throw new BadRequestException('חסרה פלוגה');
+    return this.soldiers.receiptHint(company, actor.companyScope);
   }
 
   @Get(':id')

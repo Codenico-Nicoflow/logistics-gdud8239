@@ -8,6 +8,7 @@ import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { type Company, type NewSoldier, type SoldierSummary } from '../../lib/types';
 import { useCompanies } from '../companies/useCompanies';
+import { ReceiptNoField } from './ReceiptNoField';
 
 /**
  * Creating a soldier.
@@ -34,6 +35,7 @@ export function AddSoldierDialog({
   const [lastName, setLastName] = useState('');
   const [personalNumber, setPersonalNumber] = useState('');
   const [phone, setPhone] = useState('');
+  const [receiptNo, setReceiptNo] = useState('');
   // Until the operator picks one, the first active company of THIS battalion; never a code that might not exist.
   const [picked, setPicked] = useState<Company | null>(null);
   const company = picked ?? companyOptions[0]?.value ?? '';
@@ -51,6 +53,7 @@ export function AddSoldierDialog({
       company,
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
+      ...(receiptNo.trim() ? { receiptNo: receiptNo.trim() } : {}),
       ...(isAttached ? { isAttached } : {}),
     };
   }
@@ -139,6 +142,7 @@ export function AddSoldierDialog({
               hint={he.issue.optional}
             />
           </div>
+          <ReceiptNoField company={company} value={receiptNo} onChange={setReceiptNo} />
 
           <Checkbox checked={isAttached} onChange={setIsAttached} label={he.soldiers.attachedHint} />
 

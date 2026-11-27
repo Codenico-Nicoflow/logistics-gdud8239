@@ -173,6 +173,7 @@ describe('טופס 1008', () => {
   it('records a weapon and its accessories under one signature', async () => {
     const res = await post({
       soldierId: soldierA,
+      receiptNo: 'E2E-1',
       signatureImage: SIGNATURE,
       lines: [
         { itemId: weaponId, serial: 'FORM-A-1', quantity: 1 },
@@ -207,12 +208,14 @@ describe('טופס 1008', () => {
     // The soldier signed for a list; half a list is not what they agreed to.
     await post({
       soldierId: soldierB,
+      receiptNo: 'E2E-1',
       signatureImage: SIGNATURE,
       lines: [{ itemId: weaponId, serial: 'FORM-HELD', quantity: 1 }],
     }).expect(201);
 
     await post({
       soldierId: soldierA,
+      receiptNo: 'E2E-1',
       signatureImage: SIGNATURE,
       lines: [
         { itemId: accessoryId, quantity: 5 },
@@ -345,5 +348,43 @@ describe('טופס 1008', () => {
         data: { soldierNameSnapshot: 'מישהו אחר' },
       }),
     ).rejects.toThrow(/append-only/);
+  });
+});
+
+describe('מספר קבלה', () => {
+  const weaponLine = (serial: string) => [{ itemId: weaponId, serial, quantity: 1 }];
+  const savedOn = async (id: string) => (await prisma.soldier.findUniqueOrThrow({ where: { id } })).receiptNo;
+
+  it('is required before a weapon goes out, and not for equipment alone', async () => {
+    await post({ soldierId: soldierA, signatureImage: SIGNATURE, lines: weaponLine('RCPT-1') }).expect(400);
+    await post({ soldierId: soldierB, signatureImage: SIGNATURE, lines: [{ itemId: accessoryId, quantity: 2 }] }).expect(201);
+  });
+
+  it('is saved on the soldier when typed at ניפוק, and printed on the form', async () => {
+    const res = await post({ soldierId: soldierA, receiptNo: ' E2E-7 ', signatureImage: SIGNATURE, lines: weaponLine('RCPT-2') }).expect(201);
+    expect(res.body.receiptNo).toBe('E2E-7');
+    expect(await savedOn(soldierA)).toBe('E2E-7');
+  });
+
+  it('is taken from the soldier when the operator leaves it blank, so a second signing needs no typing', async () => {
+    await prisma.soldier.update({ where: { id: soldierA }, data: { receiptNo: 'E2E-8' } });
+    const res = await post({ soldierId: soldierA, signatureImage: SIGNATURE, lines: weaponLine('RCPT-3') }).expect(201);
+    expect(res.body.receiptNo).toBe('E2E-8');
+  });
+
+  it('replaces the saved number when a different one is typed', async () => {
+    await prisma.soldier.update({ where: { id: soldierA }, data: { receiptNo: 'E2E-8' } });
+    await post({ soldierId: soldierA, receiptNo: 'E2E-9', signatureImage: SIGNATURE, lines: weaponLine('RCPT-4') }).expect(201);
+    expect(await savedOn(soldierA)).toBe('E2E-9');
+  });
+
+  it('refuses a number another soldier of the same company holds, but allows it in another company', async () => {
+    await prisma.soldier.create({ data: { firstName: 'שלישי', lastName: LAST, company: 'A', personalNumber: '8222203', receiptNo: 'E2E-5' } });
+    const clash = await post({ soldierId: soldierA, receiptNo: 'E2E-5', signatureImage: SIGNATURE, lines: weaponLine('RCPT-5') }).expect(409);
+    expect(JSON.stringify(clash.body)).toContain('שלישי');
+    expect(await prisma.issueForm.count({ where: { soldierId: soldierA } })).toBe(0);
+    expect(await savedOn(soldierA)).toBeNull();
+
+    await post({ soldierId: soldierB, receiptNo: 'E2E-5', signatureImage: SIGNATURE, lines: weaponLine('RCPT-6') }).expect(201);
   });
 });

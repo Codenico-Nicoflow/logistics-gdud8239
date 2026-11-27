@@ -14,6 +14,7 @@ import type { Paginated } from '../common/pagination.dto';
 import { findOperationalServicePeriod } from '../common/active-service-period';
 import type { CompanyCode } from '../companies/company-code';
 import { CompaniesService } from '../companies/companies.service';
+import { assertReceiptFree, normalizeReceiptNo, receiptHint } from './receipt-no';
 
 /**
  * Search matches name, מ.א. or phone. A full name is split so "נריה אדלר"
@@ -26,6 +27,7 @@ function soldierSearchClauses(raw: string): Prisma.SoldierWhereInput[] {
     { lastName: { contains: q, mode: 'insensitive' } },
     { personalNumber: { contains: q } },
     { phone: { contains: q } },
+    { receiptNo: { contains: q } },
   ];
 
   const parts = q.split(/\s+/).filter(Boolean);
@@ -54,6 +56,7 @@ export type SoldierSummary = {
   lastName: string;
   personalNumber: string | null;
   phone: string | null;
+  receiptNo: string | null;
   company: CompanyCode;
   isActive: boolean;
   isAttached: boolean;
@@ -136,6 +139,7 @@ export class SoldiersService {
         lastName: s.lastName,
         personalNumber: s.personalNumber,
         phone: s.phone,
+        receiptNo: s.receiptNo,
         company: s.company,
         isActive: s.isActive,
         isAttached: s.isAttached,
@@ -144,6 +148,12 @@ export class SoldiersService {
       })),
       total,
     };
+  }
+
+  /** The last receipt number a company has used and the next one, so the operator need not count the shelf. */
+  receiptHint(company: CompanyCode, scope: CompanyCode | null = null): Promise<{ last: string | null; next: string }> {
+    assertCompanyAllowed(company, scope);
+    return receiptHint(this.prisma, company);
   }
 
   /** שלישות toggles whether a soldier is מחויל for the currently active תקופת שרות. */
@@ -220,6 +230,7 @@ export class SoldiersService {
       lastName: s.lastName,
       personalNumber: s.personalNumber,
       phone: s.phone,
+      receiptNo: s.receiptNo,
       company: s.company,
       isActive: s.isActive,
       isAttached: s.isAttached,
@@ -243,6 +254,8 @@ export class SoldiersService {
       }
     }
     await this.companies.assertActive(dto.company);
+    const receiptNo = normalizeReceiptNo(dto.receiptNo);
+    if (receiptNo) await assertReceiptFree(this.prisma, dto.company, receiptNo);
 
     return this.prisma.soldier.create({
       data: {
@@ -251,7 +264,7 @@ export class SoldiersService {
         personalNumber: dto.personalNumber ?? null,
         phone: dto.phone ?? null,
         company: dto.company,
-        receiptNo: dto.receiptNo ?? null,
+        receiptNo,
         notes: dto.notes ?? null,
         isAttached: dto.isAttached ?? false,
       },
@@ -284,6 +297,13 @@ export class SoldiersService {
       if (clash) throw new ConflictException(`מספר אישי ${dto.personalNumber} משויך כבר לחייל אחר`);
     }
 
+    // Checked when the number changes and also when the soldier moves company: his number may be taken there.
+    const receiptNo = dto.receiptNo !== undefined ? normalizeReceiptNo(dto.receiptNo) : soldier.receiptNo;
+    const company = dto.company ?? soldier.company;
+    if (receiptNo && (receiptNo !== soldier.receiptNo || company !== soldier.company)) {
+      await assertReceiptFree(this.prisma, company, receiptNo, soldier.id);
+    }
+
     return this.prisma.soldier.update({
       where: { id },
       data: {
@@ -292,7 +312,7 @@ export class SoldiersService {
         ...(dto.personalNumber !== undefined ? { personalNumber: dto.personalNumber } : {}),
         ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
         ...(dto.company !== undefined ? { company: dto.company } : {}),
-        ...(dto.receiptNo !== undefined ? { receiptNo: dto.receiptNo } : {}),
+        ...(dto.receiptNo !== undefined ? { receiptNo } : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...(dto.isAttached !== undefined ? { isAttached: dto.isAttached } : {}),

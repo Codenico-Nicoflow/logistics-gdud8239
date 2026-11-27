@@ -11,7 +11,7 @@ import { resetApi, respond } from '../../test/mockApi';
 import { ConfirmSoldier } from './ConfirmSoldier';
 
 const SOLDIER = {
-  id: 's1', firstName: 'דנה', lastName: 'כהן', company: 'A', personalNumber: '1234567', phone: '0501234567',
+  id: 's1', firstName: 'דנה', lastName: 'כהן', company: 'A', personalNumber: '1234567', phone: '0501234567', receiptNo: null as string | null,
   isActive: true, isAttached: false, isEnlisted: true, signatures: [] as unknown[],
 };
 const HOLDS = { ...SOLDIER, signatures: [{ id: 'g1', quantity: 1, item: { name: 'M-4' }, itemInstance: { serial: '943550' } }] };

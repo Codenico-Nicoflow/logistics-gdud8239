@@ -23,6 +23,7 @@ import {
   Checkbox,
 } from '../../components/ui';
 import { AddSoldierDialog } from './AddSoldierDialog';
+import { ReceiptNoField } from './ReceiptNoField';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
 import { type AuthUser, type Company, type SoldierSummary } from '../../lib/types';
@@ -192,6 +193,8 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                     <dd className={s.personalNumber ? 'serial' : 'font-semibold text-oxide'}>
                       {s.personalNumber ?? he.soldiers.missing}
                     </dd>
+                    <dt className="text-graphite">{he.soldiers.receiptNo}</dt>
+                    <dd className={s.receiptNo ? 'serial' : 'text-graphite'}>{s.receiptNo ?? '—'}</dd>
                     <dt className="text-graphite">{he.soldiers.phone}</dt>
                     <dd className={s.phone ? 'serial' : 'font-semibold text-oxide'}>
                       {s.phone ? (
@@ -239,6 +242,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                     </SortableTh>
                     <Th>{he.soldiers.personalNumber}</Th>
                     <Th>{he.soldiers.phone}</Th>
+                    <Th>{he.soldiers.receiptNo}</Th>
                     <SortableTh active={sort === 'company'} onClick={() => setSort('company')}>
                       {he.soldiers.company}
                     </SortableTh>
@@ -260,6 +264,7 @@ export function SoldiersPage({ user }: { user: AuthUser }) {
                       </Td>
                       <Missing value={s.personalNumber} mono />
                       <Missing value={s.phone} mono />
+                      <Td className="serial">{s.receiptNo ?? <span className="text-graphite">—</span>}</Td>
                       <Td>{nameOf(s.company)}</Td>
                       <Td>
                         <EnlistedCell
@@ -543,6 +548,7 @@ function EditSoldierDialog({
   const [lastName, setLastName] = useState(soldier.lastName);
   const [personalNumber, setPersonalNumber] = useState(soldier.personalNumber ?? '');
   const [phone, setPhone] = useState(soldier.phone ?? '');
+  const [receiptNo, setReceiptNo] = useState(soldier.receiptNo ?? '');
   const [company, setCompany] = useState<Company>(soldier.company);
   const [isAttached, setIsAttached] = useState(soldier.isAttached);
   const [update, { isLoading, error }] = useUpdateSoldierMutation();
@@ -555,6 +561,8 @@ function EditSoldierDialog({
       lastName: lastName.trim(),
       company,
       isAttached,
+      // Always sent: an empty box clears the number, unlike the optional fields above.
+      receiptNo: receiptNo.trim(),
       ...(personalNumber.trim() ? { personalNumber: personalNumber.trim() } : {}),
       ...(phone.trim() ? { phone: phone.trim() } : {}),
     });
@@ -604,6 +612,7 @@ function EditSoldierDialog({
             />
             <TextField label={he.soldiers.phone} value={phone} onChange={setPhone} />
           </div>
+          <ReceiptNoField company={company} value={receiptNo} onChange={setReceiptNo} />
           <Checkbox checked={isAttached} onChange={setIsAttached} label={he.soldiers.attachedHint} />
 
           {message && (

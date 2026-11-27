@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { findOperationalServicePeriod } from '../common/active-service-period';
 import { takeFormNo } from './form-no';
+import { assertReceiptFree, normalizeReceiptNo } from '../soldiers/receipt-no';
 import type { AuthUser } from '../auth/auth.types';
 import type { CreateIssueFormDto } from './dto/create-issue-form.dto';
 import type { CompanyCode } from '../companies/company-code';
@@ -94,6 +95,13 @@ export class IssueFormsService {
       }
     }
 
+    // The number on his shelf note: what was typed wins and is saved on him, so the next signing starts from it.
+    const receiptNo = await this.settleReceiptNo(
+      soldier,
+      dto.receiptNo,
+      dto.lines.some((l) => itemById.get(l.itemId)?.category === 'WEAPON'),
+    );
+
     // A מסד can appear once on a form: the same physical weapon cannot be
     // handed over twice in one handover.
     const serials = dto.lines
@@ -116,10 +124,11 @@ export class IssueFormsService {
             signatureImage: dto.signatureImage,
             issuedByUserId: actor.id,
             issuedByNameSnapshot: actor.displayName,
-            receiptNo: dto.receiptNo?.trim() || null,
+            receiptNo,
             notes: dto.notes ?? null,
           },
         });
+        await this.saveReceiptNo(tx, soldier, receiptNo);
 
         for (const line of dto.lines) {
           const item = itemById.get(line.itemId);
@@ -183,7 +192,7 @@ export class IssueFormsService {
                   itemId: item.id,
                   itemInstanceId,
                   quantity: line.quantity,
-                  receiptNo: dto.receiptNo?.trim() || null,
+                  receiptNo,
                   signedByUserId: actor.id,
                 },
               });
@@ -215,7 +224,7 @@ export class IssueFormsService {
               quantity: line.quantity,
               performedByUserId: actor.id,
               performedByNameSnapshot: actor.displayName,
-              receiptNo: dto.receiptNo?.trim() || null,
+              receiptNo,
               signatureId: signature.id,
             },
           });
@@ -298,6 +307,13 @@ export class IssueFormsService {
       }
     }
 
+    // The number on his shelf note: what was typed wins and is saved on him, so the next signing starts from it.
+    const receiptNo = await this.settleReceiptNo(
+      soldier,
+      dto.receiptNo,
+      dto.lines.some((l) => itemById.get(l.itemId)?.category === 'WEAPON'),
+    );
+
     const serials = dto.lines
       .map((l) => (l.serial ? `${l.itemId}|${l.serial.trim()}` : null))
       .filter((s): s is string => s !== null);
@@ -329,10 +345,11 @@ export class IssueFormsService {
             signatureImage: dto.signatureImage,
             issuedByUserId: actor.id,
             issuedByNameSnapshot: actor.displayName,
-            receiptNo: dto.receiptNo?.trim() || null,
+            receiptNo,
             notes,
           },
         });
+        await this.saveReceiptNo(tx, soldier, receiptNo);
 
         const touchedSignatureIds = new Set<string>();
 
@@ -398,7 +415,7 @@ export class IssueFormsService {
                   itemId: item.id,
                   itemInstanceId,
                   quantity: line.quantity,
-                  receiptNo: dto.receiptNo?.trim() || null,
+                  receiptNo,
                   signedByUserId: actor.id,
                 },
               });
@@ -430,7 +447,7 @@ export class IssueFormsService {
                 quantity: line.quantity,
                 performedByUserId: actor.id,
                 performedByNameSnapshot: actor.displayName,
-                receiptNo: dto.receiptNo?.trim() || null,
+                receiptNo,
                 // Tags every line this reissue touched, so דוח תנועות can
                 // show "this wasn't a fresh ניפוק, it's an edit of an
                 // existing handover" at a glance, not just infer it from a
@@ -496,6 +513,41 @@ export class IssueFormsService {
   }
 
   /** Forms for the list view, newest first. The signature image is omitted. */
+  /**
+   * The soldier's shelf-note number for this form: the one typed here, else the one already saved on him.
+   * A weapon never goes out without one, since the note is how it is found again.
+   */
+  private async settleReceiptNo(
+    soldier: { id: string; company: CompanyCode; receiptNo: string | null },
+    typed: string | undefined,
+    hasWeapon: boolean,
+  ): Promise<string | null> {
+    const receiptNo = normalizeReceiptNo(typed) ?? normalizeReceiptNo(soldier.receiptNo);
+    if (hasWeapon && !receiptNo) throw new BadRequestException('חובה מספר קבלה לפני ניפוק נשק');
+    if (receiptNo && receiptNo !== soldier.receiptNo) {
+      await assertReceiptFree(this.prisma, soldier.company, receiptNo, soldier.id);
+    }
+    return receiptNo;
+  }
+
+  /** Inside the handover's transaction, so a number is never saved for a form that did not land. */
+  private async saveReceiptNo(
+    tx: Prisma.TransactionClient,
+    soldier: { id: string; receiptNo: string | null },
+    receiptNo: string | null,
+  ): Promise<void> {
+    if (!receiptNo || receiptNo === soldier.receiptNo) return;
+    try {
+      await tx.soldier.update({ where: { id: soldier.id }, data: { receiptNo } });
+    } catch (e) {
+      // Another form took the number between the check and here; not the מסד conflict the caller maps P2002 to.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === UNIQUE_VIOLATION) {
+        throw new ConflictException(`מספר קבלה ${receiptNo} כבר שייך לחייל אחר באותה פלוגה`);
+      }
+      throw e;
+    }
+  }
+
   async findAll(query: { soldierId?: string; take?: number; skip?: number; scope?: CompanyCode | null }) {
     const where = {
       ...(query.soldierId ? { soldierId: query.soldierId } : {}),

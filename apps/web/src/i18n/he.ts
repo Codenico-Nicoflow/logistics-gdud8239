@@ -225,10 +225,19 @@ export const he = {
     undo: 'בטל',
   },
 
+  receiptNo: {
+    label: 'מספר קבלה (הפתק ליד הנשק)',
+    hint: (last: string, next: string) => `אחרון בפלוגה: ${last} · הבא: ${next}`,
+    hintNone: 'עדיין אין מספרים בפלוגה · הראשון: 1',
+    useNext: (n: string) => `השתמש ב-${n}`,
+    missing: 'עדיין אין מספר קבלה',
+    requiredForWeapon: 'חובה מספר קבלה לפני ניפוק נשק',
+  },
   soldiers: {
     title: 'חיילים',
     subtitle: 'רשימת החיילים בגדוד והפריטים שברשותם',
-    search: 'חפש לפי שם, מספר אישי או טלפון',
+    search: 'חפש לפי שם, מספר אישי, טלפון או מספר קבלה',
+    receiptNo: 'מס׳ קבלה',
     allCompanies: 'כל הפלוגות',
     sortByName: 'מיון לפי שם',
     sortByCompany: 'מיון לפי פלוגה',
