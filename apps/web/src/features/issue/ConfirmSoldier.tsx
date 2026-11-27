@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSoldierQuery, useUpdateSoldierMutation } from '../../lib/api';
-import { apiErrorMessage, Button, Panel, Select, Spinner, Tag, TextField } from '../../components/ui';
+import { apiErrorMessage, Button, Checkbox, Panel, Select, Spinner, Tag, TextField } from '../../components/ui';
 import { he } from '../../i18n/he';
 import { addressOf } from '../../app/navConfig';
 import { COMPANIES, type Company } from '../../lib/types';
@@ -189,10 +189,7 @@ function EditSoldier({
           options={COMPANIES.map((c) => ({ value: c, label: he.companies[c] }))}
         />
       </div>
-      <label className="flex items-center gap-2 text-meta">
-        <input type="checkbox" checked={isAttached} onChange={(e) => setIsAttached(e.target.checked)} />
-        {he.soldiers.attachedHint}
-      </label>
+      <Checkbox checked={isAttached} onChange={setIsAttached} label={he.soldiers.attachedHint} />
       {message && (
         <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
           {message}

@@ -687,3 +687,60 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/**
+ * The app's one checkbox. The native input stays (screen readers, keyboard, form semantics) but is
+ * visually replaced: a 24px box with a white face and a strong border when off, solid field green with
+ * a white tick that draws itself when on. The browser default is a 13px grey square whose white tick
+ * disappears on our pale cards. The whole row is the tap target (44px), not just the box.
+ */
+export function Checkbox({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+  ariaLabel,
+  invalid,
+  className = '',
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label?: ReactNode;
+  hint?: ReactNode;
+  disabled?: boolean;
+  ariaLabel?: string;
+  invalid?: boolean;
+  className?: string;
+}) {
+  return (
+    <label
+      className={`group flex min-h-11 items-center gap-3 text-meta ${
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+      } ${className}`}
+    >
+      <input
+        type="checkbox"
+        className="peer sr-only"
+        checked={checked}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span
+        aria-hidden
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 ${invalid ? 'border-oxide' : 'border-rule-strong'} bg-card-raised shadow-inset-field transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out group-hover:border-field peer-checked:border-field peer-checked:bg-field peer-checked:shadow-none peer-focus-visible:ring-2 peer-focus-visible:ring-field/40 peer-focus-visible:ring-offset-2 group-active:scale-90 motion-reduce:transition-none [&_path]:[stroke-dasharray:24] [&_path]:[stroke-dashoffset:24] [&_path]:transition-[stroke-dashoffset] [&_path]:duration-200 peer-checked:[&_path]:[stroke-dashoffset:0] motion-reduce:[&_path]:transition-none`}
+      >
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      </span>
+      {(label || hint) && (
+        <span className="min-w-0">
+          {label && <span className="block font-semibold text-ink">{label}</span>}
+          {hint && <span className="block text-graphite">{hint}</span>}
+        </span>
+      )}
+    </label>
+  );
+}

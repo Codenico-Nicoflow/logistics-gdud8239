@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SignaturePad } from '../../components/SignaturePad';
-import { TextField } from '../../components/ui';
+import { Checkbox, TextField } from '../../components/ui';
 import { he } from '../../i18n/he';
 
 export type SignerValue = {
@@ -48,18 +48,15 @@ export function SignerFields({
           emit(v, other, name);
         }}
       />
-      <label className="flex items-center gap-2 text-meta">
-        <input
-          type="checkbox"
-          checked={other}
-          disabled={disabled}
-          onChange={(e) => {
-            setOther(e.target.checked);
-            emit(image, e.target.checked, name);
-          }}
-        />
-        {he.ifsun.otherPerson}
-      </label>
+      <Checkbox
+        checked={other}
+        disabled={disabled}
+        onChange={(next) => {
+          setOther(next);
+          emit(image, next, name);
+        }}
+        label={he.ifsun.otherPerson}
+      />
       {other && (
         <TextField
           label={he.ifsun.otherName}
