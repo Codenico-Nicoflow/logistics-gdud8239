@@ -3,6 +3,9 @@ import type {
   AuthUser,
   Company,
   BattalionInfo,
+  CreatedBattalion,
+  NewBattalionInput,
+  PlatformBattalion,
   CompanyInfo,
   CountSheet,
   CountShift,
@@ -90,6 +93,7 @@ export const api = createApi({
   tagTypes: [
     'Auth',
     'Battalion',
+    'Platform',
     'Signatures',
     'Soldiers',
     'Items',
@@ -449,6 +453,30 @@ export const api = createApi({
     clearBattalionLogo: build.mutation<BattalionInfo, void>({
       query: () => ({ url: '/battalion/logo', method: 'DELETE' }),
       invalidatesTags: ['Battalion'],
+    }),
+    // --- the platform operator: battalions, and acting inside one ---
+    platformBattalions: build.query<PlatformBattalion[], void>({
+      query: () => '/platform/battalions',
+      providesTags: ['Platform'],
+    }),
+    createBattalion: build.mutation<CreatedBattalion, NewBattalionInput>({
+      query: (body) => ({ url: '/platform/battalions', method: 'POST', body }),
+      invalidatesTags: ['Platform'],
+    }),
+    addBattalionAdmin: build.mutation<
+      { admin: { id: string; username: string }; setup: SetupLink },
+      { id: string; adminUsername: string; adminDisplayName: string }
+    >({
+      query: ({ id, ...body }) => ({ url: `/platform/battalions/${id}/admin`, method: 'POST', body }),
+      invalidatesTags: ['Platform'],
+    }),
+    renameBattalion: build.mutation<PlatformBattalion, { id: string; name: string }>({
+      query: ({ id, name }) => ({ url: `/platform/battalions/${id}`, method: 'PATCH', body: { name } }),
+      invalidatesTags: ['Platform', 'Battalion'],
+    }),
+    // Nothing is invalidated: the caller reloads the app, so no screen can keep another battalion's data in memory.
+    actAs: build.mutation<{ user: AuthUser }, string>({
+      query: (battalionId) => ({ url: '/platform/act-as', method: 'POST', body: { battalionId } }),
     }),
     // --- companies ---
     companies: build.query<CompanyInfo[], void>({
@@ -844,6 +872,11 @@ export const {
   useLazyDeletionCheckQuery,
   useItemKitQuery,
   useBattalionQuery,
+  usePlatformBattalionsQuery,
+  useCreateBattalionMutation,
+  useAddBattalionAdminMutation,
+  useRenameBattalionMutation,
+  useActAsMutation,
   useSetBattalionLogoMutation,
   useClearBattalionLogoMutation,
   useCompaniesQuery,

@@ -17,7 +17,7 @@ function soldier(over: Partial<SoldierSummary> = {}): SoldierSummary {
   };
 }
 function user(role: Role, over: Partial<AuthUser> = {}): AuthUser {
-  return { id: 'u', username: 'x', displayName: 'x', role, companyScope: null, battalionId: 'b1', isPlatformAdmin: false, ...over };
+  return { id: 'u', username: 'x', displayName: 'x', role, companyScope: null, battalionId: 'b1', homeBattalionId: 'b1', actorId: null, isPlatformAdmin: false, ...over };
 }
 function show(u: AuthUser, rows: SoldierSummary[]): void {
   respond({

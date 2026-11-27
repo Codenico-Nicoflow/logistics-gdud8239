@@ -9,6 +9,8 @@ export type JwtPayload = {
   companyScope: CompanyCode | null;
   /** The battalion this session serves. Every query is filtered to it by the database. */
   battalionId: string;
+  /** Set only on a platform admin's session inside a battalion that is not their own: the real person's id. */
+  actorId?: string;
   /** Issued-at (seconds), set by the JWT library. */
   iat?: number;
   /** Issued-at in milliseconds. `iat` rounds down to the second, which cannot tell a token issued just
@@ -23,7 +25,12 @@ export type AuthUser = {
   displayName: string;
   role: Role;
   companyScope: CompanyCode | null;
+  /** The battalion this session serves. For a platform admin acting inside another battalion, that one. */
   battalionId: string;
+  /** Where the person really belongs. Differs from `battalionId` only while acting as another battalion. */
+  homeBattalionId: string;
+  /** The real person's id while acting as another battalion; null for an ordinary session. */
+  actorId: string | null;
   isPlatformAdmin: boolean;
 };
 

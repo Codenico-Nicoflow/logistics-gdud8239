@@ -17,6 +17,8 @@ export const SecurityEventType = {
   MFA_BACKUP_USED: 'MFA_BACKUP_USED',
   MFA_EXEMPTION_CHANGED: 'MFA_EXEMPTION_CHANGED',
   MFA_ENFORCEMENT_CHANGED: 'MFA_ENFORCEMENT_CHANGED',
+  /** A platform admin switched into this battalion (recorded here, under their stand-in account). */
+  ACT_AS: 'ACT_AS',
 } as const;
 export type SecurityEventType = (typeof SecurityEventType)[keyof typeof SecurityEventType];
 

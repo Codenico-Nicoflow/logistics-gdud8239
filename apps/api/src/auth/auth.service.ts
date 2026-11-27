@@ -235,6 +235,7 @@ export class AuthService {
       role: user.role,
       companyScope: user.companyScope,
       battalionId: user.battalionId,
+      ...(user.actorId ? { actorId: user.actorId } : {}),
       iatMs: Date.now(),
     };
 
@@ -300,6 +301,10 @@ export class AuthService {
 
     if (stored.userId !== payload.sub || !stored.user.isActive) {
       throw new UnauthorizedException('המשתמש אינו פעיל');
+    }
+    // A stand-in lives only as long as the platform admin behind it.
+    if (stored.user.actsForId && !(await this.tenants.platformActor(stored.user.actsForId))) {
+      throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
     }
     // Once the authenticator step is required, a session opened before that cannot be renewed by
     // someone who has not set it up: they sign in again and enrol. (Access tokens already issued run

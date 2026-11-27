@@ -234,6 +234,9 @@ model User {
   /// battalions (full-database backups, the permission matrix) and, from step 4, create battalions and act
   /// as any of them. Distinct from `isSuperAdmin`, which is a power inside one battalion.
   isPlatformAdmin   Boolean   @default(false) @map("is_platform_admin")
+  /// Set on the hidden stand-in a platform admin gets inside a battalion they act as: the real person's id.
+  /// Never on a person who can sign in. See docs/feat-mt-platform-admin.md.
+  actsForId         String?   @map("acts_for_id")
   /// Consecutive wrong passwords. Past a threshold the account is locked for a growing
   /// time (`lockedUntil`), counted per ACCOUNT rather than per IP so an attack spread over
   /// many addresses is still stopped. Reset on a successful login.
@@ -266,6 +269,7 @@ model User {
   dailySummaryLines   DailySummaryLine[]
   countReopens        CountSessionReopen[]
 
+  @@unique([actsForId, battalionId])
   @@index([battalionId])
   @@map("users")
 }

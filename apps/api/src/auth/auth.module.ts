@@ -19,6 +19,6 @@ import { MfaService } from './mfa.service';
   imports: [ConfigModule, JwtModule.register({})],
   providers: [AuthService, InvitesService, SessionCookies, MfaPolicy, MfaService],
   controllers: [AuthController, MfaController],
-  exports: [AuthService, InvitesService, MfaService, MfaPolicy, JwtModule],
+  exports: [AuthService, InvitesService, SessionCookies, MfaService, MfaPolicy, JwtModule],
 })
 export class AuthModule {}

@@ -10,7 +10,7 @@ import { HelpPage } from './HelpPage';
 
 afterEach(cleanup);
 
-const user = (role: Role): AuthUser => ({ id: 'u', username: 'x', displayName: 'x', role, companyScope: null, battalionId: 'b1', isPlatformAdmin: false });
+const user = (role: Role): AuthUser => ({ id: 'u', username: 'x', displayName: 'x', role, companyScope: null, battalionId: 'b1', homeBattalionId: 'b1', actorId: null, isPlatformAdmin: false });
 
 function show(role: Role, at = '/help'): void {
   render(

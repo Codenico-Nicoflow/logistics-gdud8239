@@ -2,7 +2,7 @@ import type { User } from '@prisma/client';
 import type { AuthUser } from './auth.types';
 
 /** The slice of a user row the rest of the app sees: never the password hash or lockout state. */
-export function toAuthUser(user: Pick<User, 'id' | 'username' | 'displayName' | 'role' | 'companyScope' | 'battalionId' | 'isPlatformAdmin'>): AuthUser {
+export function toAuthUser(user: Pick<User, 'id' | 'username' | 'displayName' | 'role' | 'companyScope' | 'battalionId' | 'isPlatformAdmin' | 'actsForId'>): AuthUser {
   return {
     id: user.id,
     username: user.username,
@@ -10,6 +10,8 @@ export function toAuthUser(user: Pick<User, 'id' | 'username' | 'displayName' | 
     role: user.role,
     companyScope: user.companyScope,
     battalionId: user.battalionId,
+    homeBattalionId: user.battalionId,
+    actorId: user.actsForId,
     isPlatformAdmin: user.isPlatformAdmin,
   };
 }
