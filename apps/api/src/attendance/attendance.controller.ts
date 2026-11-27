@@ -1,3 +1,4 @@
+import { RequireModule } from '../modules/require-module.decorator';
 import { Tier } from '../common/throttle-tiers';
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -29,6 +30,7 @@ function weeksFromToday(iso: string): number {
 }
 
 @Controller('attendance')
+@RequireModule('attendance')
 export class AttendanceController {
   constructor(
     private readonly attendance: AttendanceService,

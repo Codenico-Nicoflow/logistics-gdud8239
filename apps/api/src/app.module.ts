@@ -16,6 +16,8 @@ import { SignaturesModule } from './signatures/signatures.module';
 import { IssueFormsModule } from './issue-forms/issue-forms.module';
 import { AllocationsModule } from './allocations/allocations.module';
 import { ItemKitsModule } from './item-kits/item-kits.module';
+import { ModulesModule } from './modules/modules.module';
+import { ModulesGuard } from './modules/modules.guard';
 import { PlatformModule } from './platform/platform.module';
 import { BattalionModule } from './battalion/battalion.module';
 import { CompaniesModule } from './companies/companies.module';
@@ -108,6 +110,7 @@ import { PlatformAdminGuard } from './auth/guards/platform-admin.guard';
     CompaniesModule,
     BattalionModule,
     PlatformModule,
+    ModulesModule,
     PermissionsModule,
     IntakeModule,
     MovementsModule,
@@ -133,6 +136,7 @@ import { PlatformAdminGuard } from './auth/guards/platform-admin.guard';
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: PlatformAdminGuard },
+    { provide: APP_GUARD, useClass: ModulesGuard },
   ],
 })
 export class AppModule implements NestModule {

@@ -73,7 +73,7 @@ function CreateForm({ onCreated }: { onCreated: (link: Link) => void }) {
     <Panel title={he.platform.createTitle}>
       <form onSubmit={(e) => void submit(e)} className="space-y-3 px-4 py-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label={he.platform.name} value={form.name} onChange={set('name')} placeholder={he.platform.namePlaceholder} maxLength={60} required />
+          <TextField label={he.platform.name} value={form.name} onChange={set('name')} maxLength={60} required />
           <TextField
             label={he.platform.number}
             value={form.number}

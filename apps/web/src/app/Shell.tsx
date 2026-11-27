@@ -6,7 +6,7 @@ import { BattalionSwitcher } from '../features/platform/BattalionSwitcher';
 import { BattalionMark } from '../components/BattalionMark';
 import { he } from '../i18n/he';
 import type { AuthUser } from '../lib/types';
-import { HUBS, hubEntryAddress, visibleTabs, type HubDef, type HubGroup, type HubId } from './navConfig';
+import { HUBS, hubEntryAddress, visibleTabs, type HubDef, type HubGroup, type HubId, type Viewer } from './navConfig';
 
 function IssueIcon() {
   return (
@@ -129,7 +129,7 @@ function isInHub(pathname: string, hub: HubDef): boolean {
   return pathname === hub.path || pathname.startsWith(`${hub.path}/`);
 }
 
-export function Shell({ user }: { user: AuthUser }) {
+export function Shell({ user, viewer }: { user: AuthUser; viewer: Viewer }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logout] = useLogoutMutation();
   const { data: battalion } = useBattalionQuery();
@@ -142,7 +142,7 @@ export function Shell({ user }: { user: AuthUser }) {
   const hubsByGroup = RAIL_GROUPS.map(({ group, heading }) => ({
     group,
     heading,
-    hubs: HUBS.filter((h) => h.group === group && visibleTabs(h, user).length > 0),
+    hubs: HUBS.filter((h) => h.group === group && visibleTabs(h, viewer).length > 0),
   })).filter((g) => g.hubs.length > 0);
   const activeId = hubsByGroup.flatMap((g) => g.hubs).find((h) => isInHub(pathname, h))?.id ?? null;
 
@@ -315,7 +315,7 @@ export function Shell({ user }: { user: AuthUser }) {
                         if (el) itemRefs.current.set(hub.id, el);
                         else itemRefs.current.delete(hub.id);
                       }}
-                      to={hubEntryAddress(hub, user)}
+                      to={hubEntryAddress(hub, viewer)}
                       aria-current={isActive ? 'page' : undefined}
                       onClick={() => setMenuOpen(false)}
                       style={{ '--i': i, '--hue': HUB_HUES[hub.id] } as CSSProperties}

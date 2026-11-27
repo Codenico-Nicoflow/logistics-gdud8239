@@ -1,5 +1,5 @@
 import { he } from '../i18n/he';
-import type { Role } from '../lib/types';
+import type { ModuleId, ModuleState, Role } from '../lib/types';
 
 /**
  * The one place that says which screens exist, how they are grouped into rail entries ("hubs") with
@@ -33,6 +33,7 @@ export type TabId =
   | 'naming'
   | 'companies'
   | 'identity'
+  | 'modules'
   | 'battalions'
   | 'users'
   | 'backups'
@@ -47,10 +48,12 @@ export type TabDef = {
   roles: readonly Role[];
   /** Only the platform operator sees it, whatever their role: it spans battalions or is not partitioned by one. */
   platformOnly?: boolean;
+  /** An optional part of the product: absent while the battalion has that module switched off. */
+  module?: ModuleId;
 };
 
 /** Who is looking: what decides which screens exist for them. */
-export type Viewer = { role: Role; isPlatformAdmin: boolean };
+export type Viewer = { role: Role; isPlatformAdmin: boolean; modules: ModuleState; canChangeModules: boolean };
 
 export type HubGroup = 'work' | 'admin' | 'account';
 
@@ -81,7 +84,7 @@ export const HUBS: readonly HubDef[] = [
     group: 'work',
     tabs: [
       { id: 'servicePeriods', path: '', label: he.nav.servicePeriods, roles: ['admin', 'logistics', 'SAMGAD'] },
-      { id: 'companyAllocation', path: 'by-soldier', label: he.nav.companyAllocation, roles: ['admin', 'COMPANY_CMDR'] },
+      { id: 'companyAllocation', path: 'by-soldier', label: he.nav.companyAllocation, roles: ['admin', 'COMPANY_CMDR'], module: 'companySplit' },
     ],
   },
   {
@@ -98,7 +101,7 @@ export const HUBS: readonly HubDef[] = [
     group: 'work',
     tabs: [
       { id: 'summary', path: '', label: he.nav.summary, roles: STAFF },
-      { id: 'companySplit', path: 'companies', label: he.nav.companySplit, roles: ['admin', 'logistics', 'SAMGAD'] },
+      { id: 'companySplit', path: 'companies', label: he.nav.companySplit, roles: ['admin', 'logistics', 'SAMGAD'], module: 'companySplit' },
       { id: 'counts', path: 'counts', label: he.nav.counts, roles: STAFF },
       { id: 'dailyMovements', path: 'movements', label: he.nav.dailyMovements, roles: STAFF },
     ],
@@ -111,7 +114,7 @@ export const HUBS: readonly HubDef[] = [
     tabs: [
       { id: 'catalog', path: '', label: he.nav.catalog, roles: ADMIN },
       { id: 'intake', path: 'intake', label: he.nav.intake, roles: ADMIN },
-      { id: 'kits', path: 'kits', label: he.nav.kits, roles: ADMIN },
+      { id: 'kits', path: 'kits', label: he.nav.kits, roles: ADMIN, module: 'kits' },
       { id: 'naming', path: 'naming', label: he.nav.naming, roles: ADMIN },
     ],
   },
@@ -124,6 +127,7 @@ export const HUBS: readonly HubDef[] = [
       { id: 'users', path: '', label: he.nav.users, roles: ADMIN },
       { id: 'companies', path: 'companies', label: he.nav.companies, roles: ADMIN },
       { id: 'identity', path: 'identity', label: he.nav.identity, roles: ADMIN },
+      { id: 'modules', path: 'modules', label: he.nav.modules, roles: ADMIN, platformOnly: true },
       { id: 'battalions', path: 'battalions', label: he.nav.battalions, roles: ADMIN, platformOnly: true },
       { id: 'backups', path: 'backups', label: he.nav.backups, roles: ADMIN, platformOnly: true },
     ],
@@ -135,7 +139,7 @@ export const HUBS: readonly HubDef[] = [
     path: '/attendance',
     label: he.nav.attendance,
     group: 'admin',
-    tabs: [{ id: 'attendance', path: '', label: he.nav.attendance, roles: STAFF }],
+    tabs: [{ id: 'attendance', path: '', label: he.nav.attendance, roles: STAFF, module: 'attendance' }],
   },
   {
     id: 'help',
@@ -167,7 +171,12 @@ export function addressOf(tabId: TabId): string {
 }
 
 export function visibleTabs(hub: HubDef, viewer: Viewer): TabDef[] {
-  return hub.tabs.filter((t) => t.roles.includes(viewer.role) && (!t.platformOnly || viewer.isPlatformAdmin));
+  return hub.tabs.filter(
+    (t) =>
+      t.roles.includes(viewer.role) &&
+      (!t.platformOnly || viewer.isPlatformAdmin) &&
+      (!t.module || viewer.modules[t.module]),
+  );
 }
 
 /** A hub with no tab the role may open is not offered at all. */
@@ -181,13 +190,21 @@ export function hubEntryAddress(hub: HubDef, viewer: Viewer): string {
   return first ? tabAddress(hub, first) : hub.path;
 }
 
-export function defaultPathFor(role: Role): string {
-  if (role === 'SHLISHUT') return addressOf('soldiers');
-  if (role === 'SAMGAD') return addressOf('servicePeriods');
-  if (role === 'COMPANY_CMDR') return addressOf('companyAllocation');
+export function defaultPathFor(viewer: Viewer): string {
+  const wanted = landingTab(viewer.role);
+  const open = HUBS.some((h) => visibleTabs(h, viewer).some((t) => t.id === wanted));
+  // A company commander lands on a screen that belongs to a module; with it off, the one screen every
+  // role always has is the only place that cannot bounce them forever.
+  return open ? addressOf(wanted) : addressOf('security');
+}
+
+function landingTab(role: Role): TabId {
+  if (role === 'SHLISHUT') return 'soldiers';
+  if (role === 'SAMGAD') return 'servicePeriods';
+  if (role === 'COMPANY_CMDR') return 'companyAllocation';
   // A viewer has no ניפוק; sending it there bounced between the catch-all and the index forever.
-  if (role === 'viewer') return addressOf('documents');
-  return addressOf('issue');
+  if (role === 'viewer') return 'documents';
+  return 'issue';
 }
 
 /**

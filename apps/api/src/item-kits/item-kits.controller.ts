@@ -1,3 +1,4 @@
+import { RequireModule } from '../modules/require-module.decorator';
 import { Body, Controller, Get, Param, ParseUUIDPipe, Put } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -7,6 +8,7 @@ import { SaveKitDto } from './dto/save-kit.dto';
 
 /** ערכות — what rides along when an item is issued. Admin only: it decides what every future 1008 pre-fills. */
 @Controller('item-kits')
+@RequireModule('kits')
 @Roles('admin')
 export class ItemKitsController {
   constructor(private readonly kits: ItemKitsService) {}
