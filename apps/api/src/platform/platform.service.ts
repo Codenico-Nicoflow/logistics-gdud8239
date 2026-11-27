@@ -69,13 +69,13 @@ export class PlatformService {
     return runAsBattalion(battalionId, async () => {
       let user: { id: string; username: string };
       try {
-        // A super-admin of its own battalion: the one who then creates everyone else and the companies.
+        // An ordinary admin, never a super-admin: there is one super-admin on the platform (the stand-in that
+        // acts inside this battalion), so a battalion cannot hold the MFA policy or other admins' accounts itself.
         user = await this.prisma.user.create({
           data: {
             username: dto.adminUsername,
             displayName: dto.adminDisplayName,
             role: 'admin',
-            isSuperAdmin: true,
             passwordHash: null,
             mustSetup: true,
           },
