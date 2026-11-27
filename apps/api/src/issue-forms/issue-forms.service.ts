@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { findOperationalServicePeriod } from '../common/active-service-period';
 import { takeFormNo } from './form-no';
+import { withoutSystemNote } from '../common/system-notes';
 import { assertReceiptFree, normalizeReceiptNo } from '../soldiers/receipt-no';
 import type { AuthUser } from '../auth/auth.types';
 import type { CreateIssueFormDto } from './dto/create-issue-form.dto';
@@ -600,7 +601,8 @@ export class IssueFormsService {
     return {
       ...rest,
       receiptNo: latest ? latest.receiptNo : rest.receiptNo,
-      notes: latest ? latest.notes : rest.notes,
+      // Forms signed before reissue stopped writing it keep "מחליף טופס 1008 מספר N" in their stored notes.
+      notes: withoutSystemNote(latest ? latest.notes : rest.notes),
     };
   }
 

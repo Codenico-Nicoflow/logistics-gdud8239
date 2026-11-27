@@ -1,3 +1,4 @@
+import { withoutSystemNote } from '../common/system-notes';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
@@ -264,7 +265,8 @@ export class MovementsService {
       quantity: m.quantity,
       receiptNo: m.receiptNo,
       performedBy: m.performedByNameSnapshot,
-      notes: m.notes,
+      // Older edit rows carry the system's "replaces form N" sentence; it is not shown.
+      notes: withoutSystemNote(m.notes),
     };
   }
 }
