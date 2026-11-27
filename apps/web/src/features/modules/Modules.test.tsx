@@ -32,10 +32,10 @@ describe('navigation with modules', () => {
     expect(tabIds(off)).toContain('catalog');
   });
 
-  it('shows the modules screen only to a super admin', () => {
+  it('shows the modules screen only to the platform admin', () => {
     expect(tabIds(viewer('admin'))).not.toContain('modules');
-    expect(tabIds(viewer('admin', {}, true))).toContain('modules');
-    expect(tabIds(viewer('logistics', {}, true))).not.toContain('modules');
+    expect(tabIds({ ...viewer('admin'), isPlatformAdmin: true })).toContain('modules');
+    expect(tabIds({ ...viewer('logistics'), isPlatformAdmin: true })).not.toContain('modules');
   });
 
   it("sends a company commander somewhere that exists when their only screen's module is off", () => {
@@ -82,6 +82,6 @@ describe('ModulesPage', () => {
     show(false);
     const buttons = await screen.findAllByRole('button', { name: he.modules.turnOff });
     expect(buttons.every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
-    expect(screen.getByText(he.modules.onlySuperAdmin)).toBeTruthy();
+    expect(screen.getByText(he.modules.onlyPlatform)).toBeTruthy();
   });
 });

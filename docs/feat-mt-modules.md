@@ -1,6 +1,6 @@
 # Multi-tenant step 5: optional modules
 
-A battalion's super admin switches three optional parts on or off on מערכת ← מודולים:
+The platform admin (not a battalion's own admins, super admin included) switches three optional parts on or off per battalion on מערכת ← מודולים, acting inside that battalion:
 
 | Module | What goes away when it is off |
 |---|---|
@@ -21,7 +21,7 @@ Everything else is core and always on.
 - Server: `@RequireModule('id')` on a controller or route, enforced by the global `ModulesGuard` (403). Reads that
   ניפוק makes on every soldier or line (`entitlement`, `issue-bundle`) return `[]` instead of failing. The weekly job and
   the Excel export check the flag per battalion.
-- Web: `useModules()`; `navConfig` tabs carry `module` and `superAdminOnly`; `Viewer` now carries `modules` and
+- Web: `useModules()`; `navConfig` tabs carry `module` (the modules screen itself is `platformOnly`); `Viewer` now carries `modules` and
   `canChangeModules`. A role whose landing screen is switched off falls back to אבטחה instead of redirect-looping.
 - Turning a module off deletes nothing; turning it on restores it. Each change is a `MODULE_CHANGED` security event.
 

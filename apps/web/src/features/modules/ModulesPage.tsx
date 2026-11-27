@@ -7,7 +7,7 @@ import { MODULE_IDS, type ModuleId } from '../../lib/types';
 import { useModules } from './useModules';
 
 /**
- * מודולים: the battalion's super admin chooses which optional parts it uses. Turning one off hides it
+ * מודולים: the platform admin chooses which optional parts it uses. Turning one off hides it
  * everywhere and the server refuses it, but nothing is deleted, so turning it back on restores it as it was.
  */
 export function ModulesPage() {
@@ -61,7 +61,7 @@ export function ModulesPage() {
         </ul>
       </Panel>
 
-      <p className="text-meta text-graphite">{canChange ? he.modules.core : he.modules.onlySuperAdmin}</p>
+      <p className="text-meta text-graphite">{canChange ? he.modules.core : he.modules.onlyPlatform}</p>
     </div>
   );
 }

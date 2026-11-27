@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import type { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
 import {
@@ -39,12 +40,8 @@ export class ModulesService {
   }
 
   /** What the web app needs to draw the rail: which parts are on, and whether this person may change them. */
-  async overview(userId: string): Promise<{ enabled: ModuleState; canChange: boolean }> {
-    const [enabled, user] = await Promise.all([
-      this.state(),
-      this.prisma.user.findUnique({ where: { id: userId }, select: { isSuperAdmin: true } }),
-    ]);
-    return { enabled, canChange: user?.isSuperAdmin === true };
+  async overview(user: AuthUser): Promise<{ enabled: ModuleState; canChange: boolean }> {
+    return { enabled: await this.state(), canChange: user.isPlatformAdmin };
   }
 
   async isOn(id: ModuleId): Promise<boolean> {
@@ -52,21 +49,21 @@ export class ModulesService {
     return row?.value !== 'false';
   }
 
-  async set(rawId: string, on: boolean, actorUserId: string): Promise<{ enabled: ModuleState; canChange: boolean }> {
+  async set(rawId: string, on: boolean, actor: AuthUser): Promise<{ enabled: ModuleState; canChange: boolean }> {
     if (!isModuleId(rawId)) throw new BadRequestException('מודול לא מוכר');
     const id = rawId;
-    const actor = await this.prisma.user.findUnique({ where: { id: actorUserId }, select: { isSuperAdmin: true } });
-    if (!actor?.isSuperAdmin) throw new ForbiddenException('רק סופר-מנהל יכול להפעיל או לכבות מודולים');
+    // The route is platform-only already; checked again so the service is safe to call from anywhere.
+    if (!actor.isPlatformAdmin) throw new ForbiddenException('רק מנהל הפלטפורמה יכול להפעיל או לכבות מודולים');
 
     const current = await this.state();
     const refusal = toggleRefusal(MODULE_MANIFEST, current, id, on, (m) => NAMES[m]);
     if (refusal) throw new ConflictException(refusal);
 
     // Only unique together with the battalion, so no `upsert` by key; the battalion is filled in by the database.
-    const data = { value: String(on), updatedByUserId: actorUserId };
+    const data = { value: String(on), updatedByUserId: actor.id };
     const { count } = await this.prisma.appSetting.updateMany({ where: { key: keyOf(id) }, data });
     if (count === 0) await this.prisma.appSetting.create({ data: { key: keyOf(id), ...data } });
-    await this.events.record(SecurityEventType.MODULE_CHANGED, { actorUserId, detail: `${id}=${on}` });
+    await this.events.record(SecurityEventType.MODULE_CHANGED, { actorUserId: actor.id, detail: `${id}=${on}` });
     return { enabled: { ...current, [id]: on }, canChange: true };
   }
 }

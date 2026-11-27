@@ -55,17 +55,17 @@ beforeAll(async () => {
   await resetModules();
   const hash = (p: string) => bcrypt.hashSync(p, 12);
   await prisma.user.create({
-    data: { username: SUPER.username, displayName: 'סופר', role: 'admin', isSuperAdmin: true, battalionId: HOME, passwordHash: hash(SUPER.password) },
+    data: { username: SUPER.username, displayName: 'מפעיל', role: 'admin', isPlatformAdmin: true, battalionId: HOME, passwordHash: hash(SUPER.password) },
   });
   await prisma.user.create({
-    data: { username: PLAIN.username, displayName: 'מנהל', role: 'admin', battalionId: HOME, passwordHash: hash(PLAIN.password) },
+    data: { username: PLAIN.username, displayName: 'מנהל', role: 'admin', isSuperAdmin: true, battalionId: HOME, passwordHash: hash(PLAIN.password) },
   });
   await prisma.user.create({
     data: { username: STAFF.username, displayName: 'לוגיסטיקה', role: 'logistics', battalionId: HOME, passwordHash: hash(STAFF.password) },
   });
   await runAsBattalion(OTHER, () =>
     prisma.user.create({
-      data: { username: OTHER_SUPER.username, displayName: 'סופר אחר', role: 'admin', isSuperAdmin: true, battalionId: OTHER, passwordHash: hash(OTHER_SUPER.password) },
+      data: { username: OTHER_SUPER.username, displayName: 'מנהל אחר', role: 'admin', isSuperAdmin: true, battalionId: OTHER, passwordHash: hash(OTHER_SUPER.password) },
     }),
   );
   jars.super = await login(SUPER);
@@ -87,7 +87,7 @@ describe('modules', () => {
     expect((await http('get', '/modules', jars.super as string)).body.canChange).toBe(true);
   });
 
-  it('only a super admin can flip one, and an unknown module is refused', async () => {
+  it("only the platform admin can flip one, a battalion super admin cannot, and an unknown module is refused", async () => {
     await setModule('attendance', false, jars.plain as string).expect(403);
     await setModule('attendance', false, jars.staff as string).expect(403);
     await setModule('nope', false).expect(400);

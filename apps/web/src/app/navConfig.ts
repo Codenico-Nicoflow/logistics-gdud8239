@@ -48,8 +48,6 @@ export type TabDef = {
   roles: readonly Role[];
   /** Only the platform operator sees it, whatever their role: it spans battalions or is not partitioned by one. */
   platformOnly?: boolean;
-  /** Only a battalion super admin sees it: it changes how the whole battalion's app is set up. */
-  superAdminOnly?: boolean;
   /** An optional part of the product: absent while the battalion has that module switched off. */
   module?: ModuleId;
 };
@@ -129,7 +127,7 @@ export const HUBS: readonly HubDef[] = [
       { id: 'users', path: '', label: he.nav.users, roles: ADMIN },
       { id: 'companies', path: 'companies', label: he.nav.companies, roles: ADMIN },
       { id: 'identity', path: 'identity', label: he.nav.identity, roles: ADMIN },
-      { id: 'modules', path: 'modules', label: he.nav.modules, roles: ADMIN, superAdminOnly: true },
+      { id: 'modules', path: 'modules', label: he.nav.modules, roles: ADMIN, platformOnly: true },
       { id: 'battalions', path: 'battalions', label: he.nav.battalions, roles: ADMIN, platformOnly: true },
       { id: 'backups', path: 'backups', label: he.nav.backups, roles: ADMIN, platformOnly: true },
     ],
@@ -177,7 +175,6 @@ export function visibleTabs(hub: HubDef, viewer: Viewer): TabDef[] {
     (t) =>
       t.roles.includes(viewer.role) &&
       (!t.platformOnly || viewer.isPlatformAdmin) &&
-      (!t.superAdminOnly || viewer.canChangeModules) &&
       (!t.module || viewer.modules[t.module]),
   );
 }
