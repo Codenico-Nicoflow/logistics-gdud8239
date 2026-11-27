@@ -9,6 +9,7 @@ import { mkdir, stat, unlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { createGzip } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
+import { forPgDump } from './pg-url';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
 
@@ -83,21 +84,9 @@ export class DbBackupsService {
     return { id: backup.id, filePath };
   }
 
-  /** pg_dump's own URI parser does not understand the `?schema=` query
-   *  param Prisma's connection string carries — passed through unchanged, it
-   *  errors out (silently, from the caller's point of view: stdout still
-   *  closes and a gzip of nothing "succeeds"). Stripped here and passed back
-   *  as pg_dump's own `-n` flag instead, which means the same thing to it. */
-  private forPgDump(databaseUrl: string): { url: string; schema: string } {
-    const url = new URL(databaseUrl);
-    const schema = url.searchParams.get('schema') ?? 'public';
-    url.searchParams.delete('schema');
-    return { url: url.toString(), schema };
-  }
-
   private dumpToFile(databaseUrl: string, filePath: string): Promise<void> {
     return new Promise((resolvePromise, reject) => {
-      const { url, schema } = this.forPgDump(databaseUrl);
+      const { url, schema } = forPgDump(databaseUrl);
       // --no-owner/--no-privileges: a restore target may have a differently
       // named DB role, and the dump should not fail a restore over that.
       // The password goes in the child's environment, not on the command line, where any other
