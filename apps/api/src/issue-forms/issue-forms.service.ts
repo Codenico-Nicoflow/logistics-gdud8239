@@ -8,6 +8,7 @@ import { Prisma, type Company } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { findOperationalServicePeriod } from '../common/active-service-period';
+import { takeFormNo } from './form-no';
 import type { AuthUser } from '../auth/auth.types';
 import type { CreateIssueFormDto } from './dto/create-issue-form.dto';
 
@@ -105,6 +106,7 @@ export class IssueFormsService {
       return await this.prisma.$transaction(async (tx) => {
         const form = await tx.issueForm.create({
           data: {
+            formNo: await takeFormNo(tx),
             soldierId: soldier.id,
             soldierNameSnapshot: `${soldier.firstName} ${soldier.lastName}`,
             personalNumberSnapshot: soldier.personalNumber,
@@ -317,6 +319,7 @@ export class IssueFormsService {
       return await this.prisma.$transaction(async (tx) => {
         const form = await tx.issueForm.create({
           data: {
+            formNo: await takeFormNo(tx),
             soldierId: soldier.id,
             soldierNameSnapshot: `${soldier.firstName} ${soldier.lastName}`,
             personalNumberSnapshot: soldier.personalNumber,

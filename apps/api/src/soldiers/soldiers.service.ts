@@ -228,7 +228,7 @@ export class SoldiersService {
     // maintains his own soldiers' details but neither adds nor deletes soldiers.
     if (scope) throw new ForbiddenException('אין לך הרשאה להוסיף חיילים');
     if (dto.personalNumber) {
-      const existing = await this.prisma.soldier.findUnique({
+      const existing = await this.prisma.soldier.findFirst({
         where: { personalNumber: dto.personalNumber },
       });
       if (existing) {
@@ -270,7 +270,7 @@ export class SoldiersService {
     }
 
     if (dto.personalNumber && dto.personalNumber !== soldier.personalNumber) {
-      const clash = await this.prisma.soldier.findUnique({
+      const clash = await this.prisma.soldier.findFirst({
         where: { personalNumber: dto.personalNumber },
       });
       if (clash) throw new ConflictException(`מספר אישי ${dto.personalNumber} משויך כבר לחייל אחר`);

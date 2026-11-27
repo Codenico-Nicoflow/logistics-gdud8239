@@ -53,41 +53,42 @@ async function seedItems(): Promise<void> {
   const all: SeedItem[] = [...CATALOG, ...ACCESSORIES];
   for (const item of all) {
     const price = GEAR_PRICES[item.name];
-    await prisma.item.upsert({
-      where: { name: item.name },
+    const fields = {
+      aliases: item.aliases ?? [],
+      category: item.category,
+      isSerialized: item.isSerialized,
+      authorizedQty: item.authorizedQty,
+      defaultQty: item.defaultQty ?? 1,
+      unitPrice: price ?? null,
+    };
+    // A name is only unique within a battalion, so there is no `upsert` by name alone.
+    const existing = await prisma.item.findFirst({ where: { name: item.name }, select: { id: true } });
+    if (existing) {
       // `inSummary` is set only on create. It is an operational choice an admin
       // makes in the UI, and re-running the seed must not undo it.
-      update: {
-        aliases: item.aliases ?? [],
-        category: item.category,
-        isSerialized: item.isSerialized,
-        authorizedQty: item.authorizedQty,
-        defaultQty: item.defaultQty ?? 1,
-        unitPrice: price ?? null,
-      },
-      create: {
-        name: item.name,
-        aliases: item.aliases ?? [],
-        category: item.category,
-        isSerialized: item.isSerialized,
-        authorizedQty: item.authorizedQty,
-        defaultQty: item.defaultQty ?? 1,
-        unitPrice: price ?? null,
-        // Priced gear is the v2 module and is not part of the nightly count.
-        inSummary: item.inSummary ?? price === undefined,
-      },
-    });
+      await prisma.item.update({ where: { id: existing.id }, data: fields });
+    } else {
+      await prisma.item.create({
+        data: {
+          name: item.name,
+          ...fields,
+          // Priced gear is the v2 module and is not part of the nightly count.
+          inSummary: item.inSummary ?? price === undefined,
+        },
+      });
+    }
   }
   console.log(`  פריטים: ${all.length}`);
 }
 
 async function seedTeam(): Promise<void> {
   for (const [i, member] of TEAM.entries()) {
-    await prisma.teamMember.upsert({
-      where: { nickname: member.nickname },
-      update: { gender: member.gender, sortOrder: i },
-      create: { nickname: member.nickname, gender: member.gender, sortOrder: i },
-    });
+    const existing = await prisma.teamMember.findFirst({ where: { nickname: member.nickname }, select: { id: true } });
+    if (existing) {
+      await prisma.teamMember.update({ where: { id: existing.id }, data: { gender: member.gender, sortOrder: i } });
+    } else {
+      await prisma.teamMember.create({ data: { nickname: member.nickname, gender: member.gender, sortOrder: i } });
+    }
   }
   console.log(`  חברי צוות: ${TEAM.length}`);
 }

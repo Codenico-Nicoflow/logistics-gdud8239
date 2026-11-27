@@ -59,6 +59,8 @@ In the UI (`apps/web/src/features/catalog/CatalogPage.tsx`), the edit-item dialo
 
 **Append-only audit tables, enforced at the DB level**, not just by omitting routes: `movements` (migration `20261104083100_signature_invariants`) and `issue_forms` (migration `20261109150000_issue_forms_and_accessories`) both have `BEFORE UPDATE OR DELETE` triggers that `RAISE EXCEPTION`. No update/delete endpoint exists for either, and none should ever be added.
 
+**Every table that holds a battalion's data has `battalion_id`** (multi-tenant, see `docs/feat-mt-foundation.md`). It is `NOT NULL`, defaults in the database to `current_battalion_id()`, and is a foreign key to `battalions`. A new tenant table must add it the same way, and a uniqueness rule on user-facing data is `(battalion_id, field)`, never the field alone. 1008 numbers come from `takeFormNo()` (per-battalion counter), never from a database sequence. Migrations never `UPDATE` the append-only tables: add columns with a constant default.
+
 **One active holder per serialized instance**: a partial unique index backs `signatures(item_instance_id) WHERE returned_at IS NULL`, so a מסד cannot be double-issued even under a race.
 
 **Role/permission system — mid-migration, not fully rolled out.** There are two parallel mechanisms right now:

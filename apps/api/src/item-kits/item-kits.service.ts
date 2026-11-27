@@ -125,7 +125,7 @@ export class ItemKitsService {
 
   /** The basket lines that always go out with `itemName`, nested kits included. */
   async resolve(itemName: string) {
-    const root = await this.prisma.item.findUnique({ where: { name: itemName } });
+    const root = await this.prisma.item.findFirst({ where: { name: itemName } });
     if (!root) return [];
 
     const kits = await this.loadKitMap();
