@@ -349,6 +349,7 @@ export class IssueFormsService {
             issuedByNameSnapshot: actor.displayName,
             receiptNo,
             notes,
+            supersedesFormId: original.id,
           },
         });
         await this.saveReceiptNo(tx, soldier, receiptNo);
