@@ -102,6 +102,21 @@ input[type='radio'] {
   }
 }
 
+/* iOS Safari sizes a date input by its native picker, ignoring the width it is given, so an empty one spills out
+   of its card and overlaps its neighbour. Taking the native chrome off and letting it shrink makes it an ordinary
+   box; the explicit height stays on the field because an empty date input otherwise collapses on iOS. */
+input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+input[type='date']::-webkit-date-and-time-value {
+  text-align: start;
+  min-height: 1.5em;
+}
+
 /* Serials are mechanical identifiers; brass and letter-spacing set them apart
    from names and free text at a glance. */
 .serial {
