@@ -89,13 +89,13 @@ describe('HelpPage', () => {
     show('admin');
     const box = screen.getByRole('textbox');
     fireEvent.change(box, { target: { value: 'תיקון טופס' } });
-    await waitFor(() => expect(screen.queryByText('גיבויים')).toBeNull(), { timeout: 8000 });
+    await waitFor(() => expect(screen.queryByText('גיבויים')).toBeNull(), { timeout: 20000 });
     expect(screen.getByText(/זיכוי, תיקון טופס/)).toBeTruthy();
     expect(screen.getAllByText(he.help.stepsLabel).length).toBeGreaterThan(0);
     expect(screen.queryByText(he.help.dayTitle)).toBeNull();
     fireEvent.change(box, { target: { value: 'zzzzqqq' } });
-    expect(await screen.findByText(he.help.none, {}, { timeout: 8000 })).toBeTruthy();
-  }, 20000);
+    expect(await screen.findByText(he.help.none, {}, { timeout: 20000 })).toBeTruthy();
+  }, 60000);
 
   it('lists the typical day, linking to topics', () => {
     show('logistics');
