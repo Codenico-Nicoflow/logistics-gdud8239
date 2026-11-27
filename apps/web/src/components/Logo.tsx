@@ -2,13 +2,22 @@ import { useId } from 'react';
 
 /**
  * A struck brass medallion: a beveled ring, the battalion number engraved into a field-green disc, and
- * three ascending chevrons. The motion is the stamping of metal, not decoration: the chevrons are drawn
+ * ascending chevrons. With no `number` it is the platform's own mark (three chevrons, nothing engraved),
+ * which is what the login screen shows before anyone has said which battalion they belong to. The motion is the stamping of metal, not decoration: the chevrons are drawn
  * once when the mark first appears, and every few seconds light crosses the ring the way it catches a
  * coin turned in the hand (`animated`). Brass and field-green are the two accents the app already uses
  * for serials and issued state, so the mark adds no third colour. Reads at 32px in the rail and scales
  * up for the login screen.
  */
-export function Logo({ className = 'h-9 w-9', animated = true }: { className?: string; animated?: boolean }) {
+export function Logo({
+  className = 'h-9 w-9',
+  animated = true,
+  number,
+}: {
+  className?: string;
+  animated?: boolean;
+  number?: string;
+}) {
   const uid = useId().replace(/:/g, '');
   const disc = `logo-disc-${uid}`;
   const ring = `logo-ring-${uid}`;
@@ -41,20 +50,29 @@ export function Logo({ className = 'h-9 w-9', animated = true }: { className?: s
       <circle cx="22" cy="22" r="18.6" fill={`url(#${disc})`} stroke="rgba(0,0,0,0.35)" strokeWidth="0.8" />
       <circle cx="22" cy="22" r="16" fill="none" stroke="var(--brass-bright)" strokeWidth="0.6" opacity="0.45" />
 
-      {/* Engraved: a dark offset copy under the brass one reads as a cut into the disc. */}
-      <g fontFamily="Assistant, system-ui, sans-serif" fontSize="12.5" fontWeight="800" letterSpacing="-0.3" textAnchor="middle">
-        <text x="22" y="22.3" fill="rgba(0,0,0,0.45)">
-          8239
-        </text>
-        <text x="22" y="21.5" fill="var(--brass-bright)">
-          8239
-        </text>
-      </g>
-
-      <g fill="none" stroke="var(--brass-bright)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path className="logo-chevron logo-chevron-1" d="M14.5 31.5L22 35.5L29.5 31.5" pathLength="1" />
-        <path className="logo-chevron logo-chevron-2" d="M13 27.5L22 32L31 27.5" pathLength="1" />
-      </g>
+      {number ? (
+        <>
+          {/* Engraved: a dark offset copy under the brass one reads as a cut into the disc. */}
+          <g fontFamily="Assistant, system-ui, sans-serif" fontSize={number.length > 4 ? 9.5 : 12.5} fontWeight="800" letterSpacing="-0.3" textAnchor="middle">
+            <text x="22" y="22.3" fill="rgba(0,0,0,0.45)">
+              {number}
+            </text>
+            <text x="22" y="21.5" fill="var(--brass-bright)">
+              {number}
+            </text>
+          </g>
+          <g fill="none" stroke="var(--brass-bright)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path className="logo-chevron logo-chevron-1" d="M14.5 31.5L22 35.5L29.5 31.5" pathLength="1" />
+            <path className="logo-chevron logo-chevron-2" d="M13 27.5L22 32L31 27.5" pathLength="1" />
+          </g>
+        </>
+      ) : (
+        <g fill="none" stroke="var(--brass-bright)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path className="logo-chevron logo-chevron-1" d="M14 30L22 24.5L30 30" pathLength="1" />
+          <path className="logo-chevron logo-chevron-2" d="M14 24L22 18.5L30 24" pathLength="1" />
+          <path className="logo-chevron logo-chevron-3" d="M14 18L22 12.5L30 18" pathLength="1" />
+        </g>
+      )}
 
       {animated && (
         <g clipPath={`url(#${clip})`}>

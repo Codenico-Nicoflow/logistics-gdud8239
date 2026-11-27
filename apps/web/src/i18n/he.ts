@@ -6,7 +6,6 @@
 export const he = {
   app: {
     name: 'לוגיסטיקה גדודית',
-    battalion: 'גדוד 8239',
   },
 
   nav: {
@@ -28,6 +27,7 @@ export const he = {
     naming: 'מיפוי שמות',
     kits: 'ערכות',
     companies: 'פלוגות',
+    identity: 'זהות הגדוד',
     help: 'מדריך',
     myAccount: 'החשבון שלי',
     security: 'אבטחה',
@@ -45,6 +45,7 @@ export const he = {
 
   auth: {
     loginTitle: 'כניסה למערכת',
+    loginSubtitle: 'התחברו עם שם המשתמש והסיסמה שקיבלתם מהמנהל',
     username: 'שם משתמש',
     password: 'סיסמה',
     submit: 'כניסה',
@@ -680,6 +681,26 @@ export const he = {
     rename: 'שנה שם',
     deactivate: 'השבת',
     activate: 'הפעל',
+  },
+
+  identity: {
+    title: 'זהות הגדוד',
+    subtitle: 'הלוגו מופיע בראש המערכת ובתפריט. השם והמספר מודפסים על כל שובר ודוח.',
+    logo: 'לוגו',
+    hasLogo: 'הלוגו שלכם מוצג בראש המערכת.',
+    noLogo: (number: string) => `עדיין לא הועלה לוגו, ולכן מוצג סמל עם המספר ${number}.`,
+    requirements: 'קובץ PNG או JPEG, עד 512KB. תמונה מרובעת עם רקע שקוף או לבן נראית הכי טוב.',
+    choose: 'בחר קובץ',
+    replace: 'החלף לוגו',
+    remove: 'הסר לוגו',
+    uploading: 'מעלה…',
+    saved: 'הלוגו עודכן',
+    removed: 'הלוגו הוסר',
+    wrongType: 'הקובץ חייב להיות PNG או JPEG',
+    tooBig: 'התמונה גדולה מדי (עד 512KB)',
+    printedAs: 'כך הגדוד מופיע בהדפסות',
+    name: 'שם',
+    number: 'מספר',
   },
 
   naming: {

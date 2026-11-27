@@ -119,11 +119,16 @@ enum DbBackupKind {
 /// `battalionId`, defaulted in the database from `current_battalion_id()` (see the migration), so a
 /// create never passes it and a forgotten filter can later be caught by RLS.
 model Battalion {
-  id        String   @id @default(uuid())
-  name      String
+  id          String   @id @default(uuid())
+  name        String
   /// "8239", "5033". Unique across the platform.
-  number    String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
+  number      String   @unique
+  /// PNG or JPEG, kept in the database so a logo needs no file storage and goes with the backup.
+  logoData    Bytes?   @map("logo_data")
+  logoMime    String?  @map("logo_mime")
+  /// Bumped on every change so the browser knows when to fetch the picture again.
+  logoVersion Int      @default(0) @map("logo_version")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   formCounter                FormCounter?
   companies                  Company[]

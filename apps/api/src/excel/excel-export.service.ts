@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { BattalionService } from '../battalion/battalion.service';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportsService } from '../reports/reports.service';
@@ -40,7 +41,6 @@ const SHEET = {
   movements: 'דוח תנועות יומי',
 } as const;
 
-const FOOTER = 'מערכת הלוגיסטיקה של גדוד 8239';
 const BOLD = { name: 'Arial', size: 10.5, bold: true, color: { argb: PALETTE.ink } };
 const MUTED = { name: 'Arial', size: 10.5, color: { argb: PALETTE.graphite } };
 
@@ -83,6 +83,7 @@ export class ExcelExportService {
     private readonly allocations: AllocationsService,
     private readonly attendance: AttendanceService,
     private readonly companies: CompaniesService,
+    private readonly battalion: BattalionService,
   ) {}
 
   /** The battalion's companies as the sheets lay them out: their order, and a name for any stored code. */
@@ -95,6 +96,7 @@ export class ExcelExportService {
   async build(): Promise<ExcelJS.Workbook> {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'מערכת לוגיסטיקה';
+    wb.company = (await this.battalion.unit()).name;
     wb.created = new Date();
     wb.views = [{ x: 0, y: 0, width: 20000, height: 20000, firstSheet: 0, activeTab: 0, visibility: 'visible' }];
 
@@ -167,7 +169,7 @@ export class ExcelExportService {
       link.value = { text: name, hyperlink: `#'${name}'!A1` };
       link.font = { name: 'Arial', size: 11, bold: true, underline: true, color: { argb: PALETTE.sky } };
     });
-    finalizeSheet(ws, header, COLS, FOOTER);
+    finalizeSheet(ws, header, COLS);
   }
 
   // ---------- ספירת נשקיה ----------
@@ -301,7 +303,7 @@ export class ExcelExportService {
         }
       });
     }
-    finalizeSheet(ws, header, COLS, FOOTER);
+    finalizeSheet(ws, header, COLS);
   }
 
   // ---------- חתימות ----------
@@ -383,7 +385,7 @@ export class ExcelExportService {
       const row = addBodyRow(ws, ['אין ציוד חתום כרגע', '', '', '', '', '', ''], 0);
       ws.mergeCells(row.number, 1, row.number, COLS);
     }
-    finalizeSheet(ws, header, COLS, FOOTER);
+    finalizeSheet(ws, header, COLS);
     return { units, soldiers: soldierIds.size };
   }
 
@@ -438,7 +440,7 @@ export class ExcelExportService {
         ws.mergeCells(empty.number, 1, empty.number, COLS);
       }
     }
-    finalizeSheet(ws, header, COLS, FOOTER);
+    finalizeSheet(ws, header, COLS);
   }
 
   // ---------- אפסון ----------
@@ -510,7 +512,7 @@ export class ExcelExportService {
       const row = addBodyRow(ws, ['אין רשומות אפסון', '', '', '', '', '', '', '', '', '', ''], 0);
       ws.mergeCells(row.number, 1, row.number, COLS);
     }
-    finalizeSheet(ws, header, COLS, FOOTER);
+    finalizeSheet(ws, header, COLS);
   }
 
   // ---------- חלוקה לפלוגות ----------
@@ -590,7 +592,7 @@ export class ExcelExportService {
       row.getCell(n + 2).font = BOLD;
     });
     addTotalsRow(ws, ['סה"כ', ...order.map((c) => totals[c]), grand], numeric);
-    finalizeSheet(ws, header, COLS, FOOTER);
+    finalizeSheet(ws, header, COLS);
   }
 
   // ---------- חלוקה לפי חייל ----------
@@ -609,7 +611,7 @@ export class ExcelExportService {
       const header = addHeaderRow(ws, ['חייל', 'צל"מ', 'הוקצה', 'נופק', 'מצב']);
       const row = addBodyRow(ws, ['אין תקופת שרות פעילה', '', '', '', ''], 0);
       ws.mergeCells(row.number, 1, row.number, COLS);
-      finalizeSheet(ws, header, COLS, FOOTER);
+      finalizeSheet(ws, header, COLS);
       return;
     }
 
@@ -679,6 +681,6 @@ export class ExcelExportService {
       const row = addBodyRow(ws, ['עדיין לא חולק לחיילים', '', '', '', ''], 0);
       ws.mergeCells(row.number, 1, row.number, COLS);
     }
-    finalizeSheet(ws, header, COLS, FOOTER);
+    finalizeSheet(ws, header, COLS);
   }
 }

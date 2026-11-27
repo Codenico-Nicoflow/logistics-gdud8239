@@ -67,7 +67,7 @@ function ddmm(iso: string): string {
 }
 
 /** The week's grid as an A4-landscape PDF: member on the right, Sunday to Saturday leftwards. */
-export function buildWeekPdf(week: Week, generatedAt: string): Promise<Buffer> {
+export function buildWeekPdf(week: Week, unitName: string, generatedAt: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 28, info: { Title: 'ימי יציאה' } });
     const chunks: Buffer[] = [];
@@ -126,7 +126,7 @@ export function buildWeekPdf(week: Week, generatedAt: string): Promise<Buffer> {
       bold: true,
       color: '#ffffff',
     });
-    draw('גדוד 8239', { right: left + 110, left: left + 14, y: margin + 14, size: 11, color: '#cfe3d8', center: false });
+    draw(unitName, { right: left + 110, left: left + 14, y: margin + 14, size: 11, color: '#cfe3d8', center: false });
 
     // Header row
     let y = margin + 40 + 10;

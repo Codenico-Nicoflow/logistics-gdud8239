@@ -16,6 +16,7 @@ import { SignaturesModule } from './signatures/signatures.module';
 import { IssueFormsModule } from './issue-forms/issue-forms.module';
 import { AllocationsModule } from './allocations/allocations.module';
 import { ItemKitsModule } from './item-kits/item-kits.module';
+import { BattalionModule } from './battalion/battalion.module';
 import { CompaniesModule } from './companies/companies.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { IntakeModule } from './intake/intake.module';
@@ -104,6 +105,7 @@ import { PlatformAdminGuard } from './auth/guards/platform-admin.guard';
     AllocationsModule,
     ItemKitsModule,
     CompaniesModule,
+    BattalionModule,
     PermissionsModule,
     IntakeModule,
     MovementsModule,

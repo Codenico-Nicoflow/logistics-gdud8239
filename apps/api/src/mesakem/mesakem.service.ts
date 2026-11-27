@@ -1,5 +1,6 @@
 import { ITEM_ORDER } from '../common/item-order';
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BattalionService } from '../battalion/battalion.service';
 import { ConfigService } from '@nestjs/config';
 import { WebClient } from '@slack/web-api';
 import ExcelJS from 'exceljs';
@@ -51,6 +52,7 @@ export class MesakemService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly battalion: BattalionService,
   ) {}
 
   /**
@@ -167,6 +169,7 @@ export class MesakemService {
   private async buildWorkbook(sessionDate: string): Promise<{ wb: ExcelJS.Workbook; date: Date }> {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'מערכת לוגיסטיקה';
+    wb.company = (await this.battalion.unit()).name;
     wb.created = new Date();
     const date = await this.addSheet(wb, sessionDate);
     return { wb, date };
@@ -234,7 +237,7 @@ export class MesakemService {
       ],
       [3, 4, 5, 6],
     );
-    finalizeSheet(ws, header, COLS, 'מסכם יומי · מערכת הלוגיסטיקה של גדוד 8239');
+    finalizeSheet(ws, header, COLS, 'מסכם יומי');
 
     return date;
   }

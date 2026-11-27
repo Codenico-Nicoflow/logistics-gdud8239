@@ -122,3 +122,13 @@ describe('login: the step after the password', () => {
     expect(await screen.findByText(he.auth.failed)).toBeTruthy();
   });
 });
+
+describe('login: pre-login screens name no battalion', () => {
+  it('shows the platform name and the sign-in form, and no battalion number anywhere', async () => {
+    respond({ ...NOT_SIGNED_IN });
+    mount('/');
+    expect(await screen.findByRole('heading', { name: he.app.name })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: he.auth.loginTitle })).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/\d{4}/);
+  });
+});

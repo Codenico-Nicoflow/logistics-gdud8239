@@ -1,5 +1,6 @@
 /**
- * Draws the home-screen icon (the battalion medallion, same geometry as src/components/Logo.tsx, struck on a
+ * Draws the home-screen icon (the platform medallion: three chevrons and no battalion number, since one install
+ * serves every battalion; same geometry as src/components/Logo.tsx), struck on a
  * dark field with a ring of tick marks like a dial) and renders the PNG sizes the manifest and iOS need.
  *
  *   node scripts/make-icons.mjs        (CHROME_PATH overrides the browser used to rasterise)
@@ -57,13 +58,10 @@ const svg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" h
     <circle cx="22" cy="22" r="21" fill="url(#ring)"/>
     <circle cx="22" cy="22" r="18.6" fill="url(#disc)" stroke="rgba(0,0,0,0.35)" stroke-width="0.8"/>
     <circle cx="22" cy="22" r="16" fill="none" stroke="${BRASS_BRIGHT}" stroke-width="0.6" opacity="0.45"/>
-    <g font-family="Assistant, 'Arial Black', Helvetica, sans-serif" font-size="12.5" font-weight="800" letter-spacing="-0.3" text-anchor="middle">
-      <text x="22" y="22.3" fill="rgba(0,0,0,0.45)">8239</text>
-      <text x="22" y="21.5" fill="${BRASS_BRIGHT}">8239</text>
-    </g>
-    <g fill="none" stroke="${BRASS_BRIGHT}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M14.5 31.5L22 35.5L29.5 31.5"/>
-      <path d="M13 27.5L22 32L31 27.5"/>
+    <g fill="none" stroke="${BRASS_BRIGHT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 30L22 24.5L30 30"/>
+      <path d="M14 24L22 18.5L30 24"/>
+      <path d="M14 18L22 12.5L30 18"/>
     </g>
     <g clip-path="url(#medal)"><g transform="skewX(-18)"><rect x="4" y="-4" width="14" height="52" fill="url(#gloss)"/></g></g>
   </g>

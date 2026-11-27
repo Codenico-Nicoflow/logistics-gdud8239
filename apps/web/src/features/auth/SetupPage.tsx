@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCompleteSetupMutation, useSetupInfoQuery } from '../../lib/api';
 import { apiErrorMessage, Button, Spinner, TextField } from '../../components/ui';
+import { AuthLayout } from './AuthLayout';
 import { MfaStep } from './MfaStep';
 import { he } from '../../i18n/he';
 
@@ -32,13 +33,8 @@ export function SetupPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 border-b-2 border-field pb-4">
-          <div className="text-figure font-bold leading-none text-field">{he.app.battalion}</div>
-          <h1 className="mt-1 text-lead text-ink-soft">{he.app.name}</h1>
-        </div>
-
+    <AuthLayout>
+      <>
         {info.isLoading ? (
           <Spinner />
         ) : info.isError || !info.data ? (
@@ -93,7 +89,7 @@ export function SetupPage() {
             </Button>
           </form>
         )}
-      </div>
-    </main>
+      </>
+    </AuthLayout>
   );
 }

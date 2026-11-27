@@ -1,3 +1,4 @@
+import { BattalionService } from '../battalion/battalion.service';
 import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Delete, Get, Param, Post, Query, Res, ParseEnumPipe } from '@nestjs/common';
 import { CountShift } from '@prisma/client';
@@ -15,7 +16,10 @@ import type { AuthUser } from '../auth/auth.types';
 
 @Controller('counts')
 export class CountsController {
-  constructor(private readonly counts: CountsService) {}
+  constructor(
+    private readonly counts: CountsService,
+    private readonly battalion: BattalionService,
+  ) {}
 
   // ספירת נשקיה is restricted to admin/logistics only — this is the signed
   // daily count sheet, not a report viewers should be reading.
@@ -46,7 +50,8 @@ export class CountsController {
   @Roles('admin', 'logistics')
   async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const { session, rows } = await this.counts.forPrint(id);
-    sendPrintPage(res, (nonce) => renderCountSession({ ...session, rows }, nonce));
+    const unit = await this.battalion.unit();
+    sendPrintPage(res, (nonce) => renderCountSession({ ...session, rows }, unit, nonce));
   }
 
   @Post(':id/close')

@@ -1,4 +1,5 @@
 import { printButton } from '../common/print-page';
+import type { Unit } from '../battalion/battalion.service';
 import type { CompanyCode } from '../companies/company-code';
 
 export type FormForPrint = {
@@ -58,7 +59,12 @@ function formatTime(d: Date): string {
 export const MAX_FILL_LINES = 14;
 
 /** `companyName` is the company's current name for the code the form stored; the code itself is shown if there is none. */
-export function renderIssueForm(form: FormForPrint, nonce: string, companyName: string = form.companySnapshot): string {
+export function renderIssueForm(
+  form: FormForPrint,
+  unit: Unit,
+  nonce: string,
+  companyName: string = form.companySnapshot,
+): string {
   const rows = form.lines
     .map(
       (line, i) => `
@@ -191,7 +197,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string, companyName: 
 
   <div class="sheet${form.lines.length > MAX_FILL_LINES ? ' flow' : ''}">
     <div class="masthead">
-      <div class="unit-no">8239<small>גדוד</small></div>
+      <div class="unit-no">${esc(unit.number)}<small>גדוד</small></div>
       <div class="titles">
         <h1>שובר השאלה פנימית 1008</h1>
       </div>
@@ -251,7 +257,7 @@ export function renderIssueForm(form: FormForPrint, nonce: string, companyName: 
     </div>
 
     <footer>
-      <span>הופק ממערכת הלוגיסטיקה של גדוד 8239</span>
+      <span>הופק ממערכת הלוגיסטיקה של ${esc(unit.name)}</span>
       <span class="mono">${formatDate(form.signedAt)} ${formatTime(form.signedAt)}</span>
     </footer>
   </div>

@@ -1,3 +1,4 @@
+import { BattalionService } from '../battalion/battalion.service';
 import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
@@ -14,7 +15,10 @@ import { QueryIfsunDto } from './dto/query-ifsun.dto';
 @Controller('ifsun')
 @Roles('admin', 'logistics')
 export class IfsunController {
-  constructor(private readonly ifsun: IfsunService) {}
+  constructor(
+    private readonly ifsun: IfsunService,
+    private readonly battalion: BattalionService,
+  ) {}
 
   @Get()
   findAll(@Query() query: QueryIfsunDto) {
@@ -31,7 +35,8 @@ export class IfsunController {
   @Get(':id/print')
   async print(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const record = await this.ifsun.findOne(id);
-    sendPrintPage(res, (nonce) => renderIfsun(record, nonce));
+    const unit = await this.battalion.unit();
+    sendPrintPage(res, (nonce) => renderIfsun(record, unit, nonce));
   }
 
   @Get(':id')
