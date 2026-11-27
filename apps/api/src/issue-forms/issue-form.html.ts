@@ -62,12 +62,63 @@ function formatTime(d: Date): string {
 /** The paper form has twelve ruled rows; more lines than this and the form continues on a further page. */
 export const ROWS_PER_PAGE = 12;
 
-/** Fills each page to the paper form's twelve rows before starting the next; the last page takes the remainder. */
-export function paginate<T>(lines: readonly T[]): T[][] {
+/**
+ * How tall a row prints, in mm, measured in Chromium's print layout with the fixed column widths below: 8.4 for a
+ * row of one line plus 5.7 for each further line. The characters that fit on a line are what a column's width holds
+ * at the sheet's font (the identifier column is narrow and breaks anywhere, so it holds the fewest).
+ */
+const CHARS_PER_LINE = { name: 27, id: 11, remarks: 21 } as const;
+const FIRST_LINE_MM = 8.4;
+const EXTRA_LINE_MM = 5.7;
+/** Room for rows on a sheet (about 154 mm measured), less a margin for a wrapped header or party name. */
+const BODY_MM = 142;
+/** The form's notes print above the declaration on every sheet and take their share of it. */
+const NOTES_CHARS_PER_LINE = 90;
+const NOTES_LINE_MM = 4.7;
+const NOTES_GAP_MM = 2.8;
+
+const linesFor = (text: string | null, perLine: number): number => Math.max(1, Math.ceil((text ?? '').length / perLine));
+
+export function rowHeightMm(line: FormForPrint['lines'][number]): number {
+  const lines = Math.max(
+    linesFor(line.itemNameSnapshot, CHARS_PER_LINE.name),
+    linesFor(line.serialSnapshot, CHARS_PER_LINE.id),
+    linesFor(line.lineNotes, CHARS_PER_LINE.remarks),
+  );
+  return FIRST_LINE_MM + (lines - 1) * EXTRA_LINE_MM;
+}
+
+export function notesHeightMm(notes: string | null): number {
+  return notes ? Math.ceil(notes.length / NOTES_CHARS_PER_LINE) * NOTES_LINE_MM + NOTES_GAP_MM : 0;
+}
+
+/**
+ * Fills each page before starting the next, with the last taking the remainder. A page holds at most the paper
+ * form's twelve rows and no more than fits by height: a row whose text wraps to several lines takes the room of
+ * several, so twelve long rows are not squeezed onto a sheet they would overflow. A row too tall for any page still
+ * gets one to itself rather than being dropped.
+ */
+export function paginate<T>(
+  lines: readonly T[],
+  heightMm: (line: T) => number = () => FIRST_LINE_MM,
+  budgetMm: number = BODY_MM,
+): T[][] {
   const pages: T[][] = [];
-  for (let at = 0; at < lines.length; at += ROWS_PER_PAGE) pages.push(lines.slice(at, at + ROWS_PER_PAGE));
+  let page: T[] = [];
+  let used = 0;
+  for (const line of lines) {
+    const h = heightMm(line);
+    if (page.length > 0 && (page.length >= ROWS_PER_PAGE || used + h > budgetMm)) {
+      pages.push(page);
+      page = [];
+      used = 0;
+    }
+    page.push(line);
+    used += h;
+  }
   // A form always has at least one sheet, even an empty one.
-  return pages.length > 0 ? pages : [[]];
+  if (page.length > 0 || pages.length === 0) pages.push(page);
+  return pages;
 }
 
 /** `companyName` is the company's current name for the code the form stored; the code itself is shown if there is none. */
@@ -81,7 +132,7 @@ export function renderIssueForm(
 
   // Every page is a whole 1008: the same header, declaration and both signature boxes (the soldier signs once and
   // the image is repeated), so any single sheet can be filed or checked on its own.
-  const sheet = (pageLines: FormForPrint['lines'], firstNo: number, pageNo: number, pageCount: number): string => {
+  const sheet = (pageLines: FormForPrint['lines'], firstNo: number, pageNo: number, pageCount: number, budgetMm: number): string => {
     const rows = pageLines
       .map(
         (line, i) => `
@@ -90,16 +141,18 @@ export function renderIssueForm(
           <td class="desc">${esc(line.itemNameSnapshot)}</td>
           <td class="c narrow">${esc(line.unitOfMeasure)}</td>
           <td class="c narrow">${line.quantity}</td>
-          <td class="mono">${esc(line.serialSnapshot) || ''}</td>
-          <td>${esc(line.lineNotes) || ''}</td>
+          <td class="mono id">${esc(line.serialSnapshot) || ''}</td>
+          <td class="remarks">${esc(line.lineNotes) || ''}</td>
         </tr>`,
       )
       .join('');
 
-    // The paper form keeps ruled empty rows, so a line added by hand at the counter has somewhere to go.
-    // Padded to a full sheet, so the last page looks like the others however few lines it carries (every earlier
-    // page is already full, so only the last one has any).
-    const blanks = Array.from({ length: Math.max(0, ROWS_PER_PAGE - pageLines.length) })
+    // The paper form keeps ruled empty rows, so a line added by hand at the counter has somewhere to go. They pad
+    // the sheet up to twelve rows, but only into the room the real rows leave: a page of tall wrapped rows has no
+    // spare height, and padding it to twelve would push the sheet past the page.
+    const used = pageLines.reduce((sum, line) => sum + rowHeightMm(line), 0);
+    const spare = Math.max(0, Math.floor((budgetMm - used) / FIRST_LINE_MM));
+    const blanks = Array.from({ length: Math.min(Math.max(0, ROWS_PER_PAGE - pageLines.length), spare) })
       .map(
         (_, i) => `
         <tr class="blank">
@@ -132,8 +185,8 @@ export function renderIssueForm(
           <th class="desc">תיאור</th>
           <th class="narrow">י"ח</th>
           <th class="narrow">כמות</th>
-          <th>מזהה (מסד / צ׳)</th>
-          <th>הערות</th>
+          <th class="id">מזהה (מסד / צ׳)</th>
+          <th class="remarks">הערות</th>
         </tr>
       </thead>
       <tbody>${rows}${blanks}</tbody>
@@ -177,11 +230,12 @@ export function renderIssueForm(
   </div>`;
   };
 
-  const pages = paginate(form.lines);
+  const budgetMm = BODY_MM - notesHeightMm(form.notes);
+  const pages = paginate(form.lines, rowHeightMm, budgetMm);
   let firstNo = 1;
   const sheets = pages
     .map((pageLines, i) => {
-      const html = sheet(pageLines, firstNo, i + 1, pages.length);
+      const html = sheet(pageLines, firstNo, i + 1, pages.length, budgetMm);
       firstNo += pageLines.length;
       return html;
     })
@@ -241,12 +295,17 @@ export function renderIssueForm(
 
   .borrower { border: 1px solid #000; padding: 4pt 7pt; margin-bottom: 8pt; display: flex; gap: 20pt; }
 
-  table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+  /* Fixed column widths: with auto widths a long note widened its column and squeezed the others, so how tall a row
+     would be depended on its neighbours. Fixed, a row's height follows from its own text (see rowCost in the TypeScript). */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; table-layout: fixed; }
   th, td { border: 1px solid #000; padding: 3.5pt 6pt; text-align: right; vertical-align: top; }
   th { background: #e8e8e8; font-size: 9.5pt; font-weight: 700; text-align: center; }
   td.c { text-align: center; }
-  .narrow { width: 9%; }
+  .narrow { width: 8%; }
   .desc { width: 32%; }
+  .id { width: 18%; }
+  .remarks { width: 26%; }
+  td { overflow-wrap: anywhere; }
   /* Every row starts at the same height, so the extra room the table takes up is shared evenly: filled and ruled-empty rows look alike. */
   tbody td { height: 18pt; }
   tr.blank td.narrow { color: #777; font-weight: 400; }
