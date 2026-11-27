@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantService } from '../tenancy/tenant.service';
 import { SlackFileSender } from '../common/slack-file-sender';
 import { addDaysIso, israelToday } from '../common/israel-date';
 import { AttendanceService, type Week } from './attendance.service';
@@ -31,6 +32,7 @@ export class AttendanceSlackService {
     private readonly config: ConfigService,
     private readonly attendance: AttendanceService,
     private readonly slack: SlackFileSender,
+    private readonly tenants: TenantService,
   ) {}
 
   /**
@@ -41,12 +43,13 @@ export class AttendanceSlackService {
   @Cron('0 15 * * 4', { timeZone: 'Asia/Jerusalem', name: 'attendance-weekly-slack' })
   async weeklyJob(): Promise<void> {
     if (this.config.get<string>('NODE_ENV') !== 'production') return;
-    try {
-      const result = await this.sendWeek(addDaysIso(israelToday(), 7), 'cron');
-      if (!result.sent && result.error) this.logger.error(`Weekly ימי יציאה not sent: ${result.error}`);
-    } catch (e) {
-      this.logger.error('Weekly ימי יציאה failed', e instanceof Error ? e.stack : String(e));
-    }
+    await this.tenants.forEachBattalion(
+      async (battalionId) => {
+        const result = await this.sendWeek(addDaysIso(israelToday(), 7), 'cron');
+        if (!result.sent && result.error) this.logger.error(`Weekly ימי יציאה not sent for ${battalionId}: ${result.error}`);
+      },
+      (battalionId, e) => this.logger.error(`Weekly ימי יציאה failed for ${battalionId}`, e instanceof Error ? e.stack : String(e)),
+    );
   }
 
   async sendWeek(anyDateInWeek: string, trigger: 'manual' | 'cron', sentBy?: string): Promise<SendWeekResult> {

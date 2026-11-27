@@ -6,9 +6,23 @@ import { IsBooleanString, IsIn, IsNotEmpty, IsNumberString, IsOptional, IsString
  * secret rather than failing later, in production, with tokens anyone can forge.
  */
 export class EnvVars {
+  /** The database OWNER: migrations, pg_dump, scripts. The running API must not use it (see APP_DATABASE_URL). */
   @IsString()
   @IsNotEmpty()
   DATABASE_URL!: string;
+
+  /**
+   * The restricted `logistics_app` role the API serves requests as. Row-level security only filters a role
+   * that does not own the tables, so this is what keeps battalions apart; required in production.
+   */
+  @IsOptional()
+  @IsString()
+  APP_DATABASE_URL?: string;
+
+  /** Test-only: serve this battalion to code with no request or job scope. Refused in production. */
+  @IsOptional()
+  @IsString()
+  TENANT_FALLBACK_BATTALION_ID?: string;
 
   @IsString()
   @MinLength(32, { message: 'JWT_ACCESS_SECRET must be at least 32 characters' })
@@ -77,7 +91,16 @@ export function validateEnv(raw: Record<string, unknown>): EnvVars {
   if (isProduction && raw.DISABLE_RATE_LIMIT === 'true') {
     throw new Error('DISABLE_RATE_LIMIT must not be enabled in production');
   }
+  if (isProduction && raw.TENANT_FALLBACK_BATTALION_ID) {
+    throw new Error('TENANT_FALLBACK_BATTALION_ID must not be set in production: it would serve one battalion to code that has none');
+  }
   if (isProduction) {
+    if (!config.APP_DATABASE_URL) {
+      throw new Error('APP_DATABASE_URL must be set in production: the API must connect as the restricted role, not the database owner');
+    }
+    if (config.APP_DATABASE_URL === config.DATABASE_URL) {
+      throw new Error('APP_DATABASE_URL must differ from DATABASE_URL: the API must not connect as the database owner');
+    }
     if (!config.WEB_ORIGIN) throw new Error('WEB_ORIGIN must be set in production (CORS and the Origin check use it)');
     try {
       new URL(config.WEB_ORIGIN);

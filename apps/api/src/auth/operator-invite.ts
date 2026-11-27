@@ -32,7 +32,7 @@ export async function issueOperatorLink(
     prisma.userInvite.create({
       data: { userId: user.id, tokenHash, kind: user.passwordHash ? 'RESET' : 'INVITE', expiresAt },
     }),
-    prisma.securityEvent.create({ data: { type: 'INVITE_CREATED', userId: user.id, detail: 'operator' } }),
+    prisma.securityEvent.create({ data: { type: 'INVITE_CREATED', userId: user.id, detail: 'operator', battalionId: user.battalionId } }),
   ]);
   return { url: `${normalizeOrigin(webOrigin)}/setup/${token}`, expiresAt };
 }

@@ -202,43 +202,47 @@ model FormCounter {
 // ---------- auth ----------
 
 model User {
-  id                String     @id @default(uuid())
+  id                String    @id @default(uuid())
   /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
   /// never has to pass it; see docs/feat-mt-foundation.md.
-  battalionId       String?    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
-  battalion         Battalion? @relation(fields: [battalionId], references: [id], onDelete: Restrict)
-  username          String     @unique
+  battalionId       String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion         Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  username          String    @unique
   /// Null until a new user opens his invite link and chooses his own password: nobody else ever
   /// knows or sets it, and a user without one cannot log in.
-  passwordHash      String?    @map("password_hash")
-  displayName       String     @map("display_name")
+  passwordHash      String?   @map("password_hash")
+  displayName       String    @map("display_name")
   role              Role
-  companyScope      String?    @map("company_scope")
+  companyScope      String?   @map("company_scope")
   /// The company this user is limited to, if any.
-  companyScopeRef   Company?   @relation("userCompanyScope", fields: [battalionId, companyScope], references: [battalionId, code], onDelete: Restrict, onUpdate: Cascade)
-  isActive          Boolean    @default(true) @map("is_active")
-  createdAt         DateTime   @default(now()) @map("created_at")
+  companyScopeRef   Company?  @relation("userCompanyScope", fields: [battalionId, companyScope], references: [battalionId, code], onDelete: Restrict, onUpdate: Cascade)
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
   /// A single top-level admin above the regular `admin` role — can edit or
   /// deactivate any user including other admins. A regular admin cannot
   /// touch a super-admin's account or grant this flag to anyone; only
   /// a super-admin can. Role stays `admin` either way, so every existing
   /// `admin`-scoped guard and permission check keeps working unchanged —
   /// this only widens what a super-admin may additionally do in users.service.
-  isSuperAdmin      Boolean    @default(false) @map("is_super_admin")
+  isSuperAdmin      Boolean   @default(false) @map("is_super_admin")
+  /// The platform operator (the product owner), above every battalion: the only one who may touch what spans
+  /// battalions (full-database backups, the permission matrix) and, from step 4, create battalions and act
+  /// as any of them. Distinct from `isSuperAdmin`, which is a power inside one battalion.
+  isPlatformAdmin   Boolean   @default(false) @map("is_platform_admin")
   /// Consecutive wrong passwords. Past a threshold the account is locked for a growing
   /// time (`lockedUntil`), counted per ACCOUNT rather than per IP so an attack spread over
   /// many addresses is still stopped. Reset on a successful login.
-  failedLoginCount  Int        @default(0) @map("failed_login_count")
-  lockedUntil       DateTime?  @map("locked_until")
+  failedLoginCount  Int       @default(0) @map("failed_login_count")
+  lockedUntil       DateTime? @map("locked_until")
   /// Access tokens issued before this instant are refused, so changing or resetting a
   /// password ends other sessions now, not when their 15-minute token runs out.
-  passwordChangedAt DateTime?  @map("password_changed_at")
-  lastLoginAt       DateTime?  @map("last_login_at")
+  passwordChangedAt DateTime? @map("password_changed_at")
+  lastLoginAt       DateTime? @map("last_login_at")
   /// True from the moment an admin issues a setup link (new user, or a forgotten password / lost
   /// device) until it is used. While set, the account cannot log in.
-  mustSetup         Boolean    @default(false) @map("must_setup")
+  mustSetup         Boolean   @default(false) @map("must_setup")
   /// A super-admin has excused this person from the authenticator step (even while it is required for everyone else).
-  mfaExempt         Boolean    @default(false) @map("mfa_exempt")
+  mfaExempt         Boolean   @default(false) @map("mfa_exempt")
 
   refreshTokens       RefreshToken[]
   invites             UserInvite[]         @relation("inviteFor")
@@ -1213,15 +1217,15 @@ model UserInvite {
 /// password, token or signature. A failed login for a username that does not exist is not stored (it
 /// would let anyone fill the table), only logged.
 model SecurityEvent {
-  id          String     @id @default(uuid())
+  id          String    @id @default(uuid())
   /// Tenant. Defaults to the current battalion in the DB (`current_battalion_id()`), so a create
   /// never has to pass it; see docs/feat-mt-foundation.md.
-  battalionId String?    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
-  battalion   Battalion? @relation(fields: [battalionId], references: [id], onDelete: Restrict)
-  at          DateTime   @default(now())
+  battalionId String    @default(dbgenerated("current_battalion_id()")) @map("battalion_id")
+  battalion   Battalion @relation(fields: [battalionId], references: [id], onDelete: Restrict)
+  at          DateTime  @default(now())
   type        String
-  userId      String?    @map("user_id")
-  actorUserId String?    @map("actor_user_id")
+  userId      String?   @map("user_id")
+  actorUserId String?   @map("actor_user_id")
   ip          String?
   detail      String?
 

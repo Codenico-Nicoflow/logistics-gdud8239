@@ -1,10 +1,12 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
+import { TenancyModule } from './tenancy/tenancy.module';
+import { TenantMiddleware } from './tenancy/tenant.middleware';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ReportsModule } from './reports/reports.module';
@@ -32,6 +34,7 @@ import { RejectNullBytesPipe } from './common/pipes';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
+import { PlatformAdminGuard } from './auth/guards/platform-admin.guard';
 
 @Module({
   imports: [
@@ -89,6 +92,7 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    TenancyModule,
     SecurityEventsModule,
     AuthModule,
     UsersModule,
@@ -124,6 +128,13 @@ import { PermissionsGuard } from './auth/guards/permissions.guard';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_GUARD, useClass: PlatformAdminGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // Every request runs inside a tenant scope; the token guard (or the login / refresh / setup lookups)
+    // binds the battalion. Without one the database shows nothing.
+    consumer.apply(TenantMiddleware).forRoutes('*');
+  }
+}

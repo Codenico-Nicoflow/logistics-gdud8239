@@ -14,6 +14,7 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownerExec } from './owner';
 import { israelToday } from '../src/common/israel-date';
 
 const STAFF = { username: 'e2e_mov_staff', password: 'e2e-mov-staff-123' };
@@ -26,9 +27,9 @@ let prisma: PrismaService;
 let jar: string;
 
 async function cleanup(): Promise<void> {
-  await prisma.$executeRaw`ALTER TABLE movements DISABLE TRIGGER USER`;
+  await ownerExec('ALTER TABLE movements DISABLE TRIGGER USER');
   await prisma.movement.deleteMany({ where: { soldierNameSnapshot: SOLDIER } });
-  await prisma.$executeRaw`ALTER TABLE movements ENABLE TRIGGER USER`;
+  await ownerExec('ALTER TABLE movements ENABLE TRIGGER USER');
   await prisma.item.deleteMany({ where: { name: { in: [WEAPON, ACCESSORY] } } });
 }
 

@@ -5,6 +5,7 @@ import { WebClient } from '@slack/web-api';
 import ExcelJS from 'exceljs';
 import { storedQtyByItem } from '../ifsun/stored-qty';
 import { PrismaService } from '../prisma/prisma.service';
+import { slackAllowedHere } from '../common/slack-bridge';
 import type { AuthUser } from '../auth/auth.types';
 import { addDaysIso } from '../common/israel-date';
 import { reopenOps } from '../counts/reopen-ops';
@@ -264,7 +265,7 @@ export class MesakemService {
     // — מסכם is a daily business document for the armory team, not a plumbing
     // backup, and belongs in its own channel.
     const channel = this.config.get<string>('MESAKEM_SLACK_CHANNEL_ID');
-    if (!token || !channel) {
+    if (!token || !channel || !slackAllowedHere()) {
       const error = 'Slack אינו מוגדר';
       await this.prisma.dailySummaryExport.update({ where: { id: exportRow.id }, data: { slackError: error } });
       return { sent: false, error };

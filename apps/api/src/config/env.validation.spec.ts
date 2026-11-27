@@ -7,12 +7,27 @@ const base = {
   JWT_ACCESS_SECRET: 'a'.repeat(40),
   JWT_REFRESH_SECRET: 'b'.repeat(40),
 };
-const prod = { ...base, NODE_ENV: 'production', WEB_ORIGIN: 'https://app.example', COOKIE_SECURE: 'true' };
+const prod = {
+  ...base,
+  NODE_ENV: 'production',
+  WEB_ORIGIN: 'https://app.example',
+  COOKIE_SECURE: 'true',
+  APP_DATABASE_URL: 'postgresql://logistics_app:p@h/db',
+};
 
 describe('validateEnv in production', () => {
   it('accepts a complete production config', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     expect(() => validateEnv(prod)).not.toThrow();
+  });
+
+  it('refuses to boot without the restricted database role, or with the owner standing in for it', () => {
+    expect(() => validateEnv({ ...prod, APP_DATABASE_URL: undefined })).toThrow(/APP_DATABASE_URL/);
+    expect(() => validateEnv({ ...prod, APP_DATABASE_URL: prod.DATABASE_URL })).toThrow(/must differ/);
+  });
+
+  it('refuses the test-only tenant fallback', () => {
+    expect(() => validateEnv({ ...prod, TENANT_FALLBACK_BATTALION_ID: 'x' })).toThrow(/TENANT_FALLBACK_BATTALION_ID/);
   });
 
   it('refuses to boot without WEB_ORIGIN', () => {
@@ -29,7 +44,7 @@ describe('validateEnv in production', () => {
   });
 
   it('treats a Render deploy as production even when NODE_ENV was forgotten', () => {
-    expect(() => validateEnv({ ...base, RENDER: 'true' })).toThrow(/WEB_ORIGIN/);
+    expect(() => validateEnv({ ...base, APP_DATABASE_URL: prod.APP_DATABASE_URL, RENDER: 'true' })).toThrow(/WEB_ORIGIN/);
     expect(() => validateEnv({ ...prod, NODE_ENV: undefined, RENDER: 'true', DISABLE_RATE_LIMIT: 'true' })).toThrow(
       /DISABLE_RATE_LIMIT/,
     );

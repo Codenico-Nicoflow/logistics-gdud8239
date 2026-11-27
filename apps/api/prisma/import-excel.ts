@@ -11,14 +11,15 @@
  * Usage: tsx prisma/import-excel.ts <path-to-xlsx>
  */
 import 'dotenv/config';
-import { PrismaClient, IssueKind, Prisma } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { IssueKind, Prisma } from '@prisma/client';
+import { scriptPrisma } from '../src/tenancy/script-client';
 import ExcelJS from 'exceljs';
 import type { CompanyCode } from '../src/companies/company-code';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+// Imports into one battalion (8239 unless BATTALION_ID says otherwise).
+const prisma = scriptPrisma(connectionString, process.env.BATTALION_ID);
 
 const COMPANY_BY_HEBREW: Record<string, CompanyCode> = {
   'א': 'A',

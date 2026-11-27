@@ -22,6 +22,10 @@ export type AuthUser = {
   displayName: string;
   role: Role;
   companyScope: Company | null;
+  /** The battalion this session serves; everything the API returns is that battalion's. */
+  battalionId: string;
+  /** The platform operator: the only one who may use full-database backups and the permission matrix. */
+  isPlatformAdmin: boolean;
 };
 
 export type Paginated<T> = { rows: T[]; total: number };

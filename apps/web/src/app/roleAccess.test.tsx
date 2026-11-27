@@ -10,7 +10,7 @@ import { mount, resetApi, respond } from '../test/mockApi';
  * The server is the real gate; this proves the client never offers (or lands on) a screen the role cannot use.
  */
 function user(role: Role, extra: Partial<AuthUser> = {}): AuthUser {
-  return { id: 'u1', username: 'tester', displayName: 'בודק', role, companyScope: null, ...extra };
+  return { id: 'u1', username: 'tester', displayName: 'בודק', role, companyScope: null, battalionId: 'b1', isPlatformAdmin: false, ...extra };
 }
 
 function signedInAs(u: AuthUser): void {

@@ -4,6 +4,8 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantService } from '../tenancy/tenant.service';
+import { toAuthUser } from './auth-user';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
 import { checkPassword } from './password-policy';
 import { MfaPolicy } from './mfa-policy.service';
@@ -66,6 +68,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly events: SecurityEventsService,
     private readonly mfaPolicy: MfaPolicy,
+    private readonly tenants: TenantService,
   ) {}
 
   /**
@@ -79,7 +82,10 @@ export class AuthService {
     if (ip && this.ipBlocked(ip)) {
       throw new HttpException('יותר מדי ניסיונות כניסה כושלים מהרשת הזו. נסו שוב בעוד כמה דקות', HttpStatus.TOO_MANY_REQUESTS);
     }
-    const user = await this.prisma.user.findUnique({ where: { username } });
+    // Usernames are unique across the whole deployment, and the battalion is whatever the account belongs to.
+    // An unknown name binds nothing, finds nothing, and fails exactly like a wrong password.
+    await this.tenants.bindByUsername(username);
+    const user = await this.prisma.user.findFirst({ where: { username } });
     const locked = !!user?.lockedUntil && user.lockedUntil > new Date();
 
     const hash = user?.passwordHash ?? '$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
@@ -112,13 +118,7 @@ export class AuthService {
     // so the reset waits for `finishSignIn`.
     if ((await this.mfaPolicy.stepFor(user.id)) === 'none') await this.finishSignIn(user.id, ip);
 
-    return {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      role: user.role,
-      companyScope: user.companyScope,
-    };
+    return toAuthUser(user);
   }
 
   /** Everything that must be true of a completed sign-in, whichever steps it took. */
@@ -197,6 +197,13 @@ export class AuthService {
   @Cron('30 3 * * *', { timeZone: 'Asia/Jerusalem', name: 'prune-refresh-tokens' })
   async pruneRefreshTokens(): Promise<void> {
     if (this.config.get<string>('NODE_ENV') !== 'production') return;
+    await this.tenants.forEachBattalion(
+      () => this.pruneOneBattalion(),
+      (battalionId, error) => this.logger.error(`Prune failed for battalion ${battalionId}: ${error instanceof Error ? error.message : String(error)}`),
+    );
+  }
+
+  private async pruneOneBattalion(): Promise<void> {
     const day = 86_400_000;
     const { count } = await this.prisma.refreshToken.deleteMany({
       where: {
@@ -227,6 +234,7 @@ export class AuthService {
       username: user.username,
       role: user.role,
       companyScope: user.companyScope,
+      battalionId: user.battalionId,
       iatMs: Date.now(),
     };
 
@@ -272,6 +280,7 @@ export class AuthService {
       throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
     }
 
+    await this.tenants.bindByUserId(payload.sub);
     const stored = await this.prisma.refreshToken.findUnique({
       where: { tokenHash: hashToken(refreshToken) },
       include: { user: true },
@@ -307,19 +316,20 @@ export class AuthService {
     });
     if (claimed.count !== 1) throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
 
-    return this.issueTokens(
-      {
-        id: stored.user.id,
-        username: stored.user.username,
-        displayName: stored.user.displayName,
-        role: stored.user.role,
-        companyScope: stored.user.companyScope,
-      },
-      session,
-    );
+    return this.issueTokens(toAuthUser(stored.user), session);
   }
 
   async revoke(refreshToken: string): Promise<void> {
+    // An expired token still names its owner, which is all that is needed to find and revoke the row.
+    try {
+      const { sub } = await this.jwt.verifyAsync<RefreshPayload>(refreshToken, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        ignoreExpiration: true,
+      });
+      await this.tenants.bindByUserId(sub);
+    } catch {
+      return;
+    }
     await this.prisma.refreshToken.updateMany({
       where: { tokenHash: hashToken(refreshToken), revokedAt: null },
       data: { revokedAt: new Date() },

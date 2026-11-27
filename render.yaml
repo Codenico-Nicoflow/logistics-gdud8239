@@ -22,7 +22,12 @@ services:
         value: ./data/snapshots
       - key: DB_BACKUP_DIR
         value: ./data/db-backups
+      # The database OWNER: migrations and pg_dump only.
       - key: DATABASE_URL
+        sync: false
+      # The restricted role `logistics_app` the API serves requests as, so the database itself keeps
+      # battalions apart (row-level security). Same database, different user; see docs/feat-mt-isolation.md.
+      - key: APP_DATABASE_URL
         sync: false
       - key: JWT_ACCESS_SECRET
         sync: false
