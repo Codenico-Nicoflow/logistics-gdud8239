@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLoginMutation } from '../../lib/api';
 import { Button, TextField } from '../../components/ui';
+import { AuthLayout } from './AuthLayout';
 import { MfaStep } from './MfaStep';
 import { he } from '../../i18n/he';
 
@@ -22,46 +23,39 @@ export function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* The battalion number is the identifying mark here, so it carries the
-            weight rather than a logo or a tagline. */}
-        <div className="mb-8 border-b-2 border-field pb-4">
-          <div className="text-figure font-bold leading-none text-field">{he.app.battalion}</div>
-          <h1 className="mt-1 text-lead text-ink-soft">{he.app.name}</h1>
-        </div>
+    <AuthLayout title={pending ? undefined : he.auth.loginTitle} subtitle={pending ? undefined : he.auth.loginSubtitle}>
+      {pending ? (
+        <MfaStep step={pending.step} mfaToken={pending.mfaToken} onBack={() => setPending(null)} />
+      ) : (
+        <form onSubmit={submit} className="space-y-4">
+          <TextField
+            label={he.auth.username}
+            value={username}
+            onChange={setUsername}
+            autoFocus
+            required
+            autoComplete="username"
+          />
+          <TextField
+            label={he.auth.password}
+            value={password}
+            onChange={setPassword}
+            type="password"
+            required
+            autoComplete="current-password"
+          />
 
-        {pending ? (
-          <MfaStep step={pending.step} mfaToken={pending.mfaToken} onBack={() => setPending(null)} />
-        ) : (
-          <form onSubmit={submit} className="space-y-4">
-            <TextField
-              label={he.auth.username}
-              value={username}
-              onChange={setUsername}
-              autoFocus
-              required
-            />
-            <TextField
-              label={he.auth.password}
-              value={password}
-              onChange={setPassword}
-              type="password"
-              required
-            />
+          {isError && (
+            <p role="alert" className="auth-shake rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
+              {he.auth.failed}
+            </p>
+          )}
 
-            {isError && (
-              <p role="alert" className="rounded-ctl bg-oxide-wash px-3 py-2 text-meta text-oxide">
-                {he.auth.failed}
-              </p>
-            )}
-
-            <Button type="submit" disabled={isLoading || !username || !password} className="w-full">
-              {isLoading ? he.auth.submitting : he.auth.submit}
-            </Button>
-          </form>
-        )}
-      </div>
-    </main>
+          <Button type="submit" disabled={isLoading || !username || !password} className="w-full">
+            {isLoading ? he.auth.submitting : he.auth.submit}
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

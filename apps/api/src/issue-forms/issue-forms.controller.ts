@@ -1,3 +1,4 @@
+import { BattalionService } from '../battalion/battalion.service';
 import { Tier } from '../common/throttle-tiers';
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
@@ -17,6 +18,7 @@ export class IssueFormsController {
   constructor(
     private readonly forms: IssueFormsService,
     private readonly companies: CompaniesService,
+    private readonly battalion: BattalionService,
   ) {}
 
   // A 1008 carries a soldier's name, מ.א., phone and drawn signature. Reading one was open to any
@@ -58,7 +60,8 @@ export class IssueFormsController {
   ): Promise<void> {
     const form = await this.forms.findOne(id, actor.companyScope);
     const companyName = (await this.companies.nameByCode()).get(form.companySnapshot);
-    sendPrintPage(res, (nonce) => renderIssueForm(form, nonce, companyName));
+    const unit = await this.battalion.unit();
+    sendPrintPage(res, (nonce) => renderIssueForm(form, unit, nonce, companyName));
   }
 
   @Post()

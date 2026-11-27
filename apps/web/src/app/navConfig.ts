@@ -32,6 +32,7 @@ export type TabId =
   | 'kits'
   | 'naming'
   | 'companies'
+  | 'identity'
   | 'users'
   | 'backups'
   | 'help'
@@ -116,6 +117,7 @@ export const HUBS: readonly HubDef[] = [
     tabs: [
       { id: 'users', path: '', label: he.nav.users, roles: ADMIN },
       { id: 'companies', path: 'companies', label: he.nav.companies, roles: ADMIN },
+      { id: 'identity', path: 'identity', label: he.nav.identity, roles: ADMIN },
       { id: 'backups', path: 'backups', label: he.nav.backups, roles: ADMIN },
     ],
   },

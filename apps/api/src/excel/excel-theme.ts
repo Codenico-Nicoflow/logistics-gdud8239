@@ -74,13 +74,19 @@ export function createSheet(wb: ExcelJS.Workbook, name: string, widths: number[]
  * line (filters, date, when it was generated) on a light one, and a thin
  * brass rule under both — the same masthead the printed 1008 uses.
  */
+/**
+ * The unit a workbook was made for. It rides on the workbook's own `company` property so the helpers below
+ * can name it without every sheet builder having to pass it down; whoever creates the workbook sets it.
+ */
+export const unitOf = (ws: ExcelJS.Worksheet): string => ws.workbook.company ?? '';
+
 export function addTitleBlock(
   ws: ExcelJS.Worksheet,
   colCount: number,
   title: string,
   subtitle: string,
 ): void {
-  const titleRow = ws.addRow([`גדוד 8239 · ${title}`]);
+  const titleRow = ws.addRow([`${unitOf(ws)} · ${title}`]);
   ws.mergeCells(titleRow.number, 1, titleRow.number, colCount);
   titleRow.height = 38;
   const titleCell = titleRow.getCell(1);
@@ -232,7 +238,8 @@ export function addTotalsRow(ws: ExcelJS.Worksheet, values: (string | number)[],
  * sets the sheet up to print as an A4 landscape page with a footer — so
  * "print" from Excel gives a usable document without fiddling.
  */
-export function finalizeSheet(ws: ExcelJS.Worksheet, headerRow: ExcelJS.Row, colCount: number, footer: string): void {
+export function finalizeSheet(ws: ExcelJS.Worksheet, headerRow: ExcelJS.Row, colCount: number, note?: string): void {
+  const footer = `${note ? `${note} · ` : ''}מערכת הלוגיסטיקה של ${unitOf(ws)}`;
   ws.views = [{ state: 'frozen', ySplit: headerRow.number, rightToLeft: true, showGridLines: false }];
   ws.autoFilter = {
     from: { row: headerRow.number, column: 1 },

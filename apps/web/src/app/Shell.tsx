@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { useCompaniesQuery, useLogoutMutation } from '../lib/api';
-import { Logo } from '../components/Logo';
+import { useBattalionQuery, useCompaniesQuery, useLogoutMutation } from '../lib/api';
+import { BattalionMark } from '../components/BattalionMark';
 import { he } from '../i18n/he';
 import type { AuthUser } from '../lib/types';
 import { HUBS, hubEntryAddress, visibleTabs, type HubDef, type HubGroup, type HubId } from './navConfig';
@@ -130,6 +130,7 @@ function isInHub(pathname: string, hub: HubDef): boolean {
 export function Shell({ user }: { user: AuthUser }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logout] = useLogoutMutation();
+  const { data: battalion } = useBattalionQuery();
   // Warm the companies list so every screen has names the moment it renders, not after its own fetch.
   useCompaniesQuery();
 
@@ -203,10 +204,10 @@ export function Shell({ user }: { user: AuthUser }) {
       <header className="liquid-bar fixed inset-x-0 top-0 z-40 pt-[var(--safe-top)] shadow-[0_1px_0_rgba(255,255,255,0.1)] lg:hidden">
         <div className="flex h-14 items-center justify-between gap-3 px-4">
           <Link to="/" onClick={() => setMenuOpen(false)} className="flex min-w-0 items-center gap-2.5 rounded-ctl">
-            <Logo className="h-9 w-9 shrink-0" />
+            <BattalionMark className="h-9 w-9 shrink-0" />
             <div className="min-w-0">
               <div className="truncate text-lead font-extrabold leading-none tracking-tight text-white">
-                {he.app.battalion}
+                {battalion?.name}
               </div>
               <div className="mt-1 truncate text-micro font-medium tracking-[0.04em] text-brass-bright">
                 {he.app.name}
@@ -257,10 +258,10 @@ export function Shell({ user }: { user: AuthUser }) {
           to="/"
           className="relative z-10 hidden items-center gap-3 border-b border-white/10 px-5 py-5 transition-opacity hover:opacity-90 lg:flex"
         >
-          <Logo className="h-12 w-12" />
-          <div>
-            <div className="text-head font-extrabold leading-none tracking-tight text-white">
-              {he.app.battalion}
+          <BattalionMark className="h-12 w-12" />
+          <div className="min-w-0">
+            <div className="truncate text-head font-extrabold leading-none tracking-tight text-white">
+              {battalion?.name}
             </div>
             <div className="mt-1.5 text-micro font-medium tracking-[0.04em] text-brass-bright">
               {he.app.name}

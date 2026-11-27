@@ -1,3 +1,4 @@
+import { BattalionService } from '../battalion/battalion.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
@@ -33,6 +34,7 @@ export class AttendanceSlackService {
     private readonly attendance: AttendanceService,
     private readonly slack: SlackFileSender,
     private readonly tenants: TenantService,
+    private readonly battalion: BattalionService,
   ) {}
 
   /**
@@ -86,7 +88,7 @@ export class AttendanceSlackService {
         // Nothing filled in yet: say so rather than post an empty table people would read as "everyone is present nowhere".
         await this.slack.sendMessage(channel, `ימי יציאה לשבוע ${label} עדיין לא מולאו.`);
       } else {
-        const pdf = await buildWeekPdf(week, new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }));
+        const pdf = await buildWeekPdf(week, (await this.battalion.unit()).name, new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }));
         await this.slack.sendFile(channel, pdf, `ימי-יציאה-${weekStart}.pdf`, `ימי יציאה — שבוע ${label}`);
       }
       return { sent: true, weekStart };

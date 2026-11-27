@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../prisma/prisma.service';
+import { BattalionService } from '../battalion/battalion.service';
 import { CompaniesService } from '../companies/companies.service';
 import type { QueryMovementsDto } from './dto/query-movements.dto';
 import type { Paginated } from '../common/pagination.dto';
@@ -52,6 +53,7 @@ export class MovementsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly companies: CompaniesService,
+    private readonly battalion: BattalionService,
   ) {}
 
   /**
@@ -130,6 +132,7 @@ export class MovementsService {
   async exportDaily(query: QueryMovementsDto): Promise<Buffer> {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'מערכת לוגיסטיקה';
+    wb.company = (await this.battalion.unit()).name;
     wb.created = new Date();
     await this.addMovementsSheet(wb, query);
     const data = await wb.xlsx.writeBuffer();
@@ -233,7 +236,7 @@ export class MovementsService {
       ['סה"כ', `${rows.length}`, '', '', '', '', rows.reduce((s, r) => s + r.quantity, 0), ''],
       [2, 7],
     );
-    finalizeSheet(ws, header, COLS, 'דוח תנועות · מערכת הלוגיסטיקה של גדוד 8239');
+    finalizeSheet(ws, header, COLS, 'דוח תנועות');
   }
 
   private toRow(m: {

@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery, type BaseQueryFn } from '@reduxjs/toolkit/qu
 import type {
   AuthUser,
   Company,
+  BattalionInfo,
   CompanyInfo,
   CountSheet,
   CountShift,
@@ -88,6 +89,7 @@ export const api = createApi({
   baseQuery: baseQueryWithRefresh,
   tagTypes: [
     'Auth',
+    'Battalion',
     'Signatures',
     'Soldiers',
     'Items',
@@ -434,7 +436,21 @@ export const api = createApi({
       query: (id) => ({ url: `/items/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Items', 'Reports', 'Kits'],
     }),
-    // --- kits (ערכות) ---
+    // --- the battalion's own identity ---
+    battalion: build.query<BattalionInfo, void>({
+      query: () => '/battalion',
+      providesTags: ['Battalion'],
+    }),
+    // The image goes up as itself, not wrapped in JSON: the browser sends the file's own type and bytes.
+    setBattalionLogo: build.mutation<BattalionInfo, File>({
+      query: (file) => ({ url: '/battalion/logo', method: 'PUT', body: file }),
+      invalidatesTags: ['Battalion'],
+    }),
+    clearBattalionLogo: build.mutation<BattalionInfo, void>({
+      query: () => ({ url: '/battalion/logo', method: 'DELETE' }),
+      invalidatesTags: ['Battalion'],
+    }),
+    // --- companies ---
     companies: build.query<CompanyInfo[], void>({
       query: () => '/companies',
       providesTags: ['Companies'],
@@ -827,6 +843,9 @@ export const {
   useUpdateItemMutation,
   useLazyDeletionCheckQuery,
   useItemKitQuery,
+  useBattalionQuery,
+  useSetBattalionLogoMutation,
+  useClearBattalionLogoMutation,
   useCompaniesQuery,
   useCreateCompanyMutation,
   useUpdateCompanyMutation,

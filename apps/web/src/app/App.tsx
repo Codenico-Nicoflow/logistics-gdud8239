@@ -22,6 +22,7 @@ import { IntakePage } from '../features/intake/IntakePage';
 import { HelpPage } from '../features/help/HelpPage';
 import { KitsPage } from '../features/kits/KitsPage';
 import { NamingPage } from '../features/naming/NamingPage';
+import { IdentityPage } from '../features/battalion/IdentityPage';
 import { CompaniesPage } from '../features/companies/CompaniesPage';
 import { CompanySplitPage } from '../features/allocations/CompanySplitPage';
 import { AttendancePage } from '../features/attendance/AttendancePage';
@@ -69,6 +70,8 @@ function screenFor(tab: TabId, user: AuthUser): ReactNode {
       return <UsersPage currentUserId={user.id} />;
     case 'companies':
       return <CompaniesPage />;
+    case 'identity':
+      return <IdentityPage />;
     case 'backups':
       return <BackupsPage />;
     case 'help':

@@ -1,6 +1,7 @@
 import type { CountShift } from '@prisma/client';
 import type { CountSheetRow } from './counts.service';
 import { printButton } from '../common/print-page';
+import type { Unit } from '../battalion/battalion.service';
 
 export type CountSessionForPrint = {
   sessionDate: Date;
@@ -39,7 +40,7 @@ const SHIFT_HE: Record<CountShift, string> = { EVENING: 'ספירת ערב', MOR
  * printout (`issue-form.html.ts`): the browser's own bidi handling is correct
  * for Hebrew, a PDF library's would need a bundled font and its own.
  */
-export function renderCountSession(session: CountSessionForPrint, nonce: string): string {
+export function renderCountSession(session: CountSessionForPrint, unit: Unit, nonce: string): string {
   // Split into two side-by-side columns so ~45 items plus both signer boxes
   // fit one A4 page, the way the paper sheet is filed.
   const half = Math.ceil(session.rows.length / 2);
@@ -73,7 +74,7 @@ export function renderCountSession(session: CountSessionForPrint, nonce: string)
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<title>ספירת נשקייה גדוד 8239 — ${SHIFT_HE[session.shift]} — ${formatDate(session.sessionDate)}</title>
+<title>ספירת נשקייה ${esc(unit.name)} — ${SHIFT_HE[session.shift]} — ${formatDate(session.sessionDate)}</title>
 <style>
   /* margin: 0 leaves the browser no room for its own header/footer (URL,
      date, page number); the sheet's padding below is the real margin. */
@@ -130,7 +131,7 @@ export function renderCountSession(session: CountSessionForPrint, nonce: string)
 
   <div class="sheet">
     <div class="masthead">
-      <div class="unit-no">8239<small>גדוד</small></div>
+      <div class="unit-no">${esc(unit.number)}<small>גדוד</small></div>
       <div class="titles"><h1>ספירת נשקייה</h1></div>
       <div class="doc-no">${SHIFT_HE[session.shift]}<strong class="mono">${formatDate(session.sessionDate)}</strong></div>
     </div>
@@ -168,7 +169,7 @@ export function renderCountSession(session: CountSessionForPrint, nonce: string)
     </div>
 
     <footer>
-      <span>הופק ממערכת הלוגיסטיקה של גדוד 8239</span>
+      <span>הופק ממערכת הלוגיסטיקה של ${esc(unit.name)}</span>
       <span class="mono">${formatDate(session.sessionDate)}</span>
     </footer>
   </div>

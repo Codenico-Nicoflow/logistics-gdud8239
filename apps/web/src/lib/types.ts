@@ -4,6 +4,9 @@ export type Role = 'admin' | 'logistics' | 'viewer' | 'SHLISHUT' | 'SAMGAD' | 'C
 /** A company's stable code ("A", "SUPPORT", or a generated one). Its name is data: see `CompanyInfo` and `useCompanies()`. */
 export type Company = string;
 
+/** The signed-in battalion, as `GET /battalion` returns it. `logoVersion` changes with the picture so a cached copy is never stale. */
+export type BattalionInfo = { id: string; name: string; number: string; hasLogo: boolean; logoVersion: number };
+
 /** One of the battalion's companies, as `GET /companies` returns it. */
 export type CompanyInfo = { id: string; code: Company; name: string; sortOrder: number; isActive: boolean };
 export type ItemCategory = 'WEAPON' | 'OPTICS' | 'DRONE' | 'ACCESSORY' | 'GEAR' | 'AMMO';

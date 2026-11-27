@@ -1,5 +1,6 @@
 import type { IfsunRecord } from '@prisma/client';
 import { printButton } from '../common/print-page';
+import type { Unit } from '../battalion/battalion.service';
 
 function esc(value: string | number | null | undefined): string {
   return String(value ?? '').replace(
@@ -22,7 +23,7 @@ const STATUS_HE = { STORED: 'מאופסן', COLLECTED: 'נלקח', CREDITED: 'ז
  * HTML rather than a PDF binary for the same reason as the 1008: the browser's
  * own Hebrew layout is right, and its print dialog produces the PDF.
  */
-export function renderIfsun(r: IfsunRecord, nonce: string): string {
+export function renderIfsun(r: IfsunRecord, unit: Unit, nonce: string): string {
   const half = (title: string, name: string | null, at: Date | null, image: string | null, by: string | null) => `
     <div class="party">
       <h2>${esc(title)}</h2>
@@ -73,7 +74,7 @@ export function renderIfsun(r: IfsunRecord, nonce: string): string {
 ${printButton(nonce)}
 <div class="sheet">
   <h1>אפסון ציוד בנשקייה</h1>
-  <div class="sub">גדוד 8239 · הופק ${esc(when(new Date()))}</div>
+  <div class="sub">${esc(unit.name)} · הופק ${esc(when(new Date()))}</div>
   <table>
     <tr><th>חייל</th><td>${esc(r.soldierNameSnapshot)}</td></tr>
     <tr><th>פריט</th><td>${esc(r.itemNameSnapshot)}${r.quantity > 1 ? ` ×${esc(r.quantity)}` : ''}</td></tr>

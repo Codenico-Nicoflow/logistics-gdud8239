@@ -1,3 +1,4 @@
+import { BattalionService } from '../battalion/battalion.service';
 import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -23,7 +24,6 @@ import {
 } from './totp';
 
 const STEP_TOKEN_TTL = '5m';
-const ISSUER = 'Logistics 8239';
 const REFUSED = 'הקוד שגוי או שפג תוקפו. נסו שוב';
 
 type StepToken = { sub: string; typ: 'mfa'; iatMs: number };
@@ -57,6 +57,7 @@ export class MfaService {
     private readonly auth: AuthService,
     readonly policy: MfaPolicy,
     private readonly tenants: TenantService,
+    private readonly battalion: BattalionService,
   ) {}
 
   // ---------- the step between password and session ----------
@@ -116,7 +117,7 @@ export class MfaService {
       create: { userId, secretEnc },
       update: { secretEnc, confirmedAt: null, lastStep: 0 },
     });
-    return { secret, otpauthUrl: otpauthUrl(secret, user.username, ISSUER) };
+    return { secret, otpauthUrl: otpauthUrl(secret, user.username, `Logistics ${(await this.battalion.unit()).number}`) };
   }
 
   /** Proves the person's app shows the right code, then turns it on and returns the backup codes (once). */

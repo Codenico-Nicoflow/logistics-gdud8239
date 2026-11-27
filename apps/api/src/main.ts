@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { useBodyParsers } from './common/body-parsers';
 import { appValidationPipe } from './common/validation-pipe';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import { normalizeOrigin, originCheck } from './common/origin-check.middleware';
@@ -33,9 +34,7 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.use(cookieParser());
-  // Explicit rather than Express's 100 kb default, which is below the 400 kb a drawn signature
-  // is allowed to be — and, unlike a casual global bump, nothing bigger than this gets in.
-  app.useBodyParser('json', { limit: '1mb' });
+  useBodyParsers(app);
   app.use(originCheck(webOrigin));
   // Printed at boot so a wrong value is visible in the deploy log instead of only as blocked logins.
   logger.log(`Browser origin allowed for writes and CORS: ${webOrigin}`);
