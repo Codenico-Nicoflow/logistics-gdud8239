@@ -49,6 +49,10 @@ jobs:
       # The backup tests spawn pg_dump, which must be at least as new as the server.
       - name: Install the PostgreSQL client tools
         run: |
+          # The runner image ships Microsoft's apt repo, which sometimes answers 403 / "no longer signed"
+          # and makes `apt-get update` exit 100, failing the whole job before a single test runs. Nothing
+          # here comes from it, so drop it rather than depend on it.
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.*
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client
       - run: npm ci
