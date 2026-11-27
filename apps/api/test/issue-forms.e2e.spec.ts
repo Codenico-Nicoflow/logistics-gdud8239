@@ -388,3 +388,25 @@ describe('מספר קבלה', () => {
     await post({ soldierId: soldierB, receiptNo: 'E2E-5', signatureImage: SIGNATURE, lines: weaponLine('RCPT-6') }).expect(201);
   });
 });
+
+describe('reissue', () => {
+  it('records which form it replaced as data, and puts nothing of the sort in the notes that get printed', async () => {
+    const first = await post({ soldierId: soldierA, signatureImage: SIGNATURE, notes: 'הערה שלי', lines: [{ itemId: accessoryId, quantity: 5 }] }).expect(201);
+    const again = await request(app.getHttpServer())
+      .post(`/api/issue-forms/${first.body.id}/reissue`)
+      .set('Cookie', jar)
+      .send({ soldierId: soldierA, signatureImage: SIGNATURE, lines: [{ itemId: accessoryId, quantity: 3 }] })
+      .expect(201);
+
+    expect(again.body.supersedesFormId).toBe(first.body.id);
+    expect(again.body.notes).toBeNull();
+    // What the operator typed is kept as typed, with nothing added.
+    const typed = await request(app.getHttpServer())
+      .post(`/api/issue-forms/${again.body.id}/reissue`)
+      .set('Cookie', jar)
+      .send({ soldierId: soldierA, signatureImage: SIGNATURE, notes: 'שוב', lines: [{ itemId: accessoryId, quantity: 2 }] })
+      .expect(201);
+    expect(typed.body.notes).toBe('שוב');
+    expect(typed.body.supersedesFormId).toBe(again.body.id);
+  });
+});

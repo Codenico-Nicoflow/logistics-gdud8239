@@ -619,10 +619,16 @@ model IssueForm {
 
   notes String?
 
-  soldier    Soldier              @relation(fields: [soldierId], references: [id], onDelete: Restrict)
-  issuedBy   User                 @relation(fields: [issuedByUserId], references: [id])
-  lines      IssueFormLine[]
-  amendments IssueFormAmendment[]
+  /// The signed form this one replaced (set by a reissue). Bookkeeping for the audit trail: it is not printed and
+  /// not part of `notes`, which is only what the operator wrote.
+  supersedesFormId String? @map("supersedes_form_id")
+
+  soldier      Soldier              @relation(fields: [soldierId], references: [id], onDelete: Restrict)
+  issuedBy     User                 @relation(fields: [issuedByUserId], references: [id])
+  lines        IssueFormLine[]
+  amendments   IssueFormAmendment[]
+  supersedes   IssueForm?           @relation("supersedes", fields: [supersedesFormId], references: [id], onDelete: Restrict)
+  supersededBy IssueForm[]          @relation("supersedes")
 
   @@unique([battalionId, formNo])
   @@index([soldierId])

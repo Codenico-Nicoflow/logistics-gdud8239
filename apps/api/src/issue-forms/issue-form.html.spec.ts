@@ -53,17 +53,34 @@ describe('renderIssueForm layout', () => {
     expect(html.match(/alt="חתימת השואל"/g)).toHaveLength(4);
     expect(html.match(/class="declaration"/g)).toHaveLength(4);
     expect(html.match(/class="header-box"/g)).toHaveLength(4);
-    for (const n of [1, 2, 3, 4]) expect(html).toContain(`טופס 1 · עמוד ${n} מתוך 4`);
+    for (const n of [1, 2, 3, 4]) expect(html).toContain(`עמוד ${n} מתוך 4`);
   });
 
-  it('numbers the rows straight through the pages and pads every page to a full sheet', () => {
+  it('fills each page to twelve rows before starting the next, and pads only the last', () => {
     const html = renderIssueForm(form(37), UNIT, 'n');
-    const numbers = [...html.matchAll(/<td class="c narrow">(\d*)<\/td>\s*(?:<td class="desc">|<td><\/td>)/g)].map((m) => m[1]);
-    // 4 pages x 12 rows. The 37 lines are numbered 1..37; only the last page numbers its 3 empty rows, since on an
-    // earlier page the next number already belongs to a line on the following one.
-    expect(numbers).toHaveLength(48);
-    expect(numbers.filter(Boolean).map(Number)).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
+    const numbers = [...html.matchAll(/<td class="c narrow">(\d+)<\/td>\s*(?:<td class="desc">|<td><\/td>)/g)].map((m) => Number(m[1]));
+    // 4 pages x 12 rows, numbered straight through; 37 real lines, so the last page has 1 line and 11 empty rows.
+    expect(numbers).toEqual(Array.from({ length: 48 }, (_, i) => i + 1));
     expect(html.match(/class="blank"/g)).toHaveLength(11);
+  });
+
+  it('prints no form number and no system note, only what the operator wrote', () => {
+    // The tab title (the default name of a saved PDF) keeps the number; the sheet itself does not show it.
+    const onPaper = (html: string): string => html.split('</head>')[1] ?? '';
+    const single = onPaper(renderIssueForm({ ...form(3), formNo: 4321, notes: 'הערה של המנפק' }, UNIT, 'n'));
+    expect(single).not.toContain('4321');
+    expect(single).not.toContain('מספר שובר');
+    expect(single).toContain('הערה של המנפק');
+    expect(onPaper(renderIssueForm({ ...form(37), formNo: 4321 }, UNIT, 'n'))).not.toContain('4321');
+  });
+
+  it("prints the signing time and date on Israel's clock, whatever timezone the server is in", () => {
+    // 22:30 UTC on the 27th is 00:30 on the 28th in Israel (winter time, UTC+2).
+    const html = renderIssueForm({ ...form(3), signedAt: new Date('2026-11-27T22:30:00Z') }, UNIT, 'n');
+    expect(html).toContain('28.11.2026');
+    expect(html).toContain('00:30');
+    expect(html).not.toContain('27.11.2026');
+    expect(html).not.toContain('22:30');
   });
 
   it("names the battalion it was printed for, never another's", () => {
@@ -88,10 +105,10 @@ describe('paginate', () => {
     expect(sizes(12)).toEqual([12]);
   });
 
-  it('spreads the lines evenly instead of leaving a nearly empty last page', () => {
-    expect(sizes(13)).toEqual([7, 6]);
+  it('fills a page before starting the next, the last taking the remainder', () => {
+    expect(sizes(13)).toEqual([12, 1]);
     expect(sizes(24)).toEqual([12, 12]);
-    expect(sizes(37)).toEqual([10, 9, 9, 9]);
+    expect(sizes(37)).toEqual([12, 12, 12, 1]);
   });
 
   it('never puts more than twelve rows on a page and loses no line', () => {
