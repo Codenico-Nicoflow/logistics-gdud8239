@@ -3,12 +3,15 @@ import { BoundedIntPipe } from '../common/pipes';
 import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { PlatformAdminOnly } from '../auth/decorators/platform-admin.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { DbBackupsService } from './db-backups.service';
 import type { AuthUser } from '../auth/auth.types';
 
+/** A full dump holds every battalion's data, so only the platform operator may list, take or download one. */
 @Controller('db-backups')
 @Roles('admin')
+@PlatformAdminOnly()
 export class DbBackupsController {
   constructor(private readonly backups: DbBackupsService) {}
 

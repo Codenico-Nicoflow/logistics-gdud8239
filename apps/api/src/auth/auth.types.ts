@@ -7,6 +7,8 @@ export type JwtPayload = {
   username: string;
   role: Role;
   companyScope: CompanyCode | null;
+  /** The battalion this session serves. Every query is filtered to it by the database. */
+  battalionId: string;
   /** Issued-at (seconds), set by the JWT library. */
   iat?: number;
   /** Issued-at in milliseconds. `iat` rounds down to the second, which cannot tell a token issued just
@@ -21,6 +23,8 @@ export type AuthUser = {
   displayName: string;
   role: Role;
   companyScope: CompanyCode | null;
+  battalionId: string;
+  isPlatformAdmin: boolean;
 };
 
 /** Refresh tokens carry a token id so a single session can be revoked. */

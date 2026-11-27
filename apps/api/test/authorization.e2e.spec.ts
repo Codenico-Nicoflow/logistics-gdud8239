@@ -13,6 +13,7 @@ import * as bcrypt from 'bcryptjs';
 import type { Role } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownerExec } from './owner';
 import { AllExceptionsFilter } from '../src/common/all-exceptions.filter';
 import { takeFormNo } from '../src/issue-forms/form-no';
 import type { CompanyCode } from '../src/companies/company-code';
@@ -41,9 +42,9 @@ async function cleanup(): Promise<void> {
   const soldiers = await prisma.soldier.findMany({ where: { lastName: LAST }, select: { id: true } });
   const ids = soldiers.map((s) => s.id);
   if (ids.length) {
-    await prisma.$executeRaw`ALTER TABLE issue_forms DISABLE TRIGGER USER`;
+    await ownerExec('ALTER TABLE issue_forms DISABLE TRIGGER USER');
     await prisma.issueForm.deleteMany({ where: { soldierId: { in: ids } } });
-    await prisma.$executeRaw`ALTER TABLE issue_forms ENABLE TRIGGER USER`;
+    await ownerExec('ALTER TABLE issue_forms ENABLE TRIGGER USER');
     await prisma.soldier.deleteMany({ where: { id: { in: ids } } });
   }
   await prisma.user.deleteMany({ where: { username: { in: Object.values(ACCOUNTS).map((a) => a.username) } } });

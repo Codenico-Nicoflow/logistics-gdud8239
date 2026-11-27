@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WebClient } from '@slack/web-api';
+import { slackAllowedHere } from './slack-bridge';
 
 /**
  * Uploads a file (or a plain message) to a Slack channel. A seam of its own so a
@@ -13,6 +14,7 @@ export class SlackFileSender {
 
   /** The channel configured under `envKey`, or undefined when it or the bot token is missing. */
   channelFor(envKey: string): string | undefined {
+    if (!slackAllowedHere()) return undefined;
     const channel = this.config.get<string>(envKey);
     return this.config.get<string>('SLACK_BOT_TOKEN') && channel ? channel : undefined;
   }

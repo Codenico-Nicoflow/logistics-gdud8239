@@ -14,6 +14,7 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownerExec } from './owner';
 
 const STAFF = { username: 'e2e_sig_staff', password: 'e2e-sig-password-123' };
 const VIEWER = { username: 'e2e_sig_viewer', password: 'e2e-sig-viewer-123' };
@@ -63,11 +64,11 @@ async function cleanup(): Promise<void> {
   // Movements are append-only, so they are removed with a raw delete that
   // bypasses the guard trigger — test data only, never used by the app.
   if (soldierIds.length || itemIds.length) {
-    await prisma.$executeRaw`ALTER TABLE movements DISABLE TRIGGER USER`;
+    await ownerExec('ALTER TABLE movements DISABLE TRIGGER USER');
     await prisma.movement.deleteMany({
       where: { OR: [{ soldierId: { in: soldierIds } }, { itemId: { in: itemIds } }] },
     });
-    await prisma.$executeRaw`ALTER TABLE movements ENABLE TRIGGER USER`;
+    await ownerExec('ALTER TABLE movements ENABLE TRIGGER USER');
   }
   await prisma.signature.deleteMany({
     where: { OR: [{ soldierId: { in: soldierIds } }, { itemId: { in: itemIds } }] },

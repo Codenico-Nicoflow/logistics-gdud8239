@@ -11,15 +11,16 @@ import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
-import { PrismaClient, type Company, type Role } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import type { Role } from '@prisma/client';
+import type { CompanyCode } from '../src/companies/company-code';
+import { scriptPrisma } from '../src/tenancy/script-client';
 
 const url = process.env.DATABASE_URL ?? '';
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) throw new Error('Refusing: DATABASE_URL is not a local database');
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
+const prisma = scriptPrisma(url);
 
-const ACCOUNTS: { username: string; role: Role; companyScope?: Company }[] = [
+const ACCOUNTS: { username: string; role: Role; companyScope?: CompanyCode }[] = [
   { username: 'tmp_e2e_admin', role: 'admin' },
   { username: 'tmp_e2e_logistics', role: 'logistics' },
   { username: 'tmp_e2e_viewer', role: 'viewer' },

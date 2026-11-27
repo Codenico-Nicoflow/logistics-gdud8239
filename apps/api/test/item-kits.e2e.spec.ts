@@ -15,6 +15,7 @@ import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { appValidationPipe } from '../src/common/validation-pipe';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownerExec } from './owner';
 
 const ADMIN = { username: 'e2e_kits_admin', password: 'e2e-kits-admin-123' };
 const STAFF = { username: 'e2e_kits_staff', password: 'e2e-kits-staff-123' };
@@ -46,12 +47,13 @@ async function cleanup(): Promise<void> {
   await prisma.itemKitLine.deleteMany({ where: { OR: [{ itemId: { in: ids } }, { kit: { baseItemId: { in: ids } } }] } });
   await prisma.itemKit.deleteMany({ where: { baseItemId: { in: ids } } });
   await prisma.item.deleteMany({ where: { id: { in: ids } } });
-  // Append-only by trigger: lift it for this transaction only, as the e2e cleanup script does.
-  await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`ALTER TABLE item_kit_changes DISABLE TRIGGER item_kit_changes_no_update_delete`;
-    await tx.itemKitChange.deleteMany({ where: { baseItemName: { startsWith: PREFIX } } });
-    await tx.$executeRaw`ALTER TABLE item_kit_changes ENABLE TRIGGER item_kit_changes_no_update_delete`;
-  });
+  // Append-only by trigger: lift it for the delete only, as the owner (the app's role cannot alter tables).
+  await ownerExec('ALTER TABLE item_kit_changes DISABLE TRIGGER item_kit_changes_no_update_delete');
+  try {
+    await prisma.itemKitChange.deleteMany({ where: { baseItemName: { startsWith: PREFIX } } });
+  } finally {
+    await ownerExec('ALTER TABLE item_kit_changes ENABLE TRIGGER item_kit_changes_no_update_delete');
+  }
 }
 
 beforeAll(async () => {

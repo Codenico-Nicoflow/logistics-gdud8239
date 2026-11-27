@@ -1,6 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { scriptPrisma } from '../src/tenancy/script-client';
 import * as bcrypt from 'bcryptjs';
 import { ACCESSORIES, CATALOG, GEAR_PRICES, TEAM, SeedItem } from './catalog';
 
@@ -13,7 +12,8 @@ if ((process.env.NODE_ENV === 'production' || process.env.RENDER === 'true') && 
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL is not set');
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+// Seeds one battalion (8239 unless BATTALION_ID says otherwise).
+const prisma = scriptPrisma(connectionString, process.env.BATTALION_ID);
 
 const BCRYPT_ROUNDS = 12;
 

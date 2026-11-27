@@ -5,21 +5,27 @@
  */
 import 'dotenv/config';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { takeFormNo } from '../src/issue-forms/form-no';
+import { TenantPool } from '../src/tenancy/tenant-pool';
+import { HOME_BATTALION_ID } from '../src/common/slack-bridge';
 
 const ROLLBACK = 'rollback-on-purpose';
 
-let prisma: PrismaService;
+/** The database OWNER (the app's restricted role cannot create battalions): these cases test the schema's own
+ *  constraints, not row-level security, which has its own spec. */
+let prisma: PrismaClient;
 
 beforeAll(async () => {
-  prisma = new PrismaService();
-  await prisma.onModuleInit();
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error('DATABASE_URL is not set');
+  prisma = new PrismaClient({ adapter: new PrismaPg(new TenantPool({ connectionString, fallbackBattalionId: HOME_BATTALION_ID }), { disposeExternalPool: true }) });
+  await prisma.$connect();
 });
 
 afterAll(async () => {
-  await prisma.onModuleDestroy();
+  await prisma.$disconnect();
 });
 
 /** Runs `body` against a rolled-back transaction and hands back whatever it returned. */

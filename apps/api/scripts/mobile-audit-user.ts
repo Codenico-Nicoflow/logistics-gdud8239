@@ -11,14 +11,13 @@ import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { scriptPrisma } from '../src/tenancy/script-client';
 
 const USERNAME = 'tmp_mobile_audit_admin';
 const url = process.env.DATABASE_URL ?? '';
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) throw new Error('Refusing: DATABASE_URL is not a local database');
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
+const prisma = scriptPrisma(url);
 
 async function main(): Promise<void> {
   const [action, file] = process.argv.slice(2);

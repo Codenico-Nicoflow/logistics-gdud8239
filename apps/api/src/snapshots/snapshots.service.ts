@@ -7,6 +7,8 @@ import { createReadStream } from 'node:fs';
 import { mkdir, stat, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantService } from '../tenancy/tenant.service';
+import { slackAllowedHere } from '../common/slack-bridge';
 import { ExcelExportService } from '../excel/excel-export.service';
 import type { AuthUser } from '../auth/auth.types';
 
@@ -18,6 +20,7 @@ export class SnapshotsService {
     private readonly prisma: PrismaService,
     private readonly exporter: ExcelExportService,
     private readonly config: ConfigService,
+    private readonly tenants: TenantService,
   ) {}
 
   private get dir(): string {
@@ -98,19 +101,21 @@ export class SnapshotsService {
     // production Slack channel every evening.
     if (this.config.get<string>('NODE_ENV') !== 'production') return;
     this.logger.log('Running daily snapshot');
-    try {
-      const { id } = await this.create('daily');
-      await this.sendToSlack(id);
-      await this.pruneOldDaily();
-    } catch (e) {
-      this.logger.error('Daily snapshot failed', e instanceof Error ? e.stack : String(e));
-    }
+    // One snapshot per battalion, each from that battalion's own rows.
+    await this.tenants.forEachBattalion(
+      async () => {
+        const { id } = await this.create('daily');
+        await this.sendToSlack(id);
+        await this.pruneOldDaily();
+      },
+      (battalionId, e) => this.logger.error(`Daily snapshot failed for ${battalionId}`, e instanceof Error ? e.stack : String(e)),
+    );
   }
 
   async sendToSlack(snapshotId: string): Promise<{ sent: boolean; error?: string }> {
     const token = this.config.get<string>('SLACK_BOT_TOKEN');
     const channel = this.config.get<string>('SLACK_CHANNEL_ID');
-    if (!token || !channel) {
+    if (!token || !channel || !slackAllowedHere()) {
       this.logger.warn('Slack not configured; snapshot stored but not sent');
       return { sent: false, error: 'Slack אינו מוגדר' };
     }

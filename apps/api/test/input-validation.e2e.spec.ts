@@ -47,7 +47,7 @@ beforeAll(async () => {
   prisma = app.get(PrismaService);
   await prisma.user.deleteMany({ where: { username: ADMIN.username } });
   await prisma.user.create({
-    data: { username: ADMIN.username, displayName: 'מנהל', role: 'admin', passwordHash: await bcrypt.hash(ADMIN.password, 12) },
+    data: { username: ADMIN.username, displayName: 'מנהל', role: 'admin', isPlatformAdmin: true, passwordHash: await bcrypt.hash(ADMIN.password, 12) },
   });
   const res = await request(app.getHttpServer()).post('/api/auth/login').send(ADMIN).expect(200);
   jar = (res.headers['set-cookie'] as unknown as string[]).map((c) => c.split(';')[0]).join('; ');

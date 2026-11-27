@@ -41,7 +41,8 @@ export class DbBackupsService {
   }
 
   /**
-   * Runs `pg_dump` against the same DATABASE_URL the app itself uses, gzips
+   * Runs `pg_dump` against DATABASE_URL, the database OWNER (the API itself serves requests as the
+   * restricted APP_DATABASE_URL role, which only sees one battalion; a dump has to see all of them), gzips
    * the output as it streams to disk (never held fully in memory — a dump of
    * this DB is small today, but nothing here should assume it stays that
    * way), and records the result.

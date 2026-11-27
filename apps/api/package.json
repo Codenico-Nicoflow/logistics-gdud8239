@@ -10,8 +10,10 @@
     "migrate:deploy": "prisma migrate deploy",
     "generate": "prisma generate",
     "seed": "tsx prisma/seed.ts",
+    "seed:test-battalion": "tsx prisma/seed-test-battalion.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:app-role": "tsx scripts/app-role.ts",
     "user:invite": "tsx scripts/user-invite.ts"
   },
   "prisma": {
@@ -42,6 +44,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.21.0",
+    "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zxcvbn": "^4.4.2"
@@ -56,6 +59,7 @@
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfkit": "^0.17.7",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.2",
     "@types/zxcvbn": "^4.4.5",
     "prisma": "^7.10.1",

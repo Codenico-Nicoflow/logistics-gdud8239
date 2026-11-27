@@ -15,6 +15,7 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownerExec } from './owner';
 
 const STAFF = { username: 'e2e_sol_staff', password: 'e2e-sol-staff-123' };
 const LAST = 'E2E-רשימה';
@@ -32,9 +33,9 @@ async function cleanup(): Promise<void> {
   });
   const ids = soldiers.map((s) => s.id);
   if (ids.length) {
-    await prisma.$executeRaw`ALTER TABLE movements DISABLE TRIGGER USER`;
+    await ownerExec('ALTER TABLE movements DISABLE TRIGGER USER');
     await prisma.movement.deleteMany({ where: { soldierId: { in: ids } } });
-    await prisma.$executeRaw`ALTER TABLE movements ENABLE TRIGGER USER`;
+    await ownerExec('ALTER TABLE movements ENABLE TRIGGER USER');
     await prisma.signature.deleteMany({ where: { soldierId: { in: ids } } });
     await prisma.soldier.deleteMany({ where: { id: { in: ids } } });
   }

@@ -14,6 +14,7 @@ import request from 'supertest';
 import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ownerExec } from './owner';
 
 const STAFF = { username: 'e2e_form_staff', password: 'e2e-form-staff-123' };
 const LAST = 'E2E-טופס';
@@ -52,15 +53,15 @@ async function cleanup(): Promise<void> {
   });
   const itemIds = items.map((i) => i.id);
 
-  await prisma.$executeRaw`ALTER TABLE issue_forms DISABLE TRIGGER USER`;
+  await ownerExec('ALTER TABLE issue_forms DISABLE TRIGGER USER');
   await prisma.issueForm.deleteMany({ where: { soldierId: { in: ids } } });
-  await prisma.$executeRaw`ALTER TABLE issue_forms ENABLE TRIGGER USER`;
+  await ownerExec('ALTER TABLE issue_forms ENABLE TRIGGER USER');
 
-  await prisma.$executeRaw`ALTER TABLE movements DISABLE TRIGGER USER`;
+  await ownerExec('ALTER TABLE movements DISABLE TRIGGER USER');
   await prisma.movement.deleteMany({
     where: { OR: [{ soldierId: { in: ids } }, { itemId: { in: itemIds } }] },
   });
-  await prisma.$executeRaw`ALTER TABLE movements ENABLE TRIGGER USER`;
+  await ownerExec('ALTER TABLE movements ENABLE TRIGGER USER');
 
   await prisma.signature.deleteMany({
     where: { OR: [{ soldierId: { in: ids } }, { itemId: { in: itemIds } }] },

@@ -38,7 +38,7 @@ beforeAll(async () => {
   await prisma.user.deleteMany({ where: { username: { in: [A.username, B.username] } } });
   for (const u of [A, B]) {
     await prisma.user.create({
-      data: { username: u.username, displayName: u.username, role: 'admin', passwordHash: await bcrypt.hash(u.password, 12) },
+      data: { username: u.username, displayName: u.username, role: 'admin', isPlatformAdmin: true, passwordHash: await bcrypt.hash(u.password, 12) },
     });
   }
   jarA = jarOf(await request(app.getHttpServer()).post('/api/auth/login').send(A).expect(200));

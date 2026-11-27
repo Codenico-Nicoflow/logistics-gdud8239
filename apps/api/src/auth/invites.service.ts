@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantService } from '../tenancy/tenant.service';
+import { toAuthUser } from './auth-user';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
 import { BCRYPT_ROUNDS } from './auth.constants';
 import { checkPassword } from './password-policy';
@@ -22,6 +24,7 @@ export class InvitesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: SecurityEventsService,
+    private readonly tenants: TenantService,
   ) {}
 
   /** Issues a link for `userId`, cancelling any earlier unused one. The token is returned once. */
@@ -81,13 +84,16 @@ export class InvitesService {
 
     await this.events.record(SecurityEventType.INVITE_USED, { userId: invite.userId, ip, detail: invite.kind });
     const user = invite.user;
-    return { id: user.id, username: user.username, displayName: user.displayName, role: user.role, companyScope: user.companyScope };
+    return toAuthUser(user);
   }
 
-  private findUsable(token: string) {
-    if (token.length < 20 || token.length > 100) return Promise.resolve(null);
+  private async findUsable(token: string) {
+    if (token.length < 20 || token.length > 100) return null;
+    // The link is the only thing a person arrives with, so it is also what says which battalion they are in.
+    const tokenHash = hashInviteToken(token);
+    await this.tenants.bindByInviteHash(tokenHash);
     return this.prisma.userInvite.findFirst({
-      where: { tokenHash: hashInviteToken(token), usedAt: null, expiresAt: { gt: new Date() }, user: { isActive: true } },
+      where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() }, user: { isActive: true } },
       include: { user: true },
     });
   }

@@ -4,6 +4,8 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createHmac } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantService } from '../tenancy/tenant.service';
+import { toAuthUser } from './auth-user';
 import { SecurityEventsService, SecurityEventType } from '../security-events/security-events.service';
 import { AuthService } from './auth.service';
 import type { AuthUser } from './auth.types';
@@ -54,6 +56,7 @@ export class MfaService {
     private readonly events: SecurityEventsService,
     private readonly auth: AuthService,
     readonly policy: MfaPolicy,
+    private readonly tenants: TenantService,
   ) {}
 
   // ---------- the step between password and session ----------
@@ -80,12 +83,13 @@ export class MfaService {
     }
     if (payload.typ !== 'mfa') throw new UnauthorizedException(REFUSED);
 
+    await this.tenants.bindByUserId(payload.sub);
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     const locked = !!user?.lockedUntil && user.lockedUntil > new Date();
     const changed = !!user?.passwordChangedAt && payload.iatMs < user.passwordChangedAt.getTime();
     if (!user || !user.isActive || user.mustSetup || locked || changed) throw new UnauthorizedException(REFUSED);
 
-    return { id: user.id, username: user.username, displayName: user.displayName, role: user.role, companyScope: user.companyScope };
+    return toAuthUser(user);
   }
 
   /** Its own key, derived from the access secret, so a step token can never be accepted as an access token. */

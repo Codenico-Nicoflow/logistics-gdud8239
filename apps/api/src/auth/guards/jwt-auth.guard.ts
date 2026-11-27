@@ -9,6 +9,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
+import { bindBattalion } from '../../tenancy/tenant-context';
+import { toAuthUser } from '../auth-user';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ACCESS_COOKIE } from '../auth.constants';
 import type { AuthUser, JwtPayload } from '../auth.types';
@@ -49,6 +51,10 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
     }
 
+    // A token from before battalions existed names none: sign in again rather than guess one.
+    if (!payload.battalionId) throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
+    bindBattalion(payload.battalionId);
+
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || !user.isActive) {
       throw new UnauthorizedException('המשתמש אינו פעיל');
@@ -60,13 +66,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('ההזדהות פגה, נא להתחבר מחדש');
     }
 
-    request.user = {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      role: user.role,
-      companyScope: user.companyScope,
-    };
+    request.user = toAuthUser(user);
     return true;
   }
 

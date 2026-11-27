@@ -10,7 +10,7 @@ import type { AuthUser } from '../../lib/types';
 import { calls, resetApi, respond } from '../../test/mockApi';
 import { DocumentsPage } from './DocumentsPage';
 
-const admin: AuthUser = { id: 'u', username: 'x', displayName: 'x', role: 'admin', companyScope: null };
+const admin: AuthUser = { id: 'u', username: 'x', displayName: 'x', role: 'admin', companyScope: null, battalionId: 'b1', isPlatformAdmin: false };
 const HOLDER = {
   id: 's1', firstName: 'דנה', lastName: 'כהן', personalNumber: '1234567', phone: null, company: 'A', itemCount: 1,
   signatures: [], forms: [],

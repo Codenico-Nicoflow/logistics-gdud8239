@@ -36,6 +36,8 @@ jobs:
     env:
       # Throwaway values for a throwaway database: nothing here is a real credential.
       DATABASE_URL: postgresql://logistics:ci_only_password@localhost:5432/logistics?schema=public
+      # The restricted role the API runs as; the step below gives it this password.
+      APP_DATABASE_URL: postgresql://logistics_app:ci_only_app_password@localhost:5432/logistics?schema=public
       JWT_ACCESS_SECRET: ci-only-access-secret-0123456789-abcdef
       JWT_REFRESH_SECRET: ci-only-refresh-secret-0123456789-uvwxyz
       NODE_ENV: development
@@ -59,6 +61,8 @@ jobs:
       - run: npm run generate --workspace=apps/api
       - name: Apply migrations to the empty database
         run: npm run migrate:deploy --workspace=apps/api
+      - name: Set the restricted application role's password
+        run: npm run db:app-role --workspace=apps/api
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
         working-directory: apps/api

@@ -58,7 +58,7 @@ beforeAll(async () => {
   await cleanup();
   await prisma.user.deleteMany({ where: { username: { in: [ADMIN.username, STAFF.username] } } });
   await prisma.user.create({
-    data: { username: ADMIN.username, displayName: 'מנהל ספירה', role: 'admin', passwordHash: await bcrypt.hash(ADMIN.password, 12) },
+    data: { username: ADMIN.username, displayName: 'מנהל ספירה', role: 'admin', isPlatformAdmin: true, passwordHash: await bcrypt.hash(ADMIN.password, 12) },
   });
   await prisma.user.create({
     data: { username: STAFF.username, displayName: 'לוגיסטיקה ספירה', role: 'logistics', passwordHash: await bcrypt.hash(STAFF.password, 12) },

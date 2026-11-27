@@ -11,7 +11,7 @@ import { calls, resetApi, respond } from '../../test/mockApi';
 import { ServicePeriodsPage } from './ServicePeriodsPage';
 
 const PERIOD = { id: 'p1', name: 'תעסוקת חורף', startsAt: '2026-11-01T00:00:00.000Z', endsAt: '2026-12-01T00:00:00.000Z', status: 'PLANNING' };
-const user = (role: Role): AuthUser => ({ id: 'u', username: 'x', displayName: 'x', role, companyScope: null });
+const user = (role: Role): AuthUser => ({ id: 'u', username: 'x', displayName: 'x', role, companyScope: null, battalionId: 'b1', isPlatformAdmin: false });
 
 function show(role: Role, periods: unknown[] = [PERIOD]): void {
   respond({
