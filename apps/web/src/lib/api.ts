@@ -4,6 +4,7 @@ import type {
   Company,
   BattalionInfo,
   ModulesInfo,
+  SlackOverview,
   CreatedBattalion,
   NewBattalionInput,
   PlatformBattalion,
@@ -95,6 +96,7 @@ export const api = createApi({
     'Auth',
     'Battalion',
     'Modules',
+    'Slack',
     'Platform',
     'Signatures',
     'Soldiers',
@@ -441,6 +443,15 @@ export const api = createApi({
     deleteItem: build.mutation<{ deleted: true }, string>({
       query: (id) => ({ url: `/items/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Items', 'Reports', 'Kits'],
+    }),
+    // --- this battalion's Slack channels ---
+    slack: build.query<SlackOverview, void>({
+      query: () => '/slack',
+      providesTags: ['Slack'],
+    }),
+    setSlackChannel: build.mutation<SlackOverview, { kind: string; channelId: string | null }>({
+      query: ({ kind, channelId }) => ({ url: `/slack/${kind}`, method: 'PUT', body: { channelId } }),
+      invalidatesTags: ['Slack'],
     }),
     // --- optional modules ---
     modules: build.query<ModulesInfo, void>({
@@ -884,6 +895,8 @@ export const {
   useItemKitQuery,
   useBattalionQuery,
   useModulesQuery,
+  useSlackQuery,
+  useSetSlackChannelMutation,
   useSetModuleMutation,
   usePlatformBattalionsQuery,
   useCreateBattalionMutation,

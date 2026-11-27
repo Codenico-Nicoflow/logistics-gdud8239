@@ -37,6 +37,12 @@ services:
         sync: false
       - key: SLACK_BOT_TOKEN
         sync: false
+      # The full-database dump (every battalion's data). A PRIVATE channel only the platform operator is in;
+      # the API refuses to post there unless Slack confirms it is private. Never a battalion's channel.
+      - key: DB_BACKUP_SLACK_CHANNEL_ID
+        sync: false
+      # Legacy: read once at boot to give גדוד 8239 the channels it already had. Each battalion's channels now
+      # live in the database (מערכת ← Slack); these three can be removed after the first deploy.
       - key: SLACK_CHANNEL_ID
         sync: false
       - key: MESAKEM_SLACK_CHANNEL_ID

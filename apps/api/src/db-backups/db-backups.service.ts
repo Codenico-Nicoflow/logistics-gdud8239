@@ -171,10 +171,12 @@ export class DbBackupsService {
 
   async sendToSlack(backupId: string): Promise<{ sent: boolean; error?: string }> {
     const token = this.config.get<string>('SLACK_BOT_TOKEN');
-    const channel = this.config.get<string>('SLACK_CHANNEL_ID');
+    // The dump holds every battalion's data, so it has a channel of its own that belongs to the platform. It
+    // never falls back to a battalion's channel: that channel's members would be handed all the others' data.
+    const channel = this.config.get<string>('DB_BACKUP_SLACK_CHANNEL_ID');
     if (!token || !channel) {
-      this.logger.warn('Slack not configured; DB backup stored but not sent');
-      return { sent: false, error: 'Slack אינו מוגדר' };
+      this.logger.warn('DB backup Slack channel not configured; backup stored but not sent');
+      return { sent: false, error: 'ערוץ הסלאק של הגיבוי המלא אינו מוגדר' };
     }
 
     const backup = await this.prisma.dbBackup.findUnique({ where: { id: backupId } });
@@ -185,6 +187,12 @@ export class DbBackupsService {
       const sizeMb = (backup.sizeBytes / (1024 * 1024)).toFixed(1);
 
       const slack = new WebClient(token);
+      // Refuse unless Slack itself says the channel is private. A failed lookup refuses too: not being able to
+      // tell is not a reason to post everyone's data.
+      const info = await slack.conversations.info({ channel });
+      if (info.channel?.is_private !== true) {
+        throw new Error('ערוץ הגיבוי המלא חייב להיות פרטי, או שלא ניתן לוודא זאת');
+      }
       await slack.filesUploadV2({
         channel_id: channel,
         file: backup.filePath,

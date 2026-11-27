@@ -6,7 +6,7 @@ import { WebClient } from '@slack/web-api';
 import ExcelJS from 'exceljs';
 import { storedQtyByItem } from '../ifsun/stored-qty';
 import { PrismaService } from '../prisma/prisma.service';
-import { slackAllowedHere } from '../common/slack-bridge';
+import { SlackConfigService } from '../slack/slack-config.service';
 import type { AuthUser } from '../auth/auth.types';
 import { addDaysIso } from '../common/israel-date';
 import { reopenOps } from '../counts/reopen-ops';
@@ -53,6 +53,7 @@ export class MesakemService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly battalion: BattalionService,
+    private readonly slackConfig: SlackConfigService,
   ) {}
 
   /**
@@ -264,11 +265,10 @@ export class MesakemService {
     const exportRow = previous ?? (await this.prisma.dailySummaryExport.create({ data: { sessionDate: date } }));
 
     const token = this.config.get<string>('SLACK_BOT_TOKEN');
-    // Its own channel, separate from SLACK_CHANNEL_ID (db-backups/snapshots)
-    // — מסכם is a daily business document for the armory team, not a plumbing
-    // backup, and belongs in its own channel.
-    const channel = this.config.get<string>('MESAKEM_SLACK_CHANNEL_ID');
-    if (!token || !channel || !slackAllowedHere()) {
+    // Its own channel, separate from the snapshots one — מסכם is a daily business document for the
+    // armory team, not a plumbing backup, and belongs in its own channel.
+    const channel = await this.slackConfig.channel('mesakem');
+    if (!token || !channel) {
       const error = 'Slack אינו מוגדר';
       await this.prisma.dailySummaryExport.update({ where: { id: exportRow.id }, data: { slackError: error } });
       return { sent: false, error };

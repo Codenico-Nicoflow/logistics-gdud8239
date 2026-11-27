@@ -34,6 +34,7 @@ export type TabId =
   | 'companies'
   | 'identity'
   | 'modules'
+  | 'slack'
   | 'battalions'
   | 'users'
   | 'backups'
@@ -128,6 +129,7 @@ export const HUBS: readonly HubDef[] = [
       { id: 'companies', path: 'companies', label: he.nav.companies, roles: ADMIN },
       { id: 'identity', path: 'identity', label: he.nav.identity, roles: ADMIN },
       { id: 'modules', path: 'modules', label: he.nav.modules, roles: ADMIN, platformOnly: true },
+      { id: 'slack', path: 'slack', label: he.nav.slack, roles: ADMIN, platformOnly: true },
       { id: 'battalions', path: 'battalions', label: he.nav.battalions, roles: ADMIN, platformOnly: true },
       { id: 'backups', path: 'backups', label: he.nav.backups, roles: ADMIN, platformOnly: true },
     ],

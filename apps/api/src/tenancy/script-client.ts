@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { HOME_BATTALION_ID } from '../common/slack-bridge';
+import { HOME_BATTALION_ID } from '../common/home-battalion';
 import { TenantPool } from './tenant-pool';
 
 /**

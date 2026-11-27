@@ -8,7 +8,7 @@ import { mkdir, stat, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantService } from '../tenancy/tenant.service';
-import { slackAllowedHere } from '../common/slack-bridge';
+import { SlackConfigService } from '../slack/slack-config.service';
 import { ExcelExportService } from '../excel/excel-export.service';
 import type { AuthUser } from '../auth/auth.types';
 
@@ -21,6 +21,7 @@ export class SnapshotsService {
     private readonly exporter: ExcelExportService,
     private readonly config: ConfigService,
     private readonly tenants: TenantService,
+    private readonly slackConfig: SlackConfigService,
   ) {}
 
   private get dir(): string {
@@ -114,8 +115,8 @@ export class SnapshotsService {
 
   async sendToSlack(snapshotId: string): Promise<{ sent: boolean; error?: string }> {
     const token = this.config.get<string>('SLACK_BOT_TOKEN');
-    const channel = this.config.get<string>('SLACK_CHANNEL_ID');
-    if (!token || !channel || !slackAllowedHere()) {
+    const channel = await this.slackConfig.channel('snapshots');
+    if (!token || !channel) {
       this.logger.warn('Slack not configured; snapshot stored but not sent');
       return { sent: false, error: 'Slack אינו מוגדר' };
     }

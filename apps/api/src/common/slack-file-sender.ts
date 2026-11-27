@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WebClient } from '@slack/web-api';
-import { slackAllowedHere } from './slack-bridge';
+import { SlackConfigService } from '../slack/slack-config.service';
+import type { SlackKind } from '../slack/slack-kinds';
 
 /**
  * Uploads a file (or a plain message) to a Slack channel. A seam of its own so a
@@ -10,13 +11,14 @@ import { slackAllowedHere } from './slack-bridge';
  */
 @Injectable()
 export class SlackFileSender {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly channels: SlackConfigService,
+  ) {}
 
-  /** The channel configured under `envKey`, or undefined when it or the bot token is missing. */
-  channelFor(envKey: string): string | undefined {
-    if (!slackAllowedHere()) return undefined;
-    const channel = this.config.get<string>(envKey);
-    return this.config.get<string>('SLACK_BOT_TOKEN') && channel ? channel : undefined;
+  /** This battalion's channel for `kind`, or undefined when it has none or the deployment has no bot. */
+  channelFor(kind: SlackKind): Promise<string | undefined> {
+    return this.channels.channel(kind);
   }
 
   async sendFile(channel: string, file: Buffer, filename: string, comment: string): Promise<void> {

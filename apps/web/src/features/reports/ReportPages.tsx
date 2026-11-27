@@ -19,6 +19,7 @@ import {
 } from '../../components/ui';
 import { useToast } from '../../components/toast';
 
+import { useSlack } from '../slack/useSlack';
 import { he } from '../../i18n/he';
 import { todayIso } from '../../lib/dates';
 
@@ -38,6 +39,7 @@ export function SummaryPage() {
   const [save, { isLoading: isSaving, error }] = useSaveMesakemMutation();
   const [finishDay, { isLoading: isFinishing, error: finishError }] = useFinishMesakemDayMutation();
   const toast = useToast();
+  const slack = useSlack();
 
   useEffect(() => {
     if (!data) return;
@@ -142,9 +144,11 @@ export function SummaryPage() {
             >
               {he.summary.downloadExcel}
             </Button>
-            <Button variant="quiet" onClick={() => setConfirmingFinish(true)} disabled={isFinishing}>
-              {isFinishing ? he.summary.finishing : he.summary.finishDay}
-            </Button>
+            {slack.isConfigured('mesakem') && (
+              <Button variant="quiet" onClick={() => setConfirmingFinish(true)} disabled={isFinishing}>
+                {isFinishing ? he.summary.finishing : he.summary.finishDay}
+              </Button>
+            )}
           </div>
         </div>
 

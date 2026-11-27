@@ -23,6 +23,7 @@ import { HelpPage } from '../features/help/HelpPage';
 import { KitsPage } from '../features/kits/KitsPage';
 import { NamingPage } from '../features/naming/NamingPage';
 import { BattalionsPage } from '../features/platform/BattalionsPage';
+import { SlackPage } from '../features/slack/SlackPage';
 import { ModulesPage } from '../features/modules/ModulesPage';
 import { useModules } from '../features/modules/useModules';
 import { useViewer } from './useViewer';
@@ -78,6 +79,8 @@ function screenFor(tab: TabId, user: AuthUser): ReactNode {
       return <IdentityPage />;
     case 'modules':
       return <ModulesPage />;
+    case 'slack':
+      return <SlackPage />;
     case 'battalions':
       return <BattalionsPage user={user} />;
     case 'backups':
