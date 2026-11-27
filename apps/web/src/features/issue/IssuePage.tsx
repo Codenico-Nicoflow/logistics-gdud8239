@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useCreateIssueFormMutation } from '../../lib/api';
+import { useCreateIssueFormMutation, useMeQuery } from '../../lib/api';
 import { apiErrorMessage, Button, Panel } from '../../components/ui';
 import { useToast } from '../../components/toast';
 import { he } from '../../i18n/he';
@@ -8,7 +8,7 @@ import { SoldierSearch } from './SoldierSearch';
 import { ConfirmSoldier } from './ConfirmSoldier';
 import { BasketStep, type BasketLine } from './BasketStep';
 import { SignStep } from './SignStep';
-import { clearDraft, loadActiveDraft, loadDraft, parkActiveDraft, saveDraft } from './issueDraft';
+import { clearDraft, draftScope, loadActiveDraft, loadDraft, parkActiveDraft, saveDraft } from './issueDraft';
 import { useCompanies } from '../companies/useCompanies';
 
 type Step = 'soldier' | 'confirm' | 'basket' | 'sign' | 'done';
@@ -25,7 +25,9 @@ type Step = 'soldier' | 'confirm' | 'basket' | 'sign' | 'done';
 export function IssuePage() {
   // Read once: what the operator was in the middle of when the page last went away (a reload, a stray tap,
   // the browser discarding the tab). See issueDraft.ts.
-  const [resumed] = useState(loadActiveDraft);
+  const { data: me } = useMeQuery();
+  const scope = me ? draftScope(me.user) : null;
+  const [resumed] = useState(() => loadActiveDraft(scope));
   const [step, setStep] = useState<Step>(resumed?.step ?? 'soldier');
   const [soldier, setSoldier] = useState<SoldierSummary | null>(resumed?.soldier ?? null);
   const [lines, setLines] = useState<BasketLine[]>(resumed?.lines ?? []);
@@ -40,8 +42,8 @@ export function IssuePage() {
   // Every change to the unsigned form is kept, so leaving the page never costs the basket.
   useEffect(() => {
     if (!soldier || step === 'soldier' || step === 'done') return;
-    saveDraft({ soldier, step, lines, receiptNo, notes });
-  }, [soldier, step, lines, receiptNo, notes]);
+    saveDraft(scope, { soldier, step, lines, receiptNo, notes });
+  }, [scope, soldier, step, lines, receiptNo, notes]);
 
   function clearForm(): void {
     setLines([]);
@@ -61,7 +63,7 @@ export function IssuePage() {
   function pick(picked: SoldierSummary): void {
     // His own unsigned basket from earlier comes back; anyone else starts clean (the previous soldier's
     // lines must never carry over).
-    const draft = loadDraft(picked.id);
+    const draft = loadDraft(scope, picked.id);
     setSoldier(picked);
     setSignature(null);
     setLines(draft?.lines ?? []);
@@ -74,7 +76,7 @@ export function IssuePage() {
   }
 
   function discardDraft(): void {
-    if (soldier) clearDraft(soldier.id);
+    if (soldier) clearDraft(scope, soldier.id);
     clearForm();
     setRestored(false);
     setStep('confirm');
@@ -98,7 +100,7 @@ export function IssuePage() {
     if (result.data) {
       setForm(result.data);
       setStep('done');
-      clearDraft(soldier.id);
+      clearDraft(scope, soldier.id);
       toast.success({
         title: he.toast.formSigned,
         detail: `${he.form1008.created(result.data.formNo)} · ${soldier.firstName} ${soldier.lastName}`,
@@ -130,7 +132,7 @@ export function IssuePage() {
           soldierId={soldier.id}
           onBack={() => {
             // His draft stays on the device for when he is picked again; the screen itself must not keep it.
-            parkActiveDraft();
+            parkActiveDraft(scope);
             setSoldier(null);
             clearForm();
             setRestored(false);
