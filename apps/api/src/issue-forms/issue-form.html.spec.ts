@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_FILL_LINES, renderIssueForm, type FormForPrint } from './issue-form.html';
+import { paginate, renderIssueForm, ROWS_PER_PAGE, type FormForPrint } from './issue-form.html';
 
 const UNIT = { name: 'גדוד 5033', number: '5033' };
 
@@ -38,9 +38,32 @@ describe('renderIssueForm layout', () => {
     expect(renderIssueForm(form(12), UNIT, 'n')).not.toContain('class="blank"');
   });
 
-  it('flows over several pages instead of stretching once the form has too many lines', () => {
-    expect(renderIssueForm(form(MAX_FILL_LINES), UNIT, 'n')).toContain('class="sheet"');
-    expect(renderIssueForm(form(MAX_FILL_LINES + 1), UNIT, 'n')).toContain('class="sheet flow"');
+  it('is one sheet, with no page marker, up to the 12 rows of the paper form', () => {
+    const html = renderIssueForm(form(ROWS_PER_PAGE), UNIT, 'n');
+    expect(html.match(/class="sheet"/g)).toHaveLength(1);
+    expect(html).not.toContain('עמוד');
+  });
+
+  it('continues on another whole sheet once there are more lines than the paper form has rows', () => {
+    const html = renderIssueForm(form(37), UNIT, 'n');
+    const sheets = html.match(/class="sheet"/g) ?? [];
+    expect(sheets).toHaveLength(4);
+    // Each sheet is a complete 1008 with the one signature repeated, so any page can be checked on its own.
+    expect(html.match(/class="parties"/g)).toHaveLength(4);
+    expect(html.match(/alt="חתימת השואל"/g)).toHaveLength(4);
+    expect(html.match(/class="declaration"/g)).toHaveLength(4);
+    expect(html.match(/class="header-box"/g)).toHaveLength(4);
+    for (const n of [1, 2, 3, 4]) expect(html).toContain(`טופס 1 · עמוד ${n} מתוך 4`);
+  });
+
+  it('numbers the rows straight through the pages and pads every page to a full sheet', () => {
+    const html = renderIssueForm(form(37), UNIT, 'n');
+    const numbers = [...html.matchAll(/<td class="c narrow">(\d*)<\/td>\s*(?:<td class="desc">|<td><\/td>)/g)].map((m) => m[1]);
+    // 4 pages x 12 rows. The 37 lines are numbered 1..37; only the last page numbers its 3 empty rows, since on an
+    // earlier page the next number already belongs to a line on the following one.
+    expect(numbers).toHaveLength(48);
+    expect(numbers.filter(Boolean).map(Number)).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
+    expect(html.match(/class="blank"/g)).toHaveLength(11);
   });
 
   it("names the battalion it was printed for, never another's", () => {
@@ -53,5 +76,29 @@ describe('renderIssueForm layout', () => {
   it('escapes a battalion name, since an admin chooses it', () => {
     const html = renderIssueForm(form(6), { name: '<script>x</script>', number: '1' }, 'n');
     expect(html).not.toContain('<script>x</script>');
+  });
+});
+
+
+describe('paginate', () => {
+  const sizes = (n: number) => paginate(Array.from({ length: n }, (_, i) => i)).map((p) => p.length);
+
+  it('keeps a form of up to twelve lines on one page, even an empty one', () => {
+    expect(sizes(0)).toEqual([0]);
+    expect(sizes(12)).toEqual([12]);
+  });
+
+  it('spreads the lines evenly instead of leaving a nearly empty last page', () => {
+    expect(sizes(13)).toEqual([7, 6]);
+    expect(sizes(24)).toEqual([12, 12]);
+    expect(sizes(37)).toEqual([10, 9, 9, 9]);
+  });
+
+  it('never puts more than twelve rows on a page and loses no line', () => {
+    for (let n = 0; n <= 80; n++) {
+      const pages = paginate(Array.from({ length: n }, (_, i) => i));
+      expect(pages.flat()).toEqual(Array.from({ length: n }, (_, i) => i));
+      expect(Math.max(...pages.map((p) => p.length))).toBeLessThanOrEqual(12);
+    }
   });
 });
