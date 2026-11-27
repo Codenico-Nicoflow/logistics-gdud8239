@@ -58,22 +58,12 @@ function formatTime(d: Date): string {
 /** The paper form has twelve ruled rows; more lines than this and the form continues on a further page. */
 export const ROWS_PER_PAGE = 12;
 
-/**
- * Splits the lines over as few pages as the row limit allows, then evens them out: 37 lines are 10 + 9 + 9 + 9,
- * not 12 + 12 + 12 + 1, so no page is left nearly empty. A form of up to twelve lines stays one page.
- */
+/** Fills each page to the paper form's twelve rows before starting the next; the last page takes the remainder. */
 export function paginate<T>(lines: readonly T[]): T[][] {
-  const pageCount = Math.max(1, Math.ceil(lines.length / ROWS_PER_PAGE));
-  const base = Math.floor(lines.length / pageCount);
-  const extra = lines.length % pageCount;
   const pages: T[][] = [];
-  let at = 0;
-  for (let p = 0; p < pageCount; p++) {
-    const size = base + (p < extra ? 1 : 0);
-    pages.push(lines.slice(at, at + size));
-    at += size;
-  }
-  return pages;
+  for (let at = 0; at < lines.length; at += ROWS_PER_PAGE) pages.push(lines.slice(at, at + ROWS_PER_PAGE));
+  // A form always has at least one sheet, even an empty one.
+  return pages.length > 0 ? pages : [[]];
 }
 
 /** `companyName` is the company's current name for the code the form stored; the code itself is shown if there is none. */
@@ -103,13 +93,13 @@ export function renderIssueForm(
       .join('');
 
     // The paper form keeps ruled empty rows, so a line added by hand at the counter has somewhere to go.
-    // Padded to a full sheet, so every page looks the same however many lines it carries. Only the last page numbers
-    // its empty rows: on an earlier one the next number is already the first line of the following page.
+    // Padded to a full sheet, so the last page looks like the others however few lines it carries (every earlier
+    // page is already full, so only the last one has any).
     const blanks = Array.from({ length: Math.max(0, ROWS_PER_PAGE - pageLines.length) })
       .map(
         (_, i) => `
         <tr class="blank">
-          <td class="c narrow">${pageNo === pageCount ? firstNo + pageLines.length + i : ''}</td>
+          <td class="c narrow">${firstNo + pageLines.length + i}</td>
           <td></td><td></td><td></td><td></td><td></td>
         </tr>`,
       )

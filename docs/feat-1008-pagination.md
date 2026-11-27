@@ -8,9 +8,9 @@ Now the printout is **one whole 1008 per page**, at most 12 item rows each (the 
 - Every page has the same header (unit, form number, receipt number, company, phone), the declaration, and both
   signature boxes. The soldier signs once; the same signature image is printed on every page.
 - Footer on a multi-page form: `טופס 1001 · עמוד 2 מתוך 4`. A one-page form is unchanged.
-- Row numbers run straight through (page 2 starts at 11 after a 10-row page 1).
-- Lines are spread evenly: 37 lines are 10 + 9 + 9 + 9, never 12 + 12 + 12 + 1.
-- Each page is padded to 12 ruled rows like the paper form; only the last page numbers its empty rows.
+- Each page is filled to 12 rows before the next starts: 37 lines are 12 + 12 + 12 + 1. Row numbers run straight
+  through (page 2 starts at 13).
+- The last page is padded to 12 ruled rows like the paper form.
 - On screen the sheets stack, one per page, as they print.
 
 Nothing is stored differently: the form is still one `issue_forms` row with all its lines, one signature and one
