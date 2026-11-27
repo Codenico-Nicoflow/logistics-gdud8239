@@ -103,6 +103,9 @@ describe('creating a battalion', () => {
     expect(res.body.battalion).toMatchObject({ number: NUMBER, userCount: 1, adminCount: 0 });
     expect(res.body.setup.url).toContain('/setup/');
     firstToken = (res.body.setup.url as string).split('/setup/')[1] as string;
+    // One super-admin on the whole platform: a battalion's own admin is an ordinary admin.
+    const rows = await ownerQuery<{ is_super_admin: boolean; role: string }>('SELECT is_super_admin, role FROM users WHERE username = $1', [NEW_ADMIN.username]);
+    expect(rows[0]).toMatchObject({ is_super_admin: false, role: 'admin' });
     // No password exists, so nobody (including us) can sign in as this admin yet.
     await request(app.getHttpServer()).post('/api/auth/login').send({ username: NEW_ADMIN.username, password: 'anything-at-all-12' }).expect(401);
   });

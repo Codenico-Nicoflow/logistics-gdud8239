@@ -8,7 +8,7 @@ who sees the cross-battalion screens.
 - **מערכת ← גדודים** (platform admin only): list every battalion, create one, rename one, add an admin to
   one, and open any of them.
 - **Creating a battalion** makes the row and its own 1008 counter and nothing else: a ready skeleton with
-  no companies, catalog or soldiers. Its first admin is a battalion super-admin with no password; the
+  no companies, catalog or soldiers. Its first admin is an ordinary admin (never a super-admin: the platform has one, you, who acts inside the battalion as a super-admin stand-in) with no password; the
   response carries a one-time setup link (the same mechanism as every other new user), so nobody else ever
   knows the password. The number is 2 to 6 digits, unique across the platform, and fixed once created.
 - **Acting inside a battalion** (`POST /platform/act-as`, the picker on the גדודים screen or the switcher
