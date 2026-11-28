@@ -410,3 +410,28 @@ describe('reissue', () => {
     expect(typed.body.supersedesFormId).toBe(again.body.id);
   });
 });
+
+describe('older forms that carry the system note', () => {
+  it('show only what the operator wrote, on screen and on the printout', async () => {
+    const staff = await prisma.user.findUniqueOrThrow({ where: { username: STAFF.username } });
+    const legacy = (formNo: number, notes: string) =>
+      prisma.issueForm.create({
+        data: {
+          formNo, soldierId: soldierA, soldierNameSnapshot: 'ראשון', companySnapshot: 'A', signatureImage: SIGNATURE,
+          issuedByUserId: staff.id, issuedByNameSnapshot: 'מנפק', notes,
+        },
+      });
+    const onlySystem = await legacy(900_000_501, 'מחליף טופס 1008 מספר 393 (27.11.2026)');
+    const withOwn = await legacy(900_000_502, 'מחליף טופס 1008 מספר 393 (27.11.2026) — הערה שלי');
+
+    const get = (id: string) => request(app.getHttpServer()).get(`/api/issue-forms/${id}`).set('Cookie', jar).expect(200);
+    expect((await get(onlySystem.id)).body.notes).toBeNull();
+    expect((await get(withOwn.id)).body.notes).toBe('הערה שלי');
+
+    const printed = await request(app.getHttpServer()).get(`/api/issue-forms/${onlySystem.id}/print`).set('Cookie', jar).expect(200);
+    expect(printed.text).not.toContain('מחליף');
+    const printedOwn = await request(app.getHttpServer()).get(`/api/issue-forms/${withOwn.id}/print`).set('Cookie', jar).expect(200);
+    expect(printedOwn.text).toContain('הערה שלי');
+    expect(printedOwn.text).not.toContain('מחליף');
+  });
+});
