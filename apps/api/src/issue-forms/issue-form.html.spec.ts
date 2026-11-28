@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paginate, renderIssueForm, ROWS_PER_PAGE, type FormForPrint } from './issue-form.html';
+import { notesHeightMm, paginate, renderIssueForm, rowHeightMm, ROWS_PER_PAGE, type FormForPrint } from './issue-form.html';
 
 const UNIT = { name: 'גדוד 5033', number: '5033' };
 
@@ -117,5 +117,84 @@ describe('paginate', () => {
       expect(pages.flat()).toEqual(Array.from({ length: n }, (_, i) => i));
       expect(Math.max(...pages.map((p) => p.length))).toBeLessThanOrEqual(12);
     }
+  });
+});
+
+describe('rowHeightMm', () => {
+  const line = (name: string, serial: string | null = null, notes: string | null = null) => ({
+    itemNameSnapshot: name, serialSnapshot: serial, unitOfMeasure: "יח'", quantity: 1, lineNotes: notes,
+  });
+
+  it('is one line for ordinary text', () => {
+    expect(rowHeightMm(line('M-4'))).toBeCloseTo(8.4);
+  });
+
+  it('grows with the tallest cell: the narrow identifier column breaks first, then notes, then the description', () => {
+    expect(rowHeightMm(line('M-4', '9'.repeat(40)))).toBeCloseTo(8.4 + 3 * 5.7);
+    expect(rowHeightMm(line('M-4', null, 'x'.repeat(200)))).toBeCloseTo(8.4 + 9 * 5.7);
+    expect(rowHeightMm(line('x'.repeat(80)))).toBeCloseTo(8.4 + 2 * 5.7);
+    // The tallest wins, the cells do not add up.
+    expect(rowHeightMm(line('x'.repeat(80), '9'.repeat(40), 'x'.repeat(200)))).toBeCloseTo(8.4 + 9 * 5.7);
+  });
+
+  it('gives notes their own share of the sheet', () => {
+    expect(notesHeightMm(null)).toBe(0);
+    expect(notesHeightMm('x'.repeat(500))).toBeCloseTo(6 * 4.7 + 2.8);
+  });
+});
+
+describe('paginate by height', () => {
+  const tall = (n: number) => Array.from({ length: n }, (_, i) => i);
+
+  it('starts a new page when the next row would not fit, before twelve rows', () => {
+    // Rows of 20 mm in a 142 mm budget: seven fit.
+    expect(paginate(tall(15), () => 20, 142).map((p) => p.length)).toEqual([7, 7, 1]);
+  });
+
+  it('gives a row too tall for any page a page to itself instead of dropping it', () => {
+    expect(paginate([1, 2, 3], (n) => (n === 2 ? 500 : 10), 142).map((p) => p.length)).toEqual([1, 1, 1]);
+  });
+
+  it('never loses or reorders a line, whatever the heights', () => {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+    for (let run = 0; run < 100; run++) {
+      const lines = tall(Math.floor(rnd() * 60));
+      const heights = lines.map(() => 8.4 + Math.floor(rnd() * 10) * 5.7);
+      const pages = paginate(lines, (n) => heights[n] ?? 8.4, 142);
+      expect(pages.flat()).toEqual(lines);
+      for (const page of pages) {
+        expect(page.length).toBeLessThanOrEqual(12);
+        if (page.length > 1) expect(page.reduce((sum, n) => sum + (heights[n] ?? 0), 0)).toBeLessThanOrEqual(142);
+      }
+    }
+  });
+});
+
+describe('renderIssueForm with long text', () => {
+  const longForm = (n: number): FormForPrint => ({
+    ...form(n),
+    lines: Array.from({ length: n }, (_, i) => ({
+      itemNameSnapshot: `פריט עם שם ארוך מאוד שנמשך על פני כמה שורות ${i} `.repeat(2).slice(0, 80),
+      serialSnapshot: null, unitOfMeasure: "יח'", quantity: 1, lineNotes: null,
+    })),
+  });
+
+  it('does not pad a page of tall rows to twelve, which would push the sheet past the page', () => {
+    const html = renderIssueForm(longForm(7), UNIT, 'n');
+    // Seven 3-line rows use the room of about sixteen one-line rows, so there is none left for blanks.
+    expect(html.match(/class="blank"/g) ?? []).toHaveLength(0);
+    expect(html.match(/class="sheet"/g)).toHaveLength(1);
+  });
+
+  it('splits twelve long rows over several sheets instead of cramming them onto one', () => {
+    expect((renderIssueForm(longForm(12), UNIT, 'n').match(/class="sheet"/g) ?? []).length).toBeGreaterThan(1);
+  });
+
+  it('lets a long form note take room from the rows on every sheet', () => {
+    const plain = (renderIssueForm({ ...form(12), notes: null }, UNIT, 'n').match(/class="sheet"/g) ?? []).length;
+    const noted = (renderIssueForm({ ...form(12), notes: 'x'.repeat(500) }, UNIT, 'n').match(/class="sheet"/g) ?? []).length;
+    expect(plain).toBe(1);
+    expect(noted).toBeGreaterThanOrEqual(plain);
   });
 });
