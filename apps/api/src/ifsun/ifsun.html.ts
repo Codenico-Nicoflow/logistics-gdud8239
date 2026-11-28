@@ -47,20 +47,20 @@ export function renderIfsun(r: IfsunRecord, unit: Unit, nonce: string): string {
   .sheet { width: 210mm; margin: 0 auto; padding: 14mm 12mm; }
   h1 { font-size: 18pt; margin: 0 0 4pt; text-align: center; }
   .sub { text-align: center; font-size: 9pt; margin-bottom: 12pt; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
-  th, td { border: 1px solid #000; padding: 4pt 8pt; text-align: right; }
+  table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 12pt; }
+  th, td { border: 1px solid #000; padding: 4pt 8pt; text-align: right; overflow-wrap: anywhere; }
   th { background: #e8e8e8; width: 28%; }
-  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; break-inside: avoid; }
+  .parties { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10pt; break-inside: avoid; }
   .party { border: 1px solid #000; }
   .party h2 { font-size: 11pt; margin: 0; padding: 4pt 8pt; background: #e8e8e8; border-bottom: 1px solid #000; }
   .party .fields { padding: 6pt 8pt 0; }
   .field { display: flex; gap: 6pt; align-items: baseline; margin-bottom: 5pt; }
   .field > span:first-child { font-size: 9pt; width: 62pt; flex: none; }
-  .field > span:last-child { flex: 1; border-bottom: 1px solid #000; min-height: 14pt; font-weight: 600; }
+  .field > span:last-child { flex: 1; min-width: 0; overflow-wrap: anywhere; border-bottom: 1px solid #000; min-height: 14pt; font-weight: 600; }
   .sign-slot { height: 30mm; border: 1px solid #000; margin: 4pt 8pt 8pt; display: flex; align-items: center; justify-content: center; }
   .sign-slot img { max-width: 94%; max-height: 94%; }
   .cap { font-size: 8pt; color: #666; }
-  .notes { margin-top: 12pt; font-size: 10pt; }
+  .notes { margin-top: 12pt; font-size: 10pt; overflow-wrap: anywhere; }
   @media screen {
     body { background: #e9ece9; padding: 16px; }
     .sheet { background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
