@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Item, SoldierSummary } from '../../lib/types';
+import type { AuthUser, Item, SoldierSummary } from '../../lib/types';
 import type { BasketLine } from './BasketStep';
 
 /**
@@ -10,6 +10,15 @@ import type { BasketLine } from './BasketStep';
  * The signature is never stored: it is the soldier's, drawn once, for exactly what is on screen.
  */
 const KEY = 'issue-drafts-v1';
+/**
+ * Drafts live under a key of their own per battalion and per person. One shared key meant that switching into
+ * another battalion (or another operator picking up the same tablet) resumed the last basket, with a soldier of the
+ * wrong battalion on screen.
+ */
+export function draftScope(user: Pick<AuthUser, 'id' | 'battalionId'>): string {
+  return `${user.battalionId}:${user.id}`;
+}
+const keyFor = (scope: string): string => `${KEY}:${scope}`;
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_DRAFTS = 20;
 
@@ -43,9 +52,12 @@ const draftSchema = z.object({
 const storeSchema = z.object({ active: z.string().nullable(), drafts: z.record(z.string(), draftSchema) });
 type Store = z.infer<typeof storeSchema>;
 
-function read(now: number): Store {
+function read(scope: string | null, now: number): Store {
+  if (scope === null) return { active: null, drafts: {} };
   try {
-    const raw = localStorage.getItem(KEY);
+    // The shared key of earlier versions: its drafts belong to nobody in particular, so they are dropped.
+    localStorage.removeItem(KEY);
+    const raw = localStorage.getItem(keyFor(scope));
     if (!raw) return { active: null, drafts: {} };
     const parsed = storeSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) return { active: null, drafts: {} };
@@ -58,32 +70,33 @@ function read(now: number): Store {
   }
 }
 
-function write(store: Store): void {
+function write(scope: string | null, store: Store): void {
+  if (scope === null) return;
   try {
-    localStorage.setItem(KEY, JSON.stringify(store));
+    localStorage.setItem(keyFor(scope), JSON.stringify(store));
   } catch {
     // Full or blocked: the draft is a convenience, never a reason to break the form.
   }
 }
 
 /** The draft the operator was in the middle of when the page last went away, if it is still fresh. */
-export function loadActiveDraft(now = Date.now()): Draft | null {
-  const store = read(now);
+export function loadActiveDraft(scope: string | null, now = Date.now()): Draft | null {
+  const store = read(scope, now);
   return store.active ? (store.drafts[store.active] ?? null) : null;
 }
 
-export function loadDraft(soldierId: string, now = Date.now()): Draft | null {
-  return read(now).drafts[soldierId] ?? null;
+export function loadDraft(scope: string | null, soldierId: string, now = Date.now()): Draft | null {
+  return read(scope, now).drafts[soldierId] ?? null;
 }
 
 /** An empty basket with nothing typed is not worth keeping: it removes the soldier's draft instead. */
-export function saveDraft(draft: Omit<Draft, 'savedAt'>, now = Date.now()): void {
-  const store = read(now);
+export function saveDraft(scope: string | null, draft: Omit<Draft, 'savedAt'>, now = Date.now()): void {
+  const store = read(scope, now);
   const empty = draft.lines.length === 0 && draft.receiptNo.trim() === '' && draft.notes.trim() === '';
   if (empty) {
     delete store.drafts[draft.soldier.id];
     if (store.active === draft.soldier.id) store.active = null;
-    write(store);
+    write(scope, store);
     return;
   }
   store.drafts[draft.soldier.id] = { ...draft, savedAt: now };
@@ -92,19 +105,19 @@ export function saveDraft(draft: Omit<Draft, 'savedAt'>, now = Date.now()): void
     .sort(([, a], [, b]) => b.savedAt - a.savedAt)
     .slice(0, MAX_DRAFTS);
   store.drafts = Object.fromEntries(newest);
-  write(store);
+  write(scope, store);
 }
 
 /** The operator left the soldier on purpose (back to the search): keep his draft, stop auto-resuming it. */
-export function parkActiveDraft(): void {
-  const store = read(Date.now());
+export function parkActiveDraft(scope: string | null): void {
+  const store = read(scope, Date.now());
   store.active = null;
-  write(store);
+  write(scope, store);
 }
 
-export function clearDraft(soldierId: string): void {
-  const store = read(Date.now());
+export function clearDraft(scope: string | null, soldierId: string): void {
+  const store = read(scope, Date.now());
   delete store.drafts[soldierId];
   if (store.active === soldierId) store.active = null;
-  write(store);
+  write(scope, store);
 }
